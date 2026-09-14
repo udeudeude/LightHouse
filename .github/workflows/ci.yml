@@ -4,37 +4,16 @@ on:
   push:
   pull_request:
 
-permissions:
-  contents: write
-
 jobs:
-  apply-interaction-revision-v3:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/lighthouse-2-rewrite' && github.actor != 'github-actions[bot]'
+  analyze-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: lighthouse-2-rewrite
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Apply interaction revision
-        run: |
-          python3 scripts/apply_interaction_revision_v3.py
-          python3 scripts/fix_interaction_revision_v3.py
-          python3 scripts/fix_interaction_revision_v3b.py
-      - name: Format and verify
-        run: |
-          dart format lib test
-          flutter pub get
-          dart format --output=none --set-exit-if-changed lib test
-          flutter analyze
-          flutter test
-      - name: Commit verified source
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib android/app/src/main/kotlin/com/udeudeude/lighthouse/MainActivity.kt pubspec.yaml pubspec.lock test
-          git commit -m "feat: refine compact UI and table toys"
-          git push
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test

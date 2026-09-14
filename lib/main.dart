@@ -74,7 +74,6 @@ class _LightHouseAppState extends State<LightHouseApp> {
       _calibration = previous;
       _calibrationBeforeManual = null;
       _forceManualCalibration = false;
-      _calibrationBeforeManual = null;
     });
   }
 
@@ -87,6 +86,7 @@ class _LightHouseAppState extends State<LightHouseApp> {
         source: 'Manual calibration',
       );
       _forceManualCalibration = false;
+      _calibrationBeforeManual = null;
     });
   }
 
