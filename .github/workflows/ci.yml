@@ -19,7 +19,9 @@ jobs:
         with:
           channel: stable
       - name: Apply interaction revision
-        run: python3 scripts/apply_interaction_revision_v3.py
+        run: |
+          python3 scripts/apply_interaction_revision_v3.py
+          python3 scripts/fix_interaction_revision_v3.py
       - name: Format and verify
         run: |
           dart format lib test
