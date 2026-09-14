@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'physical_point.dart';
 
+enum BoardUnderlayGroup { grids, chess, games }
+
 enum BoardUnderlay {
   none,
   grid3x3,
@@ -9,21 +11,54 @@ enum BoardUnderlay {
   grid4x4,
   grid5x5,
   grid5x6,
+  martianChessHalf,
   martianChess2,
   chess8x8,
   wheel,
+  launchpad23,
+  twinWin,
+  looneyLudo1,
   looneyLudo4,
-  launchpad23;
+  volcano,
+  lunarInvaders1,
+  lunarInvaders2,
+  petalBattle,
+  worldWar5;
 
   static const double cellMm = 27;
   static const double coasterMm = 101.6;
   static const double wheelOuterRadiusMm = 127;
   static const double wheelPlayableRadiusMm = 112;
+  static const double moonRadiusMm = 48;
+  static const double petalRadiusMm = 54;
 
   bool get isVisible => this != BoardUnderlay.none;
 
-  bool get isChessLike =>
-      this == BoardUnderlay.martianChess2 || this == BoardUnderlay.chess8x8;
+  BoardUnderlayGroup? get group => switch (this) {
+    BoardUnderlay.none => null,
+    BoardUnderlay.grid3x3 ||
+    BoardUnderlay.grid3x4 ||
+    BoardUnderlay.grid4x4 ||
+    BoardUnderlay.grid5x5 ||
+    BoardUnderlay.grid5x6 => BoardUnderlayGroup.grids,
+    BoardUnderlay.martianChessHalf ||
+    BoardUnderlay.martianChess2 ||
+    BoardUnderlay.chess8x8 => BoardUnderlayGroup.chess,
+    _ => BoardUnderlayGroup.games,
+  };
+
+  bool get supportsChecker => switch (this) {
+    BoardUnderlay.grid3x3 ||
+    BoardUnderlay.grid3x4 ||
+    BoardUnderlay.grid4x4 ||
+    BoardUnderlay.grid5x5 ||
+    BoardUnderlay.grid5x6 ||
+    BoardUnderlay.martianChessHalf ||
+    BoardUnderlay.martianChess2 ||
+    BoardUnderlay.chess8x8 ||
+    BoardUnderlay.volcano => true,
+    _ => false,
+  };
 
   bool get isRectangularGrid => switch (this) {
     BoardUnderlay.grid3x3 ||
@@ -31,8 +66,10 @@ enum BoardUnderlay {
     BoardUnderlay.grid4x4 ||
     BoardUnderlay.grid5x5 ||
     BoardUnderlay.grid5x6 ||
+    BoardUnderlay.martianChessHalf ||
     BoardUnderlay.martianChess2 ||
-    BoardUnderlay.chess8x8 => true,
+    BoardUnderlay.chess8x8 ||
+    BoardUnderlay.volcano => true,
     _ => false,
   };
 
@@ -42,8 +79,10 @@ enum BoardUnderlay {
     BoardUnderlay.grid4x4 => 4,
     BoardUnderlay.grid5x5 => 5,
     BoardUnderlay.grid5x6 => 5,
+    BoardUnderlay.martianChessHalf => 4,
     BoardUnderlay.martianChess2 => 4,
     BoardUnderlay.chess8x8 => 8,
+    BoardUnderlay.volcano => 5,
     _ => 0,
   };
 
@@ -53,8 +92,10 @@ enum BoardUnderlay {
     BoardUnderlay.grid4x4 => 4,
     BoardUnderlay.grid5x5 => 5,
     BoardUnderlay.grid5x6 => 6,
+    BoardUnderlay.martianChessHalf => 4,
     BoardUnderlay.martianChess2 => 8,
     BoardUnderlay.chess8x8 => 8,
+    BoardUnderlay.volcano => 5,
     _ => 0,
   };
 
@@ -63,13 +104,21 @@ enum BoardUnderlay {
     BoardUnderlay.grid3x3 => '3×3 grid',
     BoardUnderlay.grid3x4 => '3×4 bank',
     BoardUnderlay.grid4x4 => '4×4 grid',
-    BoardUnderlay.grid5x5 => '5×5 · Volcano / Pharaoh',
+    BoardUnderlay.grid5x5 => '5×5 grid',
     BoardUnderlay.grid5x6 => '5×6 grid',
-    BoardUnderlay.martianChess2 => '4×8 · Martian Chess · 2 players',
-    BoardUnderlay.chess8x8 => '8×8 · Martian Chess',
-    BoardUnderlay.wheel => 'The Wheel · Petri Dish / Color Wheel',
-    BoardUnderlay.looneyLudo4 => 'Looney Ludo · 4-board start',
+    BoardUnderlay.martianChessHalf => 'Martian Chess · half board · 4×4',
+    BoardUnderlay.martianChess2 => 'Martian Chess · 2 players · 4×8',
+    BoardUnderlay.chess8x8 => 'Martian Chess · full · 8×8',
+    BoardUnderlay.wheel => 'The Wheel',
     BoardUnderlay.launchpad23 => 'Launchpad 23',
+    BoardUnderlay.twinWin => 'Twin Win',
+    BoardUnderlay.looneyLudo1 => 'Looney Ludo · single board',
+    BoardUnderlay.looneyLudo4 => 'Looney Ludo · four-board start',
+    BoardUnderlay.volcano => 'Volcano · 5×5',
+    BoardUnderlay.lunarInvaders1 => 'Lunar Invaders · one moon',
+    BoardUnderlay.lunarInvaders2 => 'Lunar Invaders · two moons',
+    BoardUnderlay.petalBattle => 'Petal Battle',
+    BoardUnderlay.worldWar5 => 'World War 5',
   };
 
   List<PhysicalPoint> snapPoints({
@@ -81,9 +130,15 @@ enum BoardUnderlay {
       return _rectGridPoints(center, columns, rows);
     }
     return switch (this) {
-      BoardUnderlay.launchpad23 => _rectGridPoints(center, 3, 3),
+      BoardUnderlay.launchpad23 ||
+      BoardUnderlay.twinWin ||
+      BoardUnderlay.looneyLudo1 => _rectGridPoints(center, 3, 3),
       BoardUnderlay.looneyLudo4 => _ludoFourBoardPoints(center),
       BoardUnderlay.wheel => _wheelPoints(center),
+      BoardUnderlay.lunarInvaders1 => _moonPoints(center),
+      BoardUnderlay.lunarInvaders2 => _twoMoonPoints(center),
+      BoardUnderlay.petalBattle => _petalPoints(center),
+      BoardUnderlay.worldWar5 => _worldWarPoints(center),
       _ => const <PhysicalPoint>[],
     };
   }
@@ -149,6 +204,64 @@ List<PhysicalPoint> _ludoFourBoardPoints(PhysicalPoint center) {
   return points;
 }
 
+List<PhysicalPoint> _moonPoints(PhysicalPoint center) {
+  final points = <PhysicalPoint>[center];
+  const ring = BoardUnderlay.moonRadiusMm * 0.63;
+  for (var i = 0; i < 8; i += 1) {
+    final angle = -math.pi / 2 + i * math.pi / 4;
+    points.add(
+      PhysicalPoint(
+        center.xMm + ring * math.cos(angle),
+        center.yMm + ring * math.sin(angle),
+      ),
+    );
+  }
+  return points;
+}
+
+List<PhysicalPoint> _twoMoonPoints(PhysicalPoint center) {
+  final separation = BoardUnderlay.moonRadiusMm * 1.12;
+  return [
+    ..._moonPoints(PhysicalPoint(center.xMm - separation, center.yMm)),
+    ..._moonPoints(PhysicalPoint(center.xMm + separation, center.yMm)),
+  ];
+}
+
+List<PhysicalPoint> _petalPoints(PhysicalPoint center) {
+  const radius = BoardUnderlay.petalRadiusMm;
+  return [
+    for (var i = 0; i < 10; i += 1)
+      PhysicalPoint(
+        center.xMm + radius * math.cos(-math.pi / 2 + i * math.pi / 5),
+        center.yMm + radius * math.sin(-math.pi / 2 + i * math.pi / 5),
+      ),
+  ];
+}
+
+List<PhysicalPoint> _worldWarPoints(PhysicalPoint center) {
+  const horizontal = 52.0;
+  const vertical = 38.0;
+  const spread = 12.0;
+  final continentCenters = <PhysicalPoint>[
+    PhysicalPoint(center.xMm - horizontal, center.yMm - vertical),
+    PhysicalPoint(center.xMm - horizontal * 0.72, center.yMm + vertical),
+    PhysicalPoint(center.xMm - 8, center.yMm - vertical * 1.12),
+    PhysicalPoint(center.xMm + 1, center.yMm + vertical * 0.60),
+    PhysicalPoint(center.xMm + horizontal * 0.70, center.yMm - vertical * 0.86),
+    PhysicalPoint(center.xMm + horizontal, center.yMm + vertical * 1.06),
+  ];
+  return [
+    for (var c = 0; c < continentCenters.length; c += 1)
+      for (var i = 0; i < 3; i += 1)
+        PhysicalPoint(
+          continentCenters[c].xMm +
+              spread * math.cos((i + c * 0.2) * 2 * math.pi / 3),
+          continentCenters[c].yMm +
+              spread * math.sin((i + c * 0.2) * 2 * math.pi / 3),
+        ),
+  ];
+}
+
 List<PhysicalPoint> _wheelPoints(PhysicalPoint center) {
   final points = <PhysicalPoint>[];
   const count = 10;
@@ -172,8 +285,6 @@ List<PhysicalPoint> _wheelPoints(PhysicalPoint center) {
     final cb = _midpoint(center, b);
     final ab = _midpoint(a, b);
 
-    // Connecting the three side midpoints subdivides each wedge into the four
-    // triangular spaces used by The Wheel.
     points
       ..add(_centroid(center, ca, cb))
       ..add(_centroid(ca, a, ab))

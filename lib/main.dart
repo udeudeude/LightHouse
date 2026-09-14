@@ -59,8 +59,9 @@ class _LightHouseAppState extends State<LightHouseApp> {
     });
   }
 
-  void _recalibrate() {
+  void _recalibrate(BoardState currentTable) {
     setState(() {
+      _board = currentTable;
       _calibrationBeforeManual = _calibration;
       _forceManualCalibration = true;
       _calibration = null;

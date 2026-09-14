@@ -20,6 +20,34 @@ void main() {
     expect(points[4], const PhysicalPoint(100, 150));
   });
 
+  test('special boards expose useful snap locations', () {
+    expect(
+      BoardUnderlay.lunarInvaders1.snapPoints(
+        boardWidthMm: 300,
+        boardHeightMm: 300,
+      ),
+      hasLength(9),
+    );
+    expect(
+      BoardUnderlay.lunarInvaders2.snapPoints(
+        boardWidthMm: 300,
+        boardHeightMm: 300,
+      ),
+      hasLength(18),
+    );
+    expect(
+      BoardUnderlay.petalBattle.snapPoints(
+        boardWidthMm: 300,
+        boardHeightMm: 300,
+      ),
+      hasLength(10),
+    );
+    expect(
+      BoardUnderlay.worldWar5.snapPoints(boardWidthMm: 300, boardHeightMm: 300),
+      hasLength(18),
+    );
+  });
+
   test('Looney Ludo four-board start exposes four 3 by 3 grids', () {
     final points = BoardUnderlay.looneyLudo4.snapPoints(
       boardWidthMm: 300,

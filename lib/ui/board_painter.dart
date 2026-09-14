@@ -20,6 +20,7 @@ class BoardPainter extends CustomPainter {
     this.triangleBouncePhase,
     this.squareChasePhase,
     this.roundTriangleTips = false,
+    this.checkerUnderlays = false,
   });
 
   final BoardState state;
@@ -32,6 +33,7 @@ class BoardPainter extends CustomPainter {
   final double? triangleBouncePhase;
   final double? squareChasePhase;
   final bool roundTriangleTips;
+  final bool checkerUnderlays;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -56,11 +58,32 @@ class BoardPainter extends CustomPainter {
       case BoardUnderlay.wheel:
         _paintWheel(canvas, size);
         return;
+      case BoardUnderlay.launchpad23:
+        _paintLaunchpad23(canvas, size);
+        return;
+      case BoardUnderlay.twinWin:
+        _paintTwinWin(canvas, size);
+        return;
+      case BoardUnderlay.looneyLudo1:
+        _paintLudoSingle(canvas, size);
+        return;
       case BoardUnderlay.looneyLudo4:
         _paintLudoFour(canvas, size);
         return;
-      case BoardUnderlay.launchpad23:
-        _paintLaunchpad23(canvas, size);
+      case BoardUnderlay.volcano:
+        _paintVolcano(canvas, size);
+        return;
+      case BoardUnderlay.lunarInvaders1:
+        _paintLunarInvaders(canvas, size, twoMoons: false);
+        return;
+      case BoardUnderlay.lunarInvaders2:
+        _paintLunarInvaders(canvas, size, twoMoons: true);
+        return;
+      case BoardUnderlay.petalBattle:
+        _paintPetalBattle(canvas, size);
+        return;
+      case BoardUnderlay.worldWar5:
+        _paintWorldWar5(canvas, size);
         return;
       default:
         _paintRectGrid(canvas, size, underlay);
@@ -76,7 +99,7 @@ class BoardPainter extends CustomPainter {
     final top = (size.height - boardHeight) / 2;
     final gridPaint = _linePaint();
 
-    if (underlay.isChessLike) {
+    if (checkerUnderlays && underlay.supportsChecker) {
       final shade = Paint()..color = const Color(0x18FFFFFF);
       for (var row = 0; row < underlay.rows; row += 1) {
         for (var column = 0; column < underlay.columns; column += 1) {
@@ -101,46 +124,298 @@ class BoardPainter extends CustomPainter {
 
   void _paintLaunchpad23(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final outer = BoardUnderlay.coasterMm * logicalPixelsPerMm;
     final cell = BoardUnderlay.cellMm * logicalPixelsPerMm;
-    final gridSize = cell * 3;
-    final left = center.dx - gridSize / 2;
-    final top = center.dy - gridSize / 2;
-    final paint = _linePaint();
+    final gap = cell * 1.08;
+    final node = cell * 0.70;
+    final paint = _linePaint(0.42);
+    final centers = <Offset>[
+      for (var row = 0; row < 3; row += 1)
+        for (var column = 0; column < 3; column += 1)
+          Offset(center.dx + (column - 1) * gap, center.dy + (row - 1) * gap),
+    ];
 
-    canvas.drawRect(
-      Rect.fromCenter(center: center, width: outer, height: outer),
-      _linePaint(0.24),
+    for (var row = 0; row < 3; row += 1) {
+      for (var column = 0; column < 3; column += 1) {
+        final index = row * 3 + column;
+        if (column < 2)
+          canvas.drawLine(centers[index], centers[index + 1], paint);
+        if (row < 2) canvas.drawLine(centers[index], centers[index + 3], paint);
+      }
+    }
+
+    for (var i = 0; i < centers.length; i += 1) {
+      final isFactory = i == 4;
+      final isLaunchpad = const {0, 2, 6, 8}.contains(i);
+      final rect = Rect.fromCenter(
+        center: centers[i],
+        width: node,
+        height: node,
+      );
+      if (isFactory) {
+        final oct = Path();
+        for (var p = 0; p < 8; p += 1) {
+          final angle = math.pi / 8 + p * math.pi / 4;
+          final point =
+              centers[i] +
+              Offset(math.cos(angle), math.sin(angle)) * node * 0.53;
+          if (p == 0)
+            oct.moveTo(point.dx, point.dy);
+          else
+            oct.lineTo(point.dx, point.dy);
+        }
+        oct.close();
+        canvas.drawPath(oct, _linePaint(0.62));
+        _paintTinyLabel(canvas, centers[i], 'FACTORY');
+      } else {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, Radius.circular(node * 0.07)),
+          _linePaint(isLaunchpad ? 0.64 : 0.40),
+        );
+        if (isLaunchpad) {
+          final arrow = Path()
+            ..moveTo(centers[i].dx, centers[i].dy - node * 0.18)
+            ..lineTo(centers[i].dx + node * 0.14, centers[i].dy + node * 0.10)
+            ..lineTo(centers[i].dx - node * 0.14, centers[i].dy + node * 0.10)
+            ..close();
+          canvas.drawPath(arrow, _linePaint(0.52));
+        }
+      }
+    }
+  }
+
+  void _paintTwinWin(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final cell = BoardUnderlay.cellMm * logicalPixelsPerMm;
+    final gap = cell * 1.02;
+    final radius = cell * 0.27;
+    final centers = <Offset>[
+      for (var row = 0; row < 3; row += 1)
+        for (var column = 0; column < 3; column += 1)
+          Offset(center.dx + (column - 1) * gap, center.dy + (row - 1) * gap),
+    ];
+    final route = <int>[0, 1, 2, 5, 8, 7, 6, 3, 0];
+    for (var i = 0; i < route.length - 1; i += 1) {
+      final a = centers[route[i]];
+      final b = centers[route[i + 1]];
+      canvas.drawLine(a, b, _linePaint(0.42));
+      _paintArrowBetween(canvas, a, b, 0.58);
+    }
+    for (final edge in const [(1, 4), (3, 4), (5, 4), (7, 4)]) {
+      final a = centers[edge.$1];
+      final b = centers[edge.$2];
+      canvas.drawLine(a, b, _linePaint(0.42));
+      _paintArrowBetween(canvas, a, b, 0.62);
+      _paintArrowBetween(canvas, b, a, 0.62);
+    }
+    for (var i = 0; i < centers.length; i += 1) {
+      canvas.drawCircle(centers[i], radius, _linePaint(i == 4 ? 0.66 : 0.48));
+    }
+  }
+
+  void _paintLudoSingle(Canvas canvas, Size size) {
+    _paintLudoTile(
+      canvas,
+      Offset(size.width / 2, size.height / 2),
+      quarterTurns: 0,
     );
-    for (var i = 0; i <= 3; i += 1) {
-      final offset = i * cell;
-      canvas.drawLine(
-        Offset(left + offset, top),
-        Offset(left + offset, top + gridSize),
-        paint,
-      );
-      canvas.drawLine(
-        Offset(left, top + offset),
-        Offset(left + gridSize, top + offset),
-        paint,
-      );
-    }
+  }
 
-    final marker = Paint()
-      ..color = const Color(0x66FFFFFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(0.8, logicalPixelsPerMm * 0.22);
-    final markerRadius = cell * 0.13;
-    for (final position in <Offset>[
-      Offset(left + cell / 2, top + cell / 2),
-      Offset(left + cell * 2.5, top + cell / 2),
-      Offset(left + cell / 2, top + cell * 2.5),
-      Offset(left + cell * 2.5, top + cell * 2.5),
-    ]) {
-      canvas.drawCircle(position, markerRadius, marker);
+  void _paintVolcano(Canvas canvas, Size size) {
+    _paintRectGrid(canvas, size, BoardUnderlay.volcano);
+    final cell = BoardUnderlay.cellMm * logicalPixelsPerMm;
+    final board = cell * 5;
+    final left = (size.width - board) / 2;
+    final top = (size.height - board) / 2;
+    final guide = _linePaint(0.36);
+    final center = Offset(size.width / 2, size.height / 2);
+    for (var i = 0; i < 8; i += 1) {
+      final angle = -math.pi / 2 + i * math.pi / 4;
+      final inner = board * 0.53;
+      final outer = board * 0.60;
+      final a = center + Offset(math.cos(angle), math.sin(angle)) * inner;
+      final b = center + Offset(math.cos(angle), math.sin(angle)) * outer;
+      canvas.drawLine(a, b, guide);
+      _paintArrowBetween(canvas, a, b, 0.78);
     }
-    canvas.drawCircle(center, markerRadius * 1.15, marker);
-    canvas.drawCircle(center, markerRadius * 0.45, marker);
+    final centerCell = Rect.fromCenter(
+      center: center,
+      width: cell,
+      height: cell,
+    );
+    canvas.drawRect(centerCell.deflate(cell * 0.09), _linePaint(0.20));
+    canvas.drawRect(Rect.fromLTWH(left, top, board, board), _linePaint(0.46));
+  }
+
+  void _paintLunarInvaders(Canvas canvas, Size size, {required bool twoMoons}) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = BoardUnderlay.moonRadiusMm * logicalPixelsPerMm;
+    final separation = radius * 1.12;
+    final centers = twoMoons
+        ? [
+            Offset(center.dx - separation, center.dy),
+            Offset(center.dx + separation, center.dy),
+          ]
+        : [center];
+    for (final moon in centers) {
+      _paintMoon(canvas, moon, radius);
+    }
+  }
+
+  void _paintMoon(Canvas canvas, Offset center, double radius) {
+    canvas.drawCircle(center, radius, _linePaint(0.46));
+    final ring = radius * 0.63;
+    final points = <Offset>[
+      for (var i = 0; i < 8; i += 1)
+        center +
+            Offset(
+                  math.cos(-math.pi / 2 + i * math.pi / 4),
+                  math.sin(-math.pi / 2 + i * math.pi / 4),
+                ) *
+                ring,
+    ];
+    for (var i = 0; i < 8; i += 1) {
+      canvas.drawLine(points[i], points[(i + 1) % 8], _linePaint(0.28));
+      if (i.isOdd) canvas.drawLine(center, points[i], _linePaint(0.26));
+    }
+    canvas.drawCircle(center, radius * 0.17, _linePaint(0.64));
+    for (var i = 0; i < points.length; i += 1) {
+      if (i.isEven) {
+        final side = radius * 0.24;
+        canvas.drawRect(
+          Rect.fromCenter(center: points[i], width: side, height: side),
+          _linePaint(0.50),
+        );
+      } else {
+        final r = radius * 0.14;
+        final angle = -math.pi / 2 + i * math.pi / 4;
+        final triangle = Path();
+        for (var p = 0; p < 3; p += 1) {
+          final a = angle + p * 2 * math.pi / 3;
+          final q = points[i] + Offset(math.cos(a), math.sin(a)) * r;
+          if (p == 0)
+            triangle.moveTo(q.dx, q.dy);
+          else
+            triangle.lineTo(q.dx, q.dy);
+        }
+        triangle.close();
+        canvas.drawPath(triangle, _linePaint(0.50));
+      }
+    }
+  }
+
+  void _paintPetalBattle(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final orbit = BoardUnderlay.petalRadiusMm * logicalPixelsPerMm;
+    final petalLength = orbit * 0.58;
+    final petalWidth = orbit * 0.31;
+    for (var i = 0; i < 10; i += 1) {
+      final angle = -math.pi / 2 + i * math.pi / 5;
+      final petalCenter =
+          center + Offset(math.cos(angle), math.sin(angle)) * orbit;
+      canvas.save();
+      canvas.translate(petalCenter.dx, petalCenter.dy);
+      canvas.rotate(angle + math.pi / 2);
+      final rect = Rect.fromCenter(
+        center: Offset.zero,
+        width: petalWidth,
+        height: petalLength,
+      );
+      canvas.drawOval(rect, _linePaint(0.46));
+      canvas.restore();
+    }
+    canvas.drawCircle(center, orbit * 0.25, _linePaint(0.24));
+  }
+
+  void _paintWorldWar5(Canvas canvas, Size size) {
+    final centerMm = PhysicalPoint(
+      size.width / logicalPixelsPerMm / 2,
+      size.height / logicalPixelsPerMm / 2,
+    );
+    final pointsMm = BoardUnderlay.worldWar5.snapPoints(
+      boardWidthMm: size.width / logicalPixelsPerMm,
+      boardHeightMm: size.height / logicalPixelsPerMm,
+    );
+    final points = [
+      for (final p in pointsMm)
+        Offset(p.xMm * logicalPixelsPerMm, p.yMm * logicalPixelsPerMm),
+    ];
+    const labels = ['N AM', 'S AM', 'EUR', 'AFR', 'ASIA', 'OCE'];
+    for (var continent = 0; continent < 6; continent += 1) {
+      final trio = points.sublist(continent * 3, continent * 3 + 3);
+      final path = Path()..moveTo(trio[0].dx, trio[0].dy);
+      path.lineTo(trio[1].dx, trio[1].dy);
+      path.lineTo(trio[2].dx, trio[2].dy);
+      path.close();
+      canvas.drawPath(path, _linePaint(0.34));
+      for (final p in trio) canvas.drawCircle(p, 8, _linePaint(0.55));
+      final labelCenter = Offset(
+        trio.map((p) => p.dx).reduce((a, b) => a + b) / 3,
+        trio.map((p) => p.dy).reduce((a, b) => a + b) / 3,
+      );
+      _paintTinyLabel(canvas, labelCenter, labels[continent]);
+    }
+    const links = <(int, int)>[
+      (1, 6),
+      (2, 3),
+      (3, 9),
+      (4, 10),
+      (5, 9),
+      (6, 9),
+      (7, 12),
+      (8, 13),
+      (10, 13),
+      (11, 15),
+      (12, 15),
+      (14, 16),
+      (2, 10),
+      (11, 16),
+    ];
+    final routePaint = _linePaint(0.24);
+    for (final link in links)
+      canvas.drawLine(points[link.$1], points[link.$2], routePaint);
+    // Two corrected sea routes called out in Looney Labs' notes on the Arcade board.
+    final special = Paint()
+      ..color = Colors.white.withValues(alpha: 0.32)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(0.7, logicalPixelsPerMm * 0.16);
+    canvas.drawLine(points[2], points[10], special);
+    canvas.drawLine(points[11], points[16], special);
+    // Keep center reference implicit; this avoids a large decorative map consuming space.
+    final _ = centerMm;
+  }
+
+  void _paintTinyLabel(Canvas canvas, Offset center, String text) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(color: Colors.white54, fontSize: 7),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(
+      canvas,
+      Offset(center.dx - painter.width / 2, center.dy - painter.height / 2),
+    );
+  }
+
+  void _paintArrowBetween(
+    Canvas canvas,
+    Offset from,
+    Offset to,
+    double fraction,
+  ) {
+    final point = Offset.lerp(from, to, fraction)!;
+    final angle = math.atan2(to.dy - from.dy, to.dx - from.dx);
+    const length = 7.0;
+    const width = 3.0;
+    final back = point - Offset(math.cos(angle), math.sin(angle)) * length;
+    final normal = Offset(-math.sin(angle), math.cos(angle));
+    final path = Path()
+      ..moveTo(point.dx, point.dy)
+      ..lineTo(back.dx + normal.dx * width, back.dy + normal.dy * width)
+      ..moveTo(point.dx, point.dy)
+      ..lineTo(back.dx - normal.dx * width, back.dy - normal.dy * width);
+    canvas.drawPath(path, _linePaint(0.48));
   }
 
   void _paintLudoFour(Canvas canvas, Size size) {
@@ -185,19 +460,22 @@ class BoardPainter extends CustomPainter {
       _linePaint(0.22),
     );
 
-    final paint = _linePaint(0.3);
-    for (var i = 0; i <= 3; i += 1) {
-      final offset = i * cell;
-      canvas.drawLine(
-        Offset(left + offset, top),
-        Offset(left + offset, top + gridSize),
-        paint,
-      );
-      canvas.drawLine(
-        Offset(left, top + offset),
-        Offset(left + gridSize, top + offset),
-        paint,
-      );
+    final paint = _linePaint(0.34);
+    final space = cell * 0.78;
+    for (var row = 0; row < 3; row += 1) {
+      for (var column = 0; column < 3; column += 1) {
+        final c = Offset(
+          left + (column + 0.5) * cell,
+          top + (row + 0.5) * cell,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: c, width: space, height: space),
+            Radius.circular(cell * 0.08),
+          ),
+          paint,
+        );
+      }
     }
 
     // Direction topology from the Looney Ludo board. The art is intentionally
@@ -349,23 +627,18 @@ class BoardPainter extends CustomPainter {
     return Offset(from.dx + dx * t, from.dy + dy * t);
   }
 
-  Path _roundedPolygon(List<Offset> points, double radius) {
-    final path = Path();
-    for (var i = 0; i < points.length; i += 1) {
-      final current = points[i];
-      final previous = points[(i - 1 + points.length) % points.length];
-      final next = points[(i + 1) % points.length];
-      final incoming = _toward(current, previous, radius);
-      final outgoing = _toward(current, next, radius);
-      if (i == 0) {
-        path.moveTo(incoming.dx, incoming.dy);
-      } else {
-        path.lineTo(incoming.dx, incoming.dy);
-      }
-      path.quadraticBezierTo(current.dx, current.dy, outgoing.dx, outgoing.dy);
-    }
-    path.close();
-    return path;
+  Path _apexRoundedTriangle(List<Offset> points, double radius) {
+    final apex = points[0];
+    final right = points[1];
+    final left = points[2];
+    final incoming = _toward(apex, left, radius);
+    final outgoing = _toward(apex, right, radius);
+    return Path()
+      ..moveTo(incoming.dx, incoming.dy)
+      ..quadraticBezierTo(apex.dx, apex.dy, outgoing.dx, outgoing.dy)
+      ..lineTo(right.dx, right.dy)
+      ..lineTo(left.dx, left.dy)
+      ..close();
   }
 
   void _paintElement(Canvas canvas, LightElement element, double opacity) {
@@ -448,7 +721,7 @@ class BoardPainter extends CustomPainter {
         Offset(-base / 2, flatLength / 2),
       ];
       final triangle = roundTriangleTips
-          ? _roundedPolygon(points, math.min(base, flatLength) * 0.075)
+          ? _apexRoundedTriangle(points, math.min(base, flatLength) * 0.12)
           : (Path()
               ..moveTo(points[0].dx, points[0].dy)
               ..lineTo(points[1].dx, points[1].dy)
@@ -534,5 +807,9 @@ class BoardPainter extends CustomPainter {
       oldDelegate.selectedId != selectedId ||
       oldDelegate.elementOpacities != elementOpacities ||
       oldDelegate.burstCenter != burstCenter ||
-      oldDelegate.burstProgress != burstProgress;
+      oldDelegate.burstProgress != burstProgress ||
+      oldDelegate.roundTriangleTips != roundTriangleTips ||
+      oldDelegate.checkerUnderlays != checkerUnderlays ||
+      oldDelegate.triangleBouncePhase != triangleBouncePhase ||
+      oldDelegate.squareChasePhase != squareChasePhase;
 }

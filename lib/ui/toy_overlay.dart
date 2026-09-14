@@ -76,10 +76,12 @@ class ToyOverlayPainter extends CustomPainter {
     required this.dieValue,
     required this.dieRollPhase,
     required this.dieRollProgress,
+    required this.diePressed,
     required this.projectiles,
     required this.impacts,
     required this.sideGunsVisible,
     required this.sideGunAnglesDegrees,
+    required this.sideGunAmmo,
     required this.cornerGunsVisible,
     required this.constellation,
   });
@@ -99,10 +101,12 @@ class ToyOverlayPainter extends CustomPainter {
   final int? dieValue;
   final double dieRollPhase;
   final double dieRollProgress;
+  final bool diePressed;
   final List<ToyProjectile> projectiles;
   final List<ToyImpact> impacts;
   final bool sideGunsVisible;
   final List<double> sideGunAnglesDegrees;
+  final List<int> sideGunAmmo;
   final bool cornerGunsVisible;
   final List<PhysicalPoint> constellation;
 
@@ -164,6 +168,20 @@ class ToyOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(c, radius, ring);
+
+    final markPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.48 * alpha)
+      ..strokeWidth = 1.0;
+    for (var i = 0; i < 4; i += 1) {
+      final angle = i * math.pi / 2;
+      final inner = radius - 3.0;
+      final outer = radius + 3.0;
+      canvas.drawLine(
+        Offset(c.dx + math.cos(angle) * inner, c.dy + math.sin(angle) * inner),
+        Offset(c.dx + math.cos(angle) * outer, c.dy + math.sin(angle) * outer),
+        markPaint,
+      );
+    }
 
     // A fixed black gap travels counter-clockwise around the otherwise intact
     // ring. The amount of black never grows with elapsed time.
@@ -239,7 +257,7 @@ class ToyOverlayPainter extends CustomPainter {
     // A stack of fading rays gives a phosphor-like radar persistence trail.
     for (var i = 12; i >= 0; i -= 1) {
       final radians = (degrees - i * 2.4) * math.pi / 180;
-      final alpha = 0.03 + (1 - i / 12) * 0.72;
+      final alpha = i == 0 ? 0.68 : 0.01 + (1 - i / 12) * 0.18;
       final end = Offset(
         center.dx + math.cos(radians) * radius,
         center.dy + math.sin(radians) * radius,
@@ -330,8 +348,9 @@ class ToyOverlayPainter extends CustomPainter {
   void _paintWireDie(Canvas canvas, Size size) {
     final value = dieValue;
     if (value == null) return;
-    final center = Offset(size.width / 2, size.height / 2);
-    final scale = math.min(size.width, size.height) * 0.055;
+    const center = Offset(43, 43);
+    final baseScale = (logicalPixelsPerMm * 5.8).clamp(18.0, 28.0).toDouble();
+    final scale = baseScale * (diePressed ? 0.76 : 1.0);
     final target = _dieTargetRotation(value);
     final eased = 1 - math.pow(1 - dieRollProgress.clamp(0, 1), 3).toDouble();
     final residual = 1 - eased;
@@ -349,59 +368,124 @@ class ToyOverlayPainter extends CustomPainter {
       _V3(1, 1, 1),
       _V3(-1, 1, 1),
     ];
-    const edges = <(int, int)>[
-      (0, 1),
-      (1, 2),
-      (2, 3),
-      (3, 0),
-      (4, 5),
-      (5, 6),
-      (6, 7),
-      (7, 4),
-      (0, 4),
-      (1, 5),
-      (2, 6),
-      (3, 7),
-    ];
-    final projected = [
-      for (final v in vertices)
-        _project3(_rotate(v, rx, ry, rz), center, scale),
-    ];
-    final line = Paint()
-      ..color = Colors.white.withValues(alpha: 0.76)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.45;
-    for (final edge in edges) {
-      canvas.drawLine(projected[edge.$1], projected[edge.$2], line);
-    }
+    final rotated = [for (final v in vertices) _rotate(v, rx, ry, rz)];
+    final projected = [for (final v in rotated) _project3(v, center, scale)];
 
-    const faces = <(int, _V3, _V3, _V3)>[
-      (1, _V3(0, 0, 1), _V3(1, 0, 0), _V3(0, 1, 0)),
-      (6, _V3(0, 0, -1), _V3(-1, 0, 0), _V3(0, 1, 0)),
-      (2, _V3(0, -1, 0), _V3(1, 0, 0), _V3(0, 0, 1)),
-      (5, _V3(0, 1, 0), _V3(1, 0, 0), _V3(0, 0, -1)),
-      (3, _V3(1, 0, 0), _V3(0, 0, -1), _V3(0, 1, 0)),
-      (4, _V3(-1, 0, 0), _V3(0, 0, 1), _V3(0, 1, 0)),
-    ];
+    const faces =
+        <({int value, List<int> vertices, _V3 normal, _V3 xAxis, _V3 yAxis})>[
+          (
+            value: 1,
+            vertices: [4, 5, 6, 7],
+            normal: _V3(0, 0, 1),
+            xAxis: _V3(1, 0, 0),
+            yAxis: _V3(0, 1, 0),
+          ),
+          (
+            value: 6,
+            vertices: [1, 0, 3, 2],
+            normal: _V3(0, 0, -1),
+            xAxis: _V3(-1, 0, 0),
+            yAxis: _V3(0, 1, 0),
+          ),
+          (
+            value: 2,
+            vertices: [0, 1, 5, 4],
+            normal: _V3(0, -1, 0),
+            xAxis: _V3(1, 0, 0),
+            yAxis: _V3(0, 0, 1),
+          ),
+          (
+            value: 5,
+            vertices: [3, 7, 6, 2],
+            normal: _V3(0, 1, 0),
+            xAxis: _V3(1, 0, 0),
+            yAxis: _V3(0, 0, -1),
+          ),
+          (
+            value: 3,
+            vertices: [1, 2, 6, 5],
+            normal: _V3(1, 0, 0),
+            xAxis: _V3(0, 0, -1),
+            yAxis: _V3(0, 1, 0),
+          ),
+          (
+            value: 4,
+            vertices: [0, 4, 7, 3],
+            normal: _V3(-1, 0, 0),
+            xAxis: _V3(0, 0, 1),
+            yAxis: _V3(0, 1, 0),
+          ),
+        ];
+
+    final visible =
+        <
+          ({
+            int value,
+            List<int> vertices,
+            _V3 normal,
+            _V3 xAxis,
+            _V3 yAxis,
+            double depth,
+            _V3 rotatedNormal,
+          })
+        >[];
     for (final face in faces) {
-      final normal = _rotate(face.$2, rx, ry, rz);
-      if (normal.z <= 0.08) continue;
-      final opacity = (0.25 + normal.z.abs() * 0.7)
-          .clamp(0.25, 0.95)
+      final normal = _rotate(face.normal, rx, ry, rz);
+      if (normal.z <= 0.015) continue;
+      final depth =
+          face.vertices
+              .map((index) => rotated[index].z)
+              .reduce((a, b) => a + b) /
+          face.vertices.length;
+      visible.add((
+        value: face.value,
+        vertices: face.vertices,
+        normal: face.normal,
+        xAxis: face.xAxis,
+        yAxis: face.yAxis,
+        depth: depth,
+        rotatedNormal: normal,
+      ));
+    }
+    visible.sort((a, b) => a.depth.compareTo(b.depth));
+
+    for (final face in visible) {
+      final path = Path();
+      for (var i = 0; i < face.vertices.length; i += 1) {
+        final p = projected[face.vertices[i]];
+        if (i == 0)
+          path.moveTo(p.dx, p.dy);
+        else
+          path.lineTo(p.dx, p.dy);
+      }
+      path.close();
+      final brightness = (0.72 + face.rotatedNormal.z * 0.25)
+          .clamp(0.72, 0.98)
           .toDouble();
-      for (final pip in _pipPattern(face.$1)) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.white.withValues(alpha: brightness)
+          ..style = PaintingStyle.fill,
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.72)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.25,
+      );
+
+      for (final pip in _pipPattern(face.value)) {
         final local =
-            face.$2.scale(1.015) +
-            face.$3.scale(pip.dx) +
-            face.$4.scale(pip.dy);
+            face.normal.scale(1.018) +
+            face.xAxis.scale(pip.dx) +
+            face.yAxis.scale(pip.dy);
         final point = _project3(_rotate(local, rx, ry, rz), center, scale);
         canvas.drawCircle(
           point,
-          math.max(1.1, scale * 0.075),
-          Paint()
-            ..color = Colors.white.withValues(alpha: opacity)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.2,
+          math.max(1.4, scale * 0.095),
+          Paint()..color = Colors.black.withValues(alpha: 0.86),
         );
       }
     }
@@ -436,20 +520,51 @@ class ToyOverlayPainter extends CustomPainter {
     );
   }
 
+  void _paintRounds(
+    Canvas canvas,
+    Offset gunCenter,
+    double angleDegrees,
+    int count,
+  ) {
+    if (count <= 0) return;
+    final radians = angleDegrees * math.pi / 180;
+    final direction = Offset(math.cos(radians), math.sin(radians));
+    final normal = Offset(-direction.dy, direction.dx);
+    final start = gunCenter - direction * 5 + normal * 8;
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.62);
+    for (var i = 0; i < count; i += 1) {
+      final row = i ~/ 10;
+      final column = i % 10;
+      final p = start - direction * (column * 3.2) + normal * (row * 3.4);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: p, width: 2.0, height: 3.4),
+          const Radius.circular(0.8),
+        ),
+        paint,
+      );
+    }
+  }
+
   void _paintGuns(Canvas canvas, Size size) {
     if (sideGunsVisible && sideGunAnglesDegrees.length >= 4) {
-      _paintGun(canvas, Offset(8, size.height / 2), sideGunAnglesDegrees[0]);
-      _paintGun(
-        canvas,
+      final centers = <Offset>[
+        Offset(8, size.height / 2),
         Offset(size.width - 8, size.height / 2),
-        sideGunAnglesDegrees[1],
-      );
-      _paintGun(canvas, Offset(size.width / 2, 8), sideGunAnglesDegrees[2]);
-      _paintGun(
-        canvas,
+        Offset(size.width / 2, 8),
         Offset(size.width / 2, size.height - 8),
-        sideGunAnglesDegrees[3],
-      );
+      ];
+      for (var i = 0; i < 4; i += 1) {
+        _paintGun(canvas, centers[i], sideGunAnglesDegrees[i]);
+        if (i < sideGunAmmo.length) {
+          _paintRounds(
+            canvas,
+            centers[i],
+            sideGunAnglesDegrees[i],
+            sideGunAmmo[i],
+          );
+        }
+      }
     }
     if (cornerGunsVisible) {
       const d = 7.0;

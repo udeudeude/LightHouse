@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../application/board_controller.dart';
@@ -37,7 +38,7 @@ enum _ToyKind {
   nestCycle('Nest Cycle', Icons.layers, false),
   radar('Radar', Icons.track_changes, false),
   redSweep('Red Sweep', Icons.swap_vert, false),
-  wireDie('Wireframe d6', Icons.casino, false),
+  wireDie('D6', Icons.casino, false),
   sideGuns('Side Guns', Icons.gps_fixed, false),
   cornerRicochet('Corner Ricochet', Icons.radio_button_checked, false),
   hotPotato('Hot Potato', Icons.local_fire_department, false),
@@ -67,7 +68,7 @@ class BoardScreenNext extends StatefulWidget {
   final double logicalPixelsPerMm;
   final BoardState initialState;
   final String calibrationLabel;
-  final VoidCallback onRecalibrate;
+  final ValueChanged<BoardState> onRecalibrate;
 
   @override
   State<BoardScreenNext> createState() => _BoardScreenNextState();
@@ -115,6 +116,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   Timer? _webOrientationPollTimer;
   double? _rotationSnapDegrees;
   bool _gridSnapEnabled = false;
+  bool _checkerUnderlays = false;
   bool _transformTranslated = false;
 
   final math.Random _random = math.Random();
@@ -149,10 +151,11 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   double _dieRollPhase = 0;
   double _dieRollProgress = 1;
   DateTime? _dieRollEndsAt;
+  bool _diePressed = false;
   List<ToyProjectile> _projectiles = const [];
   List<ToyImpact> _impacts = const [];
-  double _lastGunShotClock = -10;
   final List<double> _sideGunAnglesDegrees = [0, 180, 90, 270];
+  final List<int> _sideGunAmmo = [0, 0, 0, 0];
   List<PhysicalPoint> _constellation = const [];
   String? _heartbeatOddId;
   double _heartbeatStartedAt = 0;
@@ -393,6 +396,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       _rotationSnapDegrees = snap != null && snap > 0 ? snap : null;
       _gridSnapEnabled =
           preferences.getBool('lighthouse.gridSnapEnabled.v1') ?? false;
+      _checkerUnderlays =
+          preferences.getBool('lighthouse.checkerUnderlays.v1') ?? false;
       _roundedTriangleTips =
           preferences.getBool('lighthouse.roundedTriangleTips.v1') ?? false;
       _turnTimerDurationSeconds =
@@ -423,6 +428,15 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     await preferences.setBool(
       'lighthouse.gridSnapEnabled.v1',
       _gridSnapEnabled,
+    );
+  }
+
+  Future<void> _toggleCheckerUnderlays() async {
+    setState(() => _checkerUnderlays = !_checkerUnderlays);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(
+      'lighthouse.checkerUnderlays.v1',
+      _checkerUnderlays,
     );
   }
 
@@ -490,8 +504,12 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         _dieRollEndsAt = null;
         _dieRollPhase = 0;
         _dieRollProgress = 1;
+        _diePressed = false;
       case _ToyKind.sideGuns:
         _projectiles = _projectiles.where((p) => p.ricochet).toList();
+        for (var i = 0; i < _sideGunAmmo.length; i += 1) {
+          _sideGunAmmo[i] = 0;
+        }
       case _ToyKind.cornerRicochet:
         _projectiles = _projectiles.where((p) => !p.ricochet).toList();
       case _ToyKind.constellationDraw:
@@ -530,15 +548,15 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       case _ToyKind.squareChase:
         _toggleContinuousLightToy(toy);
       case _ToyKind.wireDie:
-        _rollWireDie();
+        _toggleDie();
       case _ToyKind.sideGuns:
-        _toggleSideGuns();
+        _loadSideGuns();
       case _ToyKind.cornerRicochet:
         _launchCornerRicochets();
       case _ToyKind.hotPotato:
         _runHotPotato();
       case _ToyKind.constellationDraw:
-        _drawConstellation();
+        _toggleConstellation();
     }
   }
 
@@ -673,8 +691,20 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     unawaited(_saveTurnTimerDuration());
   }
 
+  void _toggleDie() {
+    setState(() {
+      if (!_activeToys.add(_ToyKind.wireDie)) {
+        _activeToys.remove(_ToyKind.wireDie);
+        _diePressed = false;
+        _dieRollEndsAt = null;
+        _dieRollProgress = 1;
+      }
+    });
+    _maybeStopToyTicker();
+  }
+
   void _rollWireDie() {
-    _activeToys.add(_ToyKind.wireDie);
+    if (!_activeToys.contains(_ToyKind.wireDie)) return;
     _dieRollEndsAt = DateTime.now().add(const Duration(milliseconds: 1300));
     _dieValue = 1 + _random.nextInt(6);
     _dieRollPhase = 0;
@@ -683,16 +713,25 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     setState(() {});
   }
 
-  void _toggleSideGuns() {
-    if (_activeToys.remove(_ToyKind.sideGuns)) {
-      _maybeStopToyTicker();
-      setState(() {});
-      return;
-    }
+  void _pressDie() {
+    if (!_activeToys.contains(_ToyKind.wireDie)) return;
+    HapticFeedback.selectionClick();
+    setState(() => _diePressed = true);
+  }
+
+  void _releaseDie() {
+    if (!_diePressed) return;
+    setState(() => _diePressed = false);
+    HapticFeedback.mediumImpact();
+    _rollWireDie();
+  }
+
+  void _loadSideGuns() {
     _activeToys.add(_ToyKind.sideGuns);
-    _spawnSideVolley();
-    _lastGunShotClock = _toyClock;
-    _ensureToyTicker();
+    for (var i = 0; i < _sideGunAmmo.length; i += 1) {
+      _sideGunAmmo[i] += 5;
+    }
+    HapticFeedback.selectionClick();
     setState(() {});
   }
 
@@ -701,35 +740,37 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     return PhysicalPoint(math.cos(radians) * speed, math.sin(radians) * speed);
   }
 
-  void _spawnSideVolley() {
+  void _fireSideGun(int index) {
+    if (!_activeToys.contains(_ToyKind.sideGuns) ||
+        index < 0 ||
+        index >= _sideGunAmmo.length ||
+        _sideGunAmmo[index] <= 0) {
+      HapticFeedback.selectionClick();
+      return;
+    }
     final table = _physicalBoardSize();
     const speed = 85.0;
     final inset = 8 / widget.logicalPixelsPerMm;
     final centerX = table.width / 2;
     final centerY = table.height / 2;
+    final position = switch (index) {
+      0 => PhysicalPoint(inset, centerY),
+      1 => PhysicalPoint(table.width - inset, centerY),
+      2 => PhysicalPoint(centerX, inset),
+      _ => PhysicalPoint(centerX, table.height - inset),
+    };
+    _sideGunAmmo[index] -= 1;
     _projectiles = [
       ..._projectiles,
       ToyProjectile(
-        position: PhysicalPoint(inset, centerY),
-        velocity: _velocityForDegrees(_sideGunAnglesDegrees[0], speed),
-        radiusMm: 0.8,
-      ),
-      ToyProjectile(
-        position: PhysicalPoint(table.width - inset, centerY),
-        velocity: _velocityForDegrees(_sideGunAnglesDegrees[1], speed),
-        radiusMm: 0.8,
-      ),
-      ToyProjectile(
-        position: PhysicalPoint(centerX, inset),
-        velocity: _velocityForDegrees(_sideGunAnglesDegrees[2], speed),
-        radiusMm: 0.8,
-      ),
-      ToyProjectile(
-        position: PhysicalPoint(centerX, table.height - inset),
-        velocity: _velocityForDegrees(_sideGunAnglesDegrees[3], speed),
+        position: position,
+        velocity: _velocityForDegrees(_sideGunAnglesDegrees[index], speed),
         radiusMm: 0.8,
       ),
     ];
+    HapticFeedback.lightImpact();
+    _ensureToyTicker();
+    setState(() {});
   }
 
   void _aimGunFromLocal(int gunIndex, Offset localPosition) {
@@ -796,7 +837,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
 
   bool get _needsToyTicker =>
       _activeToys.any(_continuousLightToys.contains) ||
-      _activeToys.contains(_ToyKind.sideGuns) ||
       _eventZoneCenter != null ||
       _turnTimerProgress != null ||
       _dieRollEndsAt != null ||
@@ -813,12 +853,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     if (!mounted) return;
     _toyClock += dt;
     final now = DateTime.now();
-
-    if (_activeToys.contains(_ToyKind.sideGuns) &&
-        _toyClock - _lastGunShotClock >= 0.85) {
-      _spawnSideVolley();
-      _lastGunShotClock = _toyClock;
-    }
 
     final eventEnds = _eventZoneEndsAt;
     if (eventEnds != null) {
@@ -895,7 +929,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       _radarAngleDegrees = normalizeDegrees(_radarAngleDegrees + 1.8);
     }
     if (sweepOn) {
-      final phase = (_toyClock * 0.30) % 2;
+      final phase = (_toyClock * 0.15) % 2;
       _redSweepY = phase <= 1 ? phase : 2 - phase;
     }
     final lineY = table.height * _redSweepY;
@@ -976,7 +1010,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   }
 
   double _heartbeatOpacity(bool odd, double elapsed) {
-    final drift = odd ? math.min(math.pi, elapsed * 0.23) : 0.0;
+    final separationTime = math.max(0.0, elapsed - 4.0);
+    final drift = odd ? math.min(math.pi, separationTime * 0.23) : 0.0;
     final pulse = 0.5 + 0.5 * math.sin(_toyClock * math.pi * 1.7 + drift);
     return 0.04 + pulse * 0.96;
   }
@@ -1198,15 +1233,16 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     });
   }
 
-  void _drawConstellation() {
+  void _toggleConstellation() {
+    if (_constellation.isNotEmpty) {
+      setState(() => _constellation = const []);
+      return;
+    }
     final elements = [..._controller.state.elements]..shuffle(_random);
     if (elements.length < 2) return;
     final count = math.min(elements.length, 2 + _random.nextInt(4));
     setState(() {
       _constellation = [for (final e in elements.take(count)) e.position];
-    });
-    Future<void>.delayed(const Duration(seconds: 4), () {
-      if (mounted) setState(() => _constellation = const []);
     });
   }
 
@@ -2156,7 +2192,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         ],
       ),
     );
-    if (recalibrate == true) widget.onRecalibrate();
+    if (recalibrate == true) widget.onRecalibrate(_controller.state);
   }
 
   Future<void> _showWebInstallHelp() async {
@@ -2238,6 +2274,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     final choice = await _showCompactMenu([
       _compactMenuItem('file', Icons.folder_outlined, 'File'),
       _compactMenuItem('edit', Icons.edit_outlined, 'Edit'),
+      _compactMenuItem('boards', Icons.grid_on, 'Boards'),
       _compactMenuItem('toys', Icons.toys_outlined, 'Toys'),
       _compactMenuItem('display', Icons.display_settings, 'Display'),
       _compactMenuItem('instructions', Icons.help_outline, 'Instructions'),
@@ -2248,6 +2285,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         await _showFileMenu();
       case 'edit':
         await _showEditMenu();
+      case 'boards':
+        await _showBoardsMenu();
       case 'toys':
         await _showToyMenu();
       case 'display':
@@ -2330,15 +2369,30 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     }
   }
 
+  PopupMenuItem<String> _angleMenuItem(double angle) => PopupMenuItem<String>(
+    value: 'a${angle.toInt()}',
+    height: 40,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Transform.rotate(
+            angle: angle * math.pi / 180,
+            child: const Icon(Icons.navigation, size: 19),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text('${angle.toInt()}°'),
+      ],
+    ),
+  );
+
   Future<void> _showOrientationMenu() async {
     const angles = <double>[0, 45, 90, 135, 180, 225, 270, 315];
     final choice = await _showCompactMenu([
-      for (final angle in angles)
-        _compactMenuItem(
-          'a${angle.toInt()}',
-          Icons.navigation_outlined,
-          '${angle.toInt()}°',
-        ),
+      for (final angle in angles) _angleMenuItem(angle),
     ]);
     if (choice == null) return;
     _setHeading(double.parse(choice.substring(1)));
@@ -2369,28 +2423,78 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     }
   }
 
-  Future<void> _showUnderlayMenu() async {
+  void _toggleUnderlaySelection(BoardUnderlay underlay) {
+    _selectUnderlay(
+      _controller.state.underlay == underlay ? BoardUnderlay.none : underlay,
+    );
+  }
+
+  Future<void> _showBoardsMenu() async {
     final choice = await _showCompactMenu([
       _compactMenuItem(
+        'games',
+        Icons.dashboard_customize_outlined,
+        'Game Boards',
+      ),
+      _compactMenuItem('grids', Icons.grid_4x4, 'Grids'),
+      _compactMenuItem('chess', Icons.grid_view, 'Martian Chess'),
+      _compactMenuItem(
+        'checker',
+        Icons.grid_on,
+        'Checker shading',
+        checked: _checkerUnderlays,
+      ),
+      const PopupMenuDivider(),
+      _compactMenuItem(
         'snap',
-        Icons.grid_4x4,
-        'Snap pieces to underlay',
+        Icons.center_focus_strong,
+        'Snap pieces to board',
         checked: _gridSnapEnabled,
       ),
-      for (final underlay in BoardUnderlay.values)
+      _compactMenuItem(
+        'none',
+        Icons.layers_clear_outlined,
+        'None',
+        checked: _controller.state.underlay == BoardUnderlay.none,
+      ),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'games':
+        await _showBoardGroup(BoardUnderlayGroup.games);
+      case 'grids':
+        await _showBoardGroup(BoardUnderlayGroup.grids);
+      case 'chess':
+        await _showBoardGroup(BoardUnderlayGroup.chess);
+      case 'checker':
+        await _toggleCheckerUnderlays();
+      case 'snap':
+        await _toggleGridSnap();
+      case 'none':
+        _selectUnderlay(BoardUnderlay.none);
+    }
+  }
+
+  Future<void> _showBoardGroup(BoardUnderlayGroup group) async {
+    final boards = BoardUnderlay.values
+        .where((underlay) => underlay.group == group)
+        .toList();
+    final choice = await _showCompactMenu([
+      for (final underlay in boards)
         _compactMenuItem(
           'u${underlay.index}',
-          Icons.grid_on,
+          group == BoardUnderlayGroup.chess
+              ? Icons.grid_view
+              : group == BoardUnderlayGroup.grids
+              ? Icons.grid_4x4
+              : Icons.dashboard_outlined,
           underlay.menuLabel,
           checked: _controller.state.underlay == underlay,
         ),
     ]);
     if (!mounted || choice == null) return;
-    if (choice == 'snap') {
-      await _toggleGridSnap();
-    } else {
-      _selectUnderlay(BoardUnderlay.values[int.parse(choice.substring(1))]);
-    }
+    final underlay = BoardUnderlay.values[int.parse(choice.substring(1))];
+    _toggleUnderlaySelection(underlay);
   }
 
   IconData _toyIcon(_ToyKind toy) {
@@ -2424,28 +2528,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        InkWell(
-                          borderRadius: BorderRadius.circular(6),
-                          onTap: () {
-                            Navigator.pop(dialogContext);
-                            Future<void>.microtask(_showUnderlayMenu);
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 7,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.grid_on, size: 20),
-                                SizedBox(width: 9),
-                                Expanded(child: Text('Underlays')),
-                                Icon(Icons.chevron_right, size: 19),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const Divider(height: 8),
                         Wrap(
                           spacing: 2,
                           runSpacing: 2,
@@ -2584,7 +2666,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             ('Move', 'Two-finger scroll over a footprint'),
             ('Rotate', 'Hold Shift while two-finger scrolling'),
             ('Exact rotation', 'Menu > Edit > Rotation'),
-            ('Grid snap', 'Menu > Toys > Underlays > Snap pieces to underlay'),
+            ('Grid snap', 'Menu > Boards > Snap pieces to board'),
             (
               'Light lottery',
               'Enable in Menu > Toys, then tap the matching starburst button',
@@ -2593,6 +2675,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
               'Entropy',
               'Enable in Menu > Toys, then tap the matching hourglass control',
             ),
+            ('Toy names', 'Press and hold a toy icon to pop up its name'),
             ('More toys', 'Menu > Toys controls which toy icons appear'),
           ]
         : <(String, String)>[
@@ -2605,7 +2688,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             ('Light full / walls', 'Draw a loop around an upright footprint'),
             ('Move + rotate', 'Two fingers: drag and twist'),
             ('Exact rotation', 'Menu > Edit > Rotation'),
-            ('Grid snap', 'Menu > Toys > Underlays > Snap pieces to underlay'),
+            ('Grid snap', 'Menu > Boards > Snap pieces to board'),
             (
               'Light lottery',
               'Enable in Menu > Toys, then tap the matching starburst button',
@@ -2614,6 +2697,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
               'Entropy',
               'Enable in Menu > Toys, then tap the matching hourglass control',
             ),
+            ('Toy names', 'Press and hold a toy icon to pop up its name'),
             ('More toys', 'Menu > Toys controls which toy icons appear'),
           ];
 
@@ -2656,29 +2740,38 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                       ],
                     ),
                     const SizedBox(height: 4),
-                    for (final item in instructions)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 7),
-                        child: Text.rich(
-                          TextSpan(
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                              height: 1.25,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: '${item.$1}: ',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final item in instructions)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 7),
+                                child: Text.rich(
+                                  TextSpan(
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                      height: 1.25,
+                                    ),
+                                    children: [
+                                      TextSpan(
+                                        text: '${item.$1}: ',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      TextSpan(text: item.$2),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              TextSpan(text: item.$2),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -2692,49 +2785,54 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   Widget _toyControl(_ToyKind toy) {
     final active = _toyIsActive(toy);
     if (toy == _ToyKind.turnTimer) {
-      return SizedBox(
-        width: 40,
-        height: 40,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            Semantics(
-              button: true,
-              label: 'Turn Timer. Hold and drag left or right to adjust speed.',
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _startTurnTimer,
-                onLongPressStart: _beginTimerAdjustment,
-                onLongPressMoveUpdate: _updateTimerAdjustment,
-                onLongPressEnd: _endTimerAdjustment,
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Icon(
-                    toy.icon,
-                    size: 21,
-                    color: active ? Colors.white : Colors.white70,
-                  ),
-                ),
-              ),
-            ),
-            if (_timerNeedleVisible)
-              Positioned(
-                bottom: 34,
-                child: IgnorePointer(
+      return Tooltip(
+        message: toy.label,
+        triggerMode: TooltipTriggerMode.longPress,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Semantics(
+                button: true,
+                label:
+                    'Turn Timer. Hold and drag left or right to adjust speed.',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _startTurnTimer,
+                  onLongPressStart: _beginTimerAdjustment,
+                  onLongPressMoveUpdate: _updateTimerAdjustment,
+                  onLongPressEnd: _endTimerAdjustment,
                   child: SizedBox(
-                    width: 92,
-                    height: 66,
-                    child: CustomPaint(
-                      painter: _TimerNeedlePainter(
-                        durationSeconds: _turnTimerDurationSeconds,
-                      ),
+                    width: 40,
+                    height: 40,
+                    child: Icon(
+                      toy.icon,
+                      size: 21,
+                      color: active ? Colors.white : Colors.white70,
                     ),
                   ),
                 ),
               ),
-          ],
+              if (_timerNeedleVisible)
+                Positioned(
+                  bottom: 34,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      width: 92,
+                      height: 66,
+                      child: CustomPaint(
+                        painter: _TimerNeedlePainter(
+                          durationSeconds: _turnTimerDurationSeconds,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       );
     }
@@ -2777,6 +2875,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         onPanDown: (details) => _aimGunFromLocal(index, details.localPosition),
         onPanUpdate: (details) =>
             _aimGunFromLocal(index, details.localPosition),
+        onPanEnd: (_) => _fireSideGun(index),
+        onTapUp: (_) => _fireSideGun(index),
       ),
     ),
   );
@@ -2816,6 +2916,11 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     ),
   );
 
+  Future<void> _openGithub() async {
+    final uri = Uri.parse('https://github.com/udeudeude/LightHouse-StashBoard');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   Widget _credits() => GestureDetector(
     behavior: HitTestBehavior.opaque,
     onTap: null,
@@ -2823,12 +2928,18 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       color: Colors.black,
       child: SafeArea(
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(36),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text(
+              children: [
+                const SizedBox(
+                  width: 126,
+                  height: 112,
+                  child: CustomPaint(painter: _CreditsMarkPainter()),
+                ),
+                const SizedBox(height: 10),
+                const Text(
                   'LightHouse',
                   style: TextStyle(
                     color: Colors.white,
@@ -2837,17 +2948,25 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                     letterSpacing: 2,
                   ),
                 ),
-                SizedBox(height: 20),
-                Text(
-                  'An illuminated physical play surface for Looney Pyramids',
+                const SizedBox(height: 20),
+                const Text(
+                  'An illuminated physical play surface\nfor Looney Pyramids',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),
-                SizedBox(height: 28),
-                Text(
+                const SizedBox(height: 28),
+                const Text(
                   'Project: udeudeude\nSoftware: Flutter + ChatGPT\nLooney Pyramids: Looney Labs\nOpen source under the MIT License',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white54, height: 1.6),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _openGithub,
+                  icon: const Icon(Icons.code, size: 18),
+                  label: const Text(
+                    'github.com/udeudeude/LightHouse-StashBoard',
+                  ),
                 ),
               ],
             ),
@@ -2896,6 +3015,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                       ? (_toyClock * 0.24) % 1
                       : null,
                   roundTriangleTips: _roundedTriangleTips,
+                  checkerUnderlays: _checkerUnderlays,
                   burstProgress: _burstProgress,
                 ),
                 child: const SizedBox.expand(),
@@ -2929,10 +3049,12 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                     : null,
                 dieRollPhase: _dieRollPhase,
                 dieRollProgress: _dieRollProgress,
+                diePressed: _diePressed,
                 projectiles: _projectiles,
                 impacts: _impacts,
                 sideGunsVisible: _activeToys.contains(_ToyKind.sideGuns),
                 sideGunAnglesDegrees: _sideGunAnglesDegrees,
+                sideGunAmmo: _sideGunAmmo,
                 cornerGunsVisible:
                     _activeToys.contains(_ToyKind.cornerRicochet) ||
                     _projectiles.any((p) => p.ricochet),
@@ -2942,6 +3064,22 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             ),
           ),
         ),
+        if (_activeToys.contains(_ToyKind.wireDie))
+          Positioned(
+            left: safePadding.left + 4,
+            top: safePadding.top + 4,
+            width: 86,
+            height: 86,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (_) => _pressDie(),
+              onPointerUp: (_) => _releaseDie(),
+              onPointerCancel: (_) {
+                if (mounted) setState(() => _diePressed = false);
+              },
+              child: const SizedBox.expand(),
+            ),
+          ),
         if (_activeToys.contains(_ToyKind.sideGuns))
           Padding(padding: safePadding, child: _sideGunAimHandles()),
         SafeArea(
@@ -3028,6 +3166,98 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       ),
     );
   }
+}
+
+class _CreditsMarkPainter extends CustomPainter {
+  const _CreditsMarkPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final line = Paint()
+      ..color = Colors.white.withValues(alpha: 0.84)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeJoin = StrokeJoin.round;
+    final faint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.32)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    final c = Offset(size.width / 2, size.height * 0.48);
+
+    final frame = Path()
+      ..moveTo(size.width * 0.18, size.height * 0.84)
+      ..lineTo(size.width * 0.08, size.height * 0.48)
+      ..lineTo(size.width * 0.23, size.height * 0.12)
+      ..lineTo(size.width * 0.77, size.height * 0.12)
+      ..lineTo(size.width * 0.92, size.height * 0.48)
+      ..lineTo(size.width * 0.82, size.height * 0.84);
+    canvas.drawPath(frame, faint);
+
+    final tower = Path()
+      ..moveTo(c.dx - 13, size.height * 0.80)
+      ..lineTo(c.dx - 7, size.height * 0.35)
+      ..lineTo(c.dx + 7, size.height * 0.35)
+      ..lineTo(c.dx + 13, size.height * 0.80)
+      ..close();
+    canvas.drawPath(tower, line);
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: Offset(c.dx, size.height * 0.30),
+        width: 25,
+        height: 10,
+      ),
+      line,
+    );
+    canvas.drawLine(
+      Offset(c.dx, size.height * 0.17),
+      Offset(c.dx, size.height * 0.25),
+      line,
+    );
+    canvas.drawCircle(Offset(c.dx, size.height * 0.17), 2.2, line);
+
+    final beamY = size.height * 0.30;
+    canvas.drawLine(
+      Offset(c.dx - 14, beamY),
+      Offset(size.width * 0.14, beamY - 18),
+      faint,
+    );
+    canvas.drawLine(
+      Offset(c.dx - 14, beamY),
+      Offset(size.width * 0.10, beamY + 5),
+      faint,
+    );
+    canvas.drawLine(
+      Offset(c.dx + 14, beamY),
+      Offset(size.width * 0.86, beamY - 18),
+      faint,
+    );
+    canvas.drawLine(
+      Offset(c.dx + 14, beamY),
+      Offset(size.width * 0.90, beamY + 5),
+      faint,
+    );
+
+    void pyramid(Offset center, double scale) {
+      final p = Path()
+        ..moveTo(center.dx, center.dy - 12 * scale)
+        ..lineTo(center.dx + 10 * scale, center.dy + 8 * scale)
+        ..lineTo(center.dx - 10 * scale, center.dy + 8 * scale)
+        ..close();
+      canvas.drawPath(p, line);
+    }
+
+    pyramid(Offset(c.dx - 24, size.height * 0.87), 0.82);
+    pyramid(Offset(c.dx, size.height * 0.88), 1.0);
+    pyramid(Offset(c.dx + 24, size.height * 0.87), 0.66);
+    canvas.drawLine(
+      Offset(size.width * 0.18, size.height * 0.96),
+      Offset(size.width * 0.82, size.height * 0.96),
+      faint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _CreditsMarkPainter oldDelegate) => false;
 }
 
 class _MenuCirclePainter extends CustomPainter {
