@@ -24,6 +24,7 @@ class _LightHouseAppState extends State<LightHouseApp> {
   CalibrationResult? _calibration;
   bool _resolvingCalibration = false;
   bool _forceManualCalibration = false;
+  CalibrationResult? _calibrationBeforeManual;
 
   @override
   void initState() {
@@ -60,8 +61,20 @@ class _LightHouseAppState extends State<LightHouseApp> {
 
   void _recalibrate() {
     setState(() {
+      _calibrationBeforeManual = _calibration;
       _forceManualCalibration = true;
       _calibration = null;
+    });
+  }
+
+  void _cancelManualCalibration() {
+    final previous = _calibrationBeforeManual;
+    if (previous == null) return;
+    setState(() {
+      _calibration = previous;
+      _calibrationBeforeManual = null;
+      _forceManualCalibration = false;
+      _calibrationBeforeManual = null;
     });
   }
 
@@ -96,7 +109,12 @@ class _LightHouseAppState extends State<LightHouseApp> {
     }
 
     if (_forceManualCalibration || _calibration == null) {
-      return CalibrationScreen(onComplete: _completeManualCalibration);
+      final previous = _calibrationBeforeManual;
+      return CalibrationScreen(
+        onComplete: _completeManualCalibration,
+        initialLogicalPixelsPerMm: previous?.logicalPixelsPerMm ?? 4.8,
+        onCancel: previous == null ? null : _cancelManualCalibration,
+      );
     }
 
     final calibration = _calibration!;

@@ -95,9 +95,15 @@ class BoardController extends ChangeNotifier {
     final hingeTravel = (base + length) / 2;
 
     if (current.pose == PyramidPose.upright) {
-      final ux = drag.xMm / distance;
-      final uy = drag.yMm / distance;
-      final dragAngle = math.atan2(uy, ux) * 180 / math.pi;
+      final dragAngle = math.atan2(drag.yMm, drag.xMm) * 180 / math.pi;
+      final relative = ((dragAngle - current.headingDegrees + 540) % 360) - 180;
+      final quarterTurn = (relative / 90).round();
+      final tipDirection = normalizeDegrees(
+        current.headingDegrees + quarterTurn * 90,
+      );
+      final radians = tipDirection * math.pi / 180;
+      final ux = math.cos(radians);
+      final uy = math.sin(radians);
       _commitPoseChange(
         current,
         current.copyWith(
@@ -106,7 +112,7 @@ class BoardController extends ChangeNotifier {
             current.position.xMm + ux * hingeTravel,
             current.position.yMm + uy * hingeTravel,
           ),
-          headingDegrees: normalizeDegrees(dragAngle + 90),
+          headingDegrees: normalizeDegrees(tipDirection + 90),
         ),
       );
       return;

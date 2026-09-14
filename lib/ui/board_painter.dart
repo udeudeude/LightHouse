@@ -17,6 +17,9 @@ class BoardPainter extends CustomPainter {
     this.elementOpacities = const {},
     this.burstCenter,
     this.burstProgress,
+    this.triangleBouncePhase,
+    this.squareChasePhase,
+    this.roundTriangleTips = false,
   });
 
   final BoardState state;
@@ -26,6 +29,9 @@ class BoardPainter extends CustomPainter {
   final Map<String, double> elementOpacities;
   final PhysicalPoint? burstCenter;
   final double? burstProgress;
+  final double? triangleBouncePhase;
+  final double? squareChasePhase;
+  final bool roundTriangleTips;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -334,6 +340,34 @@ class BoardPainter extends CustomPainter {
     }
   }
 
+  Offset _toward(Offset from, Offset to, double distance) {
+    final dx = to.dx - from.dx;
+    final dy = to.dy - from.dy;
+    final length = math.sqrt(dx * dx + dy * dy);
+    if (length <= 0.001) return from;
+    final t = math.min(0.45, distance / length);
+    return Offset(from.dx + dx * t, from.dy + dy * t);
+  }
+
+  Path _roundedPolygon(List<Offset> points, double radius) {
+    final path = Path();
+    for (var i = 0; i < points.length; i += 1) {
+      final current = points[i];
+      final previous = points[(i - 1 + points.length) % points.length];
+      final next = points[(i + 1) % points.length];
+      final incoming = _toward(current, previous, radius);
+      final outgoing = _toward(current, next, radius);
+      if (i == 0) {
+        path.moveTo(incoming.dx, incoming.dy);
+      } else {
+        path.lineTo(incoming.dx, incoming.dy);
+      }
+      path.quadraticBezierTo(current.dx, current.dy, outgoing.dx, outgoing.dy);
+    }
+    path.close();
+    return path;
+  }
+
   void _paintElement(Canvas canvas, LightElement element, double opacity) {
     if (opacity <= 0) return;
     final alpha = opacity.clamp(0.0, 1.0).toDouble();
@@ -364,7 +398,39 @@ class BoardPainter extends CustomPainter {
           ..fillType = PathFillType.evenOdd
           ..addRect(rect)
           ..addRect(inner);
-        canvas.drawPath(ring, Paint()..color = white);
+        final chase = squareChasePhase;
+        if (chase == null) {
+          canvas.drawPath(ring, Paint()..color = white);
+        } else {
+          canvas.drawPath(
+            ring,
+            Paint()..color = Color.fromRGBO(255, 255, 255, 0.055 * alpha),
+          );
+          final chasePath = Path()..addRect(rect.deflate(band / 2));
+          final metric = chasePath.computeMetrics().first;
+          final start = metric.length * chase.clamp(0, 1);
+          final span = metric.length * 0.19;
+          final chasePaint = Paint()
+            ..color = white
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = math.max(1.0, band)
+            ..strokeCap = StrokeCap.round;
+          if (start + span <= metric.length) {
+            canvas.drawPath(
+              metric.extractPath(start, start + span),
+              chasePaint,
+            );
+          } else {
+            canvas.drawPath(
+              metric.extractPath(start, metric.length),
+              chasePaint,
+            );
+            canvas.drawPath(
+              metric.extractPath(0, start + span - metric.length),
+              chasePaint,
+            );
+          }
+        }
       }
       if (element.id == selectedId && alpha > 0.15) {
         canvas.drawRect(
@@ -376,12 +442,36 @@ class BoardPainter extends CustomPainter {
         );
       }
     } else {
-      final triangle = Path()
-        ..moveTo(0, -flatLength / 2)
-        ..lineTo(base / 2, flatLength / 2)
-        ..lineTo(-base / 2, flatLength / 2)
-        ..close();
-      canvas.drawPath(triangle, Paint()..color = white);
+      final points = <Offset>[
+        Offset(0, -flatLength / 2),
+        Offset(base / 2, flatLength / 2),
+        Offset(-base / 2, flatLength / 2),
+      ];
+      final triangle = roundTriangleTips
+          ? _roundedPolygon(points, math.min(base, flatLength) * 0.075)
+          : (Path()
+              ..moveTo(points[0].dx, points[0].dy)
+              ..lineTo(points[1].dx, points[1].dy)
+              ..lineTo(points[2].dx, points[2].dy)
+              ..close());
+      final bounce = triangleBouncePhase;
+      if (bounce == null) {
+        canvas.drawPath(triangle, Paint()..color = white);
+      } else {
+        canvas.drawPath(
+          triangle,
+          Paint()..color = Color.fromRGBO(255, 255, 255, 0.045 * alpha),
+        );
+        final y = -flatLength / 2 + flatLength * bounce.clamp(0, 1);
+        final band = math.max(3.0, flatLength * 0.16);
+        canvas.save();
+        canvas.clipPath(triangle);
+        canvas.drawRect(
+          Rect.fromLTWH(-base, y - band / 2, base * 2, band),
+          Paint()..color = white,
+        );
+        canvas.restore();
+      }
       if (element.id == selectedId && alpha > 0.15) {
         canvas.drawPath(
           triangle,

@@ -65,6 +65,20 @@ void main() {
     },
   );
 
+  test('diagonal tipping snaps perpendicular to a square edge', () {
+    final controller = BoardController();
+    controller.createAt(const PhysicalPoint(50, 50));
+    final upright = controller.state.elements.single;
+
+    controller.tipOrStand(upright, const PhysicalPoint(8, 4));
+    final flat = controller.state.elements.single;
+
+    expect(flat.pose, PyramidPose.flat);
+    expect(flat.headingDegrees, closeTo(90, 0.001));
+    expect(flat.position.yMm, closeTo(50, 0.001));
+    expect(flat.position.xMm, greaterThan(50));
+  });
+
   test('different sizes snap into a co-located structure', () {
     const large = LightElement(
       id: 'large',

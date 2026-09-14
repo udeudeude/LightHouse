@@ -49,6 +49,16 @@ class ToyImpact {
   );
 }
 
+class _V3 {
+  const _V3(this.x, this.y, this.z);
+  final double x;
+  final double y;
+  final double z;
+
+  _V3 operator +(_V3 other) => _V3(x + other.x, y + other.y, z + other.z);
+  _V3 scale(double amount) => _V3(x * amount, y * amount, z * amount);
+}
+
 class ToyOverlayPainter extends CustomPainter {
   const ToyOverlayPainter({
     required this.logicalPixelsPerMm,
@@ -65,12 +75,13 @@ class ToyOverlayPainter extends CustomPainter {
     required this.redSweepY,
     required this.dieValue,
     required this.dieRollPhase,
+    required this.dieRollProgress,
     required this.projectiles,
     required this.impacts,
     required this.sideGunsVisible,
+    required this.sideGunAnglesDegrees,
     required this.cornerGunsVisible,
     required this.constellation,
-    required this.rouletteAngleDegrees,
   });
 
   final double logicalPixelsPerMm;
@@ -87,12 +98,13 @@ class ToyOverlayPainter extends CustomPainter {
   final double? redSweepY;
   final int? dieValue;
   final double dieRollPhase;
+  final double dieRollProgress;
   final List<ToyProjectile> projectiles;
   final List<ToyImpact> impacts;
   final bool sideGunsVisible;
+  final List<double> sideGunAnglesDegrees;
   final bool cornerGunsVisible;
   final List<PhysicalPoint> constellation;
-  final double? rouletteAngleDegrees;
 
   Offset _px(PhysicalPoint point) =>
       Offset(point.xMm * logicalPixelsPerMm, point.yMm * logicalPixelsPerMm);
@@ -109,7 +121,6 @@ class ToyOverlayPainter extends CustomPainter {
     _paintProjectiles(canvas);
     _paintImpacts(canvas);
     _paintConstellation(canvas);
-    _paintRoulette(canvas, size);
   }
 
   void _paintGhostTrails(Canvas canvas) {
@@ -121,7 +132,8 @@ class ToyOverlayPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     for (final points in ghostTrails.values) {
       if (points.length < 2) continue;
-      final path = Path()..moveTo(_px(points.first).dx, _px(points.first).dy);
+      final first = _px(points.first);
+      final path = Path()..moveTo(first.dx, first.dy);
       for (final point in points.skip(1)) {
         final o = _px(point);
         path.lineTo(o.dx, o.dy);
@@ -142,28 +154,32 @@ class ToyOverlayPainter extends CustomPainter {
     final dismiss = eventZoneDismiss.clamp(0, 1).toDouble();
     final radius = radiusMm * logicalPixelsPerMm * (1 - dismiss * 0.18);
     final alpha = 1 - dismiss;
-    final fill = Paint()
-      ..color = Colors.white.withValues(alpha: 0.08 * alpha)
-      ..style = PaintingStyle.fill;
+    canvas.drawCircle(
+      c,
+      radius,
+      Paint()..color = Colors.white.withValues(alpha: 0.08 * alpha),
+    );
     final ring = Paint()
       ..color = Colors.white.withValues(alpha: 0.70 * alpha)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
-    canvas.drawCircle(c, radius, fill);
     canvas.drawCircle(c, radius, ring);
 
+    // A fixed black gap travels counter-clockwise around the otherwise intact
+    // ring. The amount of black never grows with elapsed time.
     final elapsed = 1 - progress.clamp(0, 1).toDouble();
-    final timer = Paint()
-      ..color = Colors.black.withValues(alpha: 0.92)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.butt;
+    const gap = math.pi / 8;
+    final centerAngle = -math.pi / 2 - math.pi * 2 * elapsed;
     canvas.drawArc(
-      Rect.fromCircle(center: c, radius: radius - 1.5),
-      -math.pi / 2,
-      math.pi * 2 * elapsed,
+      Rect.fromCircle(center: c, radius: radius),
+      centerAngle - gap / 2,
+      gap,
       false,
-      timer,
+      Paint()
+        ..color = Colors.black
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.butt,
     );
 
     if (dismiss > 0) {
@@ -186,128 +202,253 @@ class ToyOverlayPainter extends CustomPainter {
   void _paintTurnTimer(Canvas canvas, Size size) {
     final progress = turnTimerProgress;
     if (progress == null) return;
-    final rect = Rect.fromLTWH(11, 11, size.width - 22, size.height - 22);
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(8)));
+    final inset = math.max(19.0, logicalPixelsPerMm * 4.5);
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      math.max(1.0, size.width - inset * 2),
+      math.max(1.0, size.height - inset * 2),
+    );
+    final path = Path()..addRect(rect);
     final metric = path.computeMetrics().first;
     final length = metric.length * progress.clamp(0, 1).toDouble();
-    final background = Paint()
-      ..color = Colors.white.withValues(alpha: 0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final foreground = Paint()
-      ..color = Colors.white.withValues(alpha: 0.72)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(path, background);
-    canvas.drawPath(metric.extractPath(0, length), foreground);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    canvas.drawPath(
+      metric.extractPath(0, length),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.72)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.square,
+    );
   }
 
   void _paintRadar(Canvas canvas, Size size) {
     final degrees = radarAngleDegrees;
     if (degrees == null) return;
     final center = Offset(size.width / 2, size.height / 2);
-    final radians = degrees * math.pi / 180;
     final radius = math.sqrt(
       size.width * size.width + size.height * size.height,
     );
-    final end = Offset(
-      center.dx + math.cos(radians) * radius,
-      center.dy + math.sin(radians) * radius,
-    );
-    final paint = Paint()
-      ..color = const Color(0xFF35FF67).withValues(alpha: 0.80)
-      ..strokeWidth = 1.4;
-    canvas.drawLine(center, end, paint);
+    // A stack of fading rays gives a phosphor-like radar persistence trail.
+    for (var i = 12; i >= 0; i -= 1) {
+      final radians = (degrees - i * 2.4) * math.pi / 180;
+      final alpha = 0.03 + (1 - i / 12) * 0.72;
+      final end = Offset(
+        center.dx + math.cos(radians) * radius,
+        center.dy + math.sin(radians) * radius,
+      );
+      canvas.drawLine(
+        center,
+        end,
+        Paint()
+          ..color = const Color(0xFF35FF67).withValues(alpha: alpha)
+          ..strokeWidth = i == 0 ? 1.5 : 1.1,
+      );
+    }
   }
 
   void _paintRedSweep(Canvas canvas, Size size) {
     final y = redSweepY;
     if (y == null) return;
-    final paint = Paint()
-      ..color = const Color(0xFFFF3030).withValues(alpha: 0.82)
-      ..strokeWidth = 1.5;
     canvas.drawLine(
       Offset(0, size.height * y),
       Offset(size.width, size.height * y),
-      paint,
+      Paint()
+        ..color = const Color(0xFFFF3030).withValues(alpha: 0.82)
+        ..strokeWidth = 1.5,
     );
+  }
+
+  _V3 _rotate(_V3 p, double rx, double ry, double rz) {
+    final cx = math.cos(rx);
+    final sx = math.sin(rx);
+    final cy = math.cos(ry);
+    final sy = math.sin(ry);
+    final cz = math.cos(rz);
+    final sz = math.sin(rz);
+    var x = p.x;
+    var y = p.y * cx - p.z * sx;
+    var z = p.y * sx + p.z * cx;
+    final x2 = x * cy + z * sy;
+    final z2 = -x * sy + z * cy;
+    x = x2;
+    z = z2;
+    return _V3(x * cz - y * sz, x * sz + y * cz, z);
+  }
+
+  Offset _project3(_V3 p, Offset center, double scale) {
+    const camera = 4.6;
+    final perspective = camera / (camera - p.z);
+    return Offset(
+      center.dx + p.x * scale * perspective,
+      center.dy + p.y * scale * perspective,
+    );
+  }
+
+  ({double rx, double ry}) _dieTargetRotation(int value) => switch (value) {
+    1 => (rx: 0, ry: 0),
+    2 => (rx: -math.pi / 2, ry: 0),
+    3 => (rx: 0, ry: -math.pi / 2),
+    4 => (rx: 0, ry: math.pi / 2),
+    5 => (rx: math.pi / 2, ry: 0),
+    _ => (rx: 0, ry: math.pi),
+  };
+
+  List<Offset> _pipPattern(int value) {
+    const a = 0.46;
+    const b = 0.0;
+    return switch (value) {
+      1 => const [Offset(b, b)],
+      2 => const [Offset(-a, -a), Offset(a, a)],
+      3 => const [Offset(-a, -a), Offset(b, b), Offset(a, a)],
+      4 => const [Offset(-a, -a), Offset(a, -a), Offset(-a, a), Offset(a, a)],
+      5 => const [
+        Offset(-a, -a),
+        Offset(a, -a),
+        Offset(b, b),
+        Offset(-a, a),
+        Offset(a, a),
+      ],
+      _ => const [
+        Offset(-a, -a),
+        Offset(-a, b),
+        Offset(-a, a),
+        Offset(a, -a),
+        Offset(a, b),
+        Offset(a, a),
+      ],
+    };
   }
 
   void _paintWireDie(Canvas canvas, Size size) {
     final value = dieValue;
     if (value == null) return;
     final center = Offset(size.width / 2, size.height / 2);
-    final s = math.min(size.width, size.height) * 0.085;
-    final phase = dieRollPhase;
-    final skew = math.sin(phase) * s * 0.22;
-    final front = Rect.fromCenter(center: center, width: s, height: s);
-    final back = front.shift(
-      Offset(s * 0.34 + skew, -s * 0.28 + math.cos(phase) * s * 0.08),
-    );
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.72)
+    final scale = math.min(size.width, size.height) * 0.055;
+    final target = _dieTargetRotation(value);
+    final eased = 1 - math.pow(1 - dieRollProgress.clamp(0, 1), 3).toDouble();
+    final residual = 1 - eased;
+    final rx = target.rx + dieRollPhase * 1.10 * residual;
+    final ry = target.ry + dieRollPhase * 0.87 * residual;
+    final rz = dieRollPhase * 0.61 * residual;
+
+    const vertices = <_V3>[
+      _V3(-1, -1, -1),
+      _V3(1, -1, -1),
+      _V3(1, 1, -1),
+      _V3(-1, 1, -1),
+      _V3(-1, -1, 1),
+      _V3(1, -1, 1),
+      _V3(1, 1, 1),
+      _V3(-1, 1, 1),
+    ];
+    const edges = <(int, int)>[
+      (0, 1),
+      (1, 2),
+      (2, 3),
+      (3, 0),
+      (4, 5),
+      (5, 6),
+      (6, 7),
+      (7, 4),
+      (0, 4),
+      (1, 5),
+      (2, 6),
+      (3, 7),
+    ];
+    final projected = [
+      for (final v in vertices)
+        _project3(_rotate(v, rx, ry, rz), center, scale),
+    ];
+    final line = Paint()
+      ..color = Colors.white.withValues(alpha: 0.76)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawRect(front, paint);
-    canvas.drawRect(back, paint);
-    for (final pair in [
-      (front.topLeft, back.topLeft),
-      (front.topRight, back.topRight),
-      (front.bottomLeft, back.bottomLeft),
-      (front.bottomRight, back.bottomRight),
-    ]) {
-      canvas.drawLine(pair.$1, pair.$2, paint);
+      ..strokeWidth = 1.45;
+    for (final edge in edges) {
+      canvas.drawLine(projected[edge.$1], projected[edge.$2], line);
     }
-    final tp = TextPainter(
-      text: TextSpan(
-        text: '$value',
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.82),
-          fontSize: s * 0.45,
-          fontWeight: FontWeight.w300,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
+
+    const faces = <(int, _V3, _V3, _V3)>[
+      (1, _V3(0, 0, 1), _V3(1, 0, 0), _V3(0, 1, 0)),
+      (6, _V3(0, 0, -1), _V3(-1, 0, 0), _V3(0, 1, 0)),
+      (2, _V3(0, -1, 0), _V3(1, 0, 0), _V3(0, 0, 1)),
+      (5, _V3(0, 1, 0), _V3(1, 0, 0), _V3(0, 0, -1)),
+      (3, _V3(1, 0, 0), _V3(0, 0, -1), _V3(0, 1, 0)),
+      (4, _V3(-1, 0, 0), _V3(0, 0, 1), _V3(0, 1, 0)),
+    ];
+    for (final face in faces) {
+      final normal = _rotate(face.$2, rx, ry, rz);
+      if (normal.z <= 0.08) continue;
+      final opacity = (0.25 + normal.z.abs() * 0.7)
+          .clamp(0.25, 0.95)
+          .toDouble();
+      for (final pip in _pipPattern(face.$1)) {
+        final local =
+            face.$2.scale(1.015) +
+            face.$3.scale(pip.dx) +
+            face.$4.scale(pip.dy);
+        final point = _project3(_rotate(local, rx, ry, rz), center, scale);
+        canvas.drawCircle(
+          point,
+          math.max(1.1, scale * 0.075),
+          Paint()
+            ..color = Colors.white.withValues(alpha: opacity)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
+        );
+      }
+    }
+  }
+
+  void _paintGun(Canvas canvas, Offset center, double angleDegrees) {
+    final radians = angleDegrees * math.pi / 180;
+    final direction = Offset(math.cos(radians), math.sin(radians));
+    final normal = Offset(-direction.dy, direction.dx);
+    final body = Path()
+      ..moveTo(center.dx + normal.dx * 3.2, center.dy + normal.dy * 3.2)
+      ..lineTo(center.dx - normal.dx * 3.2, center.dy - normal.dy * 3.2)
+      ..lineTo(
+        center.dx + direction.dx * 7 - normal.dx * 2.1,
+        center.dy + direction.dy * 7 - normal.dy * 2.1,
+      )
+      ..lineTo(
+        center.dx + direction.dx * 7 + normal.dx * 2.1,
+        center.dy + direction.dy * 7 + normal.dy * 2.1,
+      )
+      ..close();
+    canvas.drawPath(
+      body,
+      Paint()..color = Colors.white.withValues(alpha: 0.34),
+    );
+    canvas.drawLine(
+      center + direction * 5,
+      center + direction * 13,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.60)
+        ..strokeWidth = 2,
+    );
   }
 
   void _paintGuns(Canvas canvas, Size size) {
-    if (sideGunsVisible) {
-      final paint = Paint()..color = Colors.white.withValues(alpha: 0.34);
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: Offset(size.width / 2, 3),
-          width: 10,
-          height: 5,
-        ),
-        paint,
+    if (sideGunsVisible && sideGunAnglesDegrees.length >= 4) {
+      _paintGun(canvas, Offset(8, size.height / 2), sideGunAnglesDegrees[0]);
+      _paintGun(
+        canvas,
+        Offset(size.width - 8, size.height / 2),
+        sideGunAnglesDegrees[1],
       );
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: Offset(size.width / 2, size.height - 3),
-          width: 10,
-          height: 5,
-        ),
-        paint,
-      );
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: Offset(3, size.height / 2),
-          width: 5,
-          height: 10,
-        ),
-        paint,
-      );
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: Offset(size.width - 3, size.height / 2),
-          width: 5,
-          height: 10,
-        ),
-        paint,
+      _paintGun(canvas, Offset(size.width / 2, 8), sideGunAnglesDegrees[2]);
+      _paintGun(
+        canvas,
+        Offset(size.width / 2, size.height - 8),
+        sideGunAnglesDegrees[3],
       );
     }
     if (cornerGunsVisible) {
@@ -368,27 +509,6 @@ class ToyOverlayPainter extends CustomPainter {
     for (final point in constellation) {
       canvas.drawCircle(_px(point), 3.1, paint);
     }
-  }
-
-  void _paintRoulette(Canvas canvas, Size size) {
-    final degrees = rouletteAngleDegrees;
-    if (degrees == null) return;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radians = degrees * math.pi / 180;
-    final radius = math.sqrt(
-      size.width * size.width + size.height * size.height,
-    );
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.68)
-      ..strokeWidth = 1.3;
-    canvas.drawLine(
-      center,
-      Offset(
-        center.dx + math.cos(radians) * radius,
-        center.dy + math.sin(radians) * radius,
-      ),
-      paint,
-    );
   }
 
   @override

@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +20,7 @@ import '../domain/board_underlay.dart';
 import '../domain/convex_geometry.dart';
 import '../domain/geometry.dart';
 import '../domain/light_element.dart';
+import '../domain/light_structure.dart';
 import '../domain/physical_point.dart';
 import '../platform/motion_permission.dart';
 import '../platform/web_orientation.dart';
@@ -25,11 +29,11 @@ import 'toy_overlay.dart';
 
 enum _ToyKind {
   lightLottery('Light Lottery', Icons.auto_awesome, true),
-  entropy('Entropy Delete', Icons.hourglass_empty, true),
+  entropy('Entropy Delete', Icons.hourglass_bottom, true),
   ghostPaths('Ghost Paths', Icons.timeline, false),
   eventZone('Random Event Zone', Icons.adjust, false),
   turnTimer('Turn Timer', Icons.timer_outlined, false),
-  breathing('Breathing', Icons.opacity, false),
+  breathing('Breathing', Icons.air, false),
   nestCycle('Nest Cycle', Icons.layers, false),
   radar('Radar', Icons.track_changes, false),
   redSweep('Red Sweep', Icons.swap_vert, false),
@@ -37,13 +41,10 @@ enum _ToyKind {
   sideGuns('Side Guns', Icons.gps_fixed, false),
   cornerRicochet('Corner Ricochet', Icons.radio_button_checked, false),
   hotPotato('Hot Potato', Icons.local_fire_department, false),
-  comet('Comet', Icons.flare, false),
-  infection('Infection', Icons.device_hub, false),
-  blackoutWave('Blackout Wave', Icons.invert_colors_off, false),
   constellationDraw('Constellation Draw', Icons.share, false),
-  rouletteField('Roulette Field', Icons.explore, false),
   heartbeat('Heartbeat', Icons.favorite_border, false),
-  falseEndings('False Endings', Icons.replay, false);
+  triangleBounce('Triangle Bounce', Icons.change_history, false),
+  squareChase('Square Chase', Icons.crop_square, false);
 
   const _ToyKind(this.label, this.icon, this.defaultVisible);
 
@@ -77,6 +78,9 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   static const double _interactionHaloMm = 7;
   static const double _tapTravelMm = 2;
   static const double _minimumLineGestureMm = 1.5;
+  static const MethodChannel _displayChannel = MethodChannel(
+    'lighthouse/display',
+  );
 
   late final BoardController _controller;
   final BoardStore _store = BoardStore();
@@ -130,7 +134,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   double _toyClock = 0;
   double _radarAngleDegrees = 0;
   double _redSweepY = 0;
-  int _redSweepDirection = 1;
   DateTime? _eventZoneEndsAt;
   PhysicalPoint? _eventZoneCenter;
   double? _eventZoneRadiusMm;
@@ -138,14 +141,19 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   double _eventZoneDismiss = 0;
   DateTime? _turnTimerEndsAt;
   double? _turnTimerProgress;
+  double _turnTimerDurationSeconds = 30;
+  double _turnTimerActiveDurationSeconds = 30;
+  double _timerLongPressStartDuration = 30;
+  bool _timerNeedleVisible = false;
   int _dieValue = 1;
   double _dieRollPhase = 0;
+  double _dieRollProgress = 1;
   DateTime? _dieRollEndsAt;
   List<ToyProjectile> _projectiles = const [];
   List<ToyImpact> _impacts = const [];
   double _lastGunShotClock = -10;
+  final List<double> _sideGunAnglesDegrees = [0, 180, 90, 270];
   List<PhysicalPoint> _constellation = const [];
-  double? _rouletteAngleDegrees;
   String? _heartbeatOddId;
   double _heartbeatStartedAt = 0;
   final Map<String, List<PhysicalPoint>> _ghostTrails = {};
@@ -158,6 +166,9 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   bool _creditsVisible = false;
   bool _instructionsVisible = false;
   bool _motionPermissionAttempted = false;
+  bool _roundedTriangleTips = false;
+  bool _historyControlsVisible = false;
+  Timer? _historyControlsTimer;
   double? _faceUpZSign;
   double? _faceUpCandidateSign;
   int _faceUpStableSamples = 0;
@@ -250,6 +261,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     _webMotionTimer?.cancel();
     _webOrientationPollTimer?.cancel();
     _desktopScrollEndTimer?.cancel();
+    _historyControlsTimer?.cancel();
     _entropyTimer?.cancel();
     _toyTicker?.cancel();
     _effectGeneration += 1;
@@ -381,6 +393,13 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       _rotationSnapDegrees = snap != null && snap > 0 ? snap : null;
       _gridSnapEnabled =
           preferences.getBool('lighthouse.gridSnapEnabled.v1') ?? false;
+      _roundedTriangleTips =
+          preferences.getBool('lighthouse.roundedTriangleTips.v1') ?? false;
+      _turnTimerDurationSeconds =
+          (preferences.getDouble('lighthouse.turnTimerSeconds.v1') ?? 30)
+              .clamp(10, 300)
+              .toDouble();
+      _turnTimerActiveDurationSeconds = _turnTimerDurationSeconds;
       for (final toy in _ToyKind.values) {
         _toyVisible[toy] =
             preferences.getBool(toy.preferenceKey) ?? toy.defaultVisible;
@@ -407,6 +426,23 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     );
   }
 
+  Future<void> _toggleRoundedTriangleTips() async {
+    setState(() => _roundedTriangleTips = !_roundedTriangleTips);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(
+      'lighthouse.roundedTriangleTips.v1',
+      _roundedTriangleTips,
+    );
+  }
+
+  Future<void> _saveTurnTimerDuration() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setDouble(
+      'lighthouse.turnTimerSeconds.v1',
+      _turnTimerDurationSeconds,
+    );
+  }
+
   Future<void> _toggleToyVisibility(_ToyKind toy) async {
     final next = !(_toyVisible[toy] ?? toy.defaultVisible);
     if (!next) _deactivateToy(toy);
@@ -420,8 +456,9 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     _ToyKind.nestCycle,
     _ToyKind.radar,
     _ToyKind.redSweep,
-    _ToyKind.blackoutWave,
     _ToyKind.heartbeat,
+    _ToyKind.triangleBounce,
+    _ToyKind.squareChase,
   };
 
   void _deactivateToy(_ToyKind toy) {
@@ -429,16 +466,11 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     switch (toy) {
       case _ToyKind.lightLottery:
       case _ToyKind.hotPotato:
-      case _ToyKind.comet:
-      case _ToyKind.infection:
-      case _ToyKind.rouletteField:
-      case _ToyKind.falseEndings:
         _effectGeneration += 1;
         _randomizerRunning = false;
         _effectOpacities = const {};
         _burstCenter = null;
         _burstProgress = null;
-        _rouletteAngleDegrees = null;
       case _ToyKind.entropy:
         if (_entropyEnabled) _toggleEntropy();
       case _ToyKind.ghostPaths:
@@ -453,9 +485,11 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       case _ToyKind.turnTimer:
         _turnTimerEndsAt = null;
         _turnTimerProgress = null;
+        _timerNeedleVisible = false;
       case _ToyKind.wireDie:
         _dieRollEndsAt = null;
         _dieRollPhase = 0;
+        _dieRollProgress = 1;
       case _ToyKind.sideGuns:
         _projectiles = _projectiles.where((p) => p.ricochet).toList();
       case _ToyKind.cornerRicochet:
@@ -466,9 +500,10 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       case _ToyKind.nestCycle:
       case _ToyKind.radar:
       case _ToyKind.redSweep:
-      case _ToyKind.blackoutWave:
       case _ToyKind.heartbeat:
-        _effectOpacities = const {};
+      case _ToyKind.triangleBounce:
+      case _ToyKind.squareChase:
+        if (!_randomizerRunning) _effectOpacities = const {};
     }
     _maybeStopToyTicker();
     if (mounted) setState(() {});
@@ -477,7 +512,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   void _activateToy(_ToyKind toy) {
     switch (toy) {
       case _ToyKind.lightLottery:
-        _stopContinuousLightToys();
         _runLightRandomizer();
       case _ToyKind.entropy:
         _toggleEntropy();
@@ -491,8 +525,9 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       case _ToyKind.nestCycle:
       case _ToyKind.radar:
       case _ToyKind.redSweep:
-      case _ToyKind.blackoutWave:
       case _ToyKind.heartbeat:
+      case _ToyKind.triangleBounce:
+      case _ToyKind.squareChase:
         _toggleContinuousLightToy(toy);
       case _ToyKind.wireDie:
         _rollWireDie();
@@ -501,39 +536,21 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       case _ToyKind.cornerRicochet:
         _launchCornerRicochets();
       case _ToyKind.hotPotato:
-        _stopContinuousLightToys();
         _runHotPotato();
-      case _ToyKind.comet:
-        _stopContinuousLightToys();
-        _runComet();
-      case _ToyKind.infection:
-        _stopContinuousLightToys();
-        _runInfection();
       case _ToyKind.constellationDraw:
         _drawConstellation();
-      case _ToyKind.rouletteField:
-        _stopContinuousLightToys();
-        _runRoulette();
-      case _ToyKind.falseEndings:
-        _stopContinuousLightToys();
-        _runFalseEnding();
     }
   }
 
   bool _toyIsActive(_ToyKind toy) {
     if (_activeToys.contains(toy)) return true;
     return switch (toy) {
-      _ToyKind.lightLottery ||
-      _ToyKind.hotPotato ||
-      _ToyKind.comet ||
-      _ToyKind.infection ||
-      _ToyKind.rouletteField ||
-      _ToyKind.falseEndings => _randomizerRunning,
+      _ToyKind.lightLottery || _ToyKind.hotPotato => _randomizerRunning,
       _ToyKind.entropy => _entropyEnabled,
       _ToyKind.ghostPaths => _ghostTrailActive,
       _ToyKind.eventZone => _eventZoneCenter != null,
       _ToyKind.turnTimer => _turnTimerProgress != null,
-      _ToyKind.wireDie => _dieRollEndsAt != null,
+      _ToyKind.wireDie => _activeToys.contains(_ToyKind.wireDie),
       _ToyKind.sideGuns => _activeToys.contains(_ToyKind.sideGuns),
       _ToyKind.cornerRicochet => _projectiles.any((p) => p.ricochet),
       _ToyKind.constellationDraw => _constellation.isNotEmpty,
@@ -541,8 +558,9 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       _ToyKind.nestCycle ||
       _ToyKind.radar ||
       _ToyKind.redSweep ||
-      _ToyKind.blackoutWave ||
-      _ToyKind.heartbeat => _activeToys.contains(toy),
+      _ToyKind.heartbeat ||
+      _ToyKind.triangleBounce ||
+      _ToyKind.squareChase => _activeToys.contains(toy),
     };
   }
 
@@ -561,21 +579,14 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     );
   }
 
-  void _stopContinuousLightToys() {
-    _activeToys.removeAll(_continuousLightToys);
-    _effectOpacities = const {};
-  }
-
   void _toggleContinuousLightToy(_ToyKind toy) {
     if (_activeToys.contains(toy)) {
       _activeToys.remove(toy);
-      setState(() => _effectOpacities = const {});
+      if (!_randomizerRunning) _effectOpacities = const {};
       _maybeStopToyTicker();
+      setState(() {});
       return;
     }
-    _effectGeneration += 1;
-    _randomizerRunning = false;
-    _stopContinuousLightToys();
     _activeToys.add(toy);
     if (toy == _ToyKind.heartbeat) {
       final elements = _controller.state.elements;
@@ -624,17 +635,50 @@ class _BoardScreenNextState extends State<BoardScreenNext>
 
   void _startTurnTimer() {
     setState(() {
-      _turnTimerEndsAt = DateTime.now().add(const Duration(seconds: 30));
+      _turnTimerActiveDurationSeconds = _turnTimerDurationSeconds;
+      _turnTimerEndsAt = DateTime.now().add(
+        Duration(milliseconds: (_turnTimerDurationSeconds * 1000).round()),
+      );
       _turnTimerProgress = 1;
     });
     _ensureToyTicker();
   }
 
+  void _beginTimerAdjustment(LongPressStartDetails details) {
+    _timerLongPressStartDuration = _turnTimerDurationSeconds;
+    setState(() => _timerNeedleVisible = true);
+  }
+
+  void _updateTimerAdjustment(LongPressMoveUpdateDetails details) {
+    final multiplier = math
+        .pow(2, -details.offsetFromOrigin.dx / 78)
+        .toDouble();
+    final next = (_timerLongPressStartDuration * multiplier)
+        .clamp(10.0, 300.0)
+        .toDouble();
+    final progress = _turnTimerProgress;
+    setState(() {
+      _turnTimerDurationSeconds = next;
+      if (_turnTimerEndsAt != null && progress != null) {
+        _turnTimerActiveDurationSeconds = next;
+        _turnTimerEndsAt = DateTime.now().add(
+          Duration(milliseconds: (next * 1000 * progress).round()),
+        );
+      }
+    });
+  }
+
+  void _endTimerAdjustment(LongPressEndDetails details) {
+    setState(() => _timerNeedleVisible = false);
+    unawaited(_saveTurnTimerDuration());
+  }
+
   void _rollWireDie() {
     _activeToys.add(_ToyKind.wireDie);
-    _dieRollEndsAt = DateTime.now().add(const Duration(milliseconds: 900));
+    _dieRollEndsAt = DateTime.now().add(const Duration(milliseconds: 1300));
     _dieValue = 1 + _random.nextInt(6);
     _dieRollPhase = 0;
+    _dieRollProgress = 0;
     _ensureToyTicker();
     setState(() {});
   }
@@ -652,34 +696,62 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     setState(() {});
   }
 
+  PhysicalPoint _velocityForDegrees(double degrees, double speed) {
+    final radians = degrees * math.pi / 180;
+    return PhysicalPoint(math.cos(radians) * speed, math.sin(radians) * speed);
+  }
+
   void _spawnSideVolley() {
-    final board = _physicalBoardSize();
+    final table = _physicalBoardSize();
     const speed = 85.0;
-    final centerX = board.width / 2;
-    final centerY = board.height / 2;
+    final inset = 8 / widget.logicalPixelsPerMm;
+    final centerX = table.width / 2;
+    final centerY = table.height / 2;
     _projectiles = [
       ..._projectiles,
       ToyProjectile(
-        position: PhysicalPoint(0, centerY),
-        velocity: const PhysicalPoint(speed, 0),
+        position: PhysicalPoint(inset, centerY),
+        velocity: _velocityForDegrees(_sideGunAnglesDegrees[0], speed),
         radiusMm: 0.8,
       ),
       ToyProjectile(
-        position: PhysicalPoint(board.width, centerY),
-        velocity: const PhysicalPoint(-speed, 0),
+        position: PhysicalPoint(table.width - inset, centerY),
+        velocity: _velocityForDegrees(_sideGunAnglesDegrees[1], speed),
         radiusMm: 0.8,
       ),
       ToyProjectile(
-        position: PhysicalPoint(centerX, 0),
-        velocity: const PhysicalPoint(0, speed),
+        position: PhysicalPoint(centerX, inset),
+        velocity: _velocityForDegrees(_sideGunAnglesDegrees[2], speed),
         radiusMm: 0.8,
       ),
       ToyProjectile(
-        position: PhysicalPoint(centerX, board.height),
-        velocity: const PhysicalPoint(0, -speed),
+        position: PhysicalPoint(centerX, table.height - inset),
+        velocity: _velocityForDegrees(_sideGunAnglesDegrees[3], speed),
         radiusMm: 0.8,
       ),
     ];
+  }
+
+  void _aimGunFromLocal(int gunIndex, Offset localPosition) {
+    const box = 48.0;
+    final center = switch (gunIndex) {
+      0 => const Offset(8, box / 2),
+      1 => const Offset(box - 8, box / 2),
+      2 => const Offset(box / 2, 8),
+      _ => const Offset(box / 2, box - 8),
+    };
+    final base = <double>[0, 180, 90, 270][gunIndex];
+    final raw = normalizeDegrees(
+      math.atan2(localPosition.dy - center.dy, localPosition.dx - center.dx) *
+          180 /
+          math.pi,
+    );
+    final offset = ((raw - base + 540) % 360) - 180;
+    setState(() {
+      _sideGunAnglesDegrees[gunIndex] = normalizeDegrees(
+        base + offset.clamp(-72, 72).toDouble(),
+      );
+    });
   }
 
   void _launchCornerRicochets() {
@@ -688,25 +760,25 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     _projectiles = [
       ..._projectiles,
       ToyProjectile(
-        position: const PhysicalPoint(1, 1),
+        position: const PhysicalPoint(2.25, 2.25),
         velocity: const PhysicalPoint(speed, speed * 0.73),
         radiusMm: 2.1,
         ricochet: true,
       ),
       ToyProjectile(
-        position: PhysicalPoint(board.width - 1, 1),
+        position: PhysicalPoint(board.width - 2.25, 2.25),
         velocity: const PhysicalPoint(-speed * 0.81, speed),
         radiusMm: 2.1,
         ricochet: true,
       ),
       ToyProjectile(
-        position: PhysicalPoint(1, board.height - 1),
+        position: PhysicalPoint(2.25, board.height - 2.25),
         velocity: const PhysicalPoint(speed, -speed * 0.86),
         radiusMm: 2.1,
         ricochet: true,
       ),
       ToyProjectile(
-        position: PhysicalPoint(board.width - 1, board.height - 1),
+        position: PhysicalPoint(board.width - 2.25, board.height - 2.25),
         velocity: const PhysicalPoint(-speed, -speed * 0.69),
         radiusMm: 2.1,
         ricochet: true,
@@ -774,20 +846,23 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         _turnTimerProgress = null;
         HapticFeedback.mediumImpact();
       } else {
-        _turnTimerProgress = (remaining / 30000).clamp(0, 1).toDouble();
+        _turnTimerProgress =
+            (remaining / (_turnTimerActiveDurationSeconds * 1000))
+                .clamp(0, 1)
+                .toDouble();
       }
     }
 
     final dieEnds = _dieRollEndsAt;
     if (dieEnds != null) {
-      if (now.isAfter(dieEnds)) {
+      final remaining = dieEnds.difference(now).inMilliseconds;
+      if (remaining <= 0) {
         _dieRollEndsAt = null;
         _dieRollPhase = 0;
+        _dieRollProgress = 1;
       } else {
-        _dieRollPhase += dt * 9;
-        if ((_toyClock * 16).floor().isEven) {
-          _dieValue = 1 + _random.nextInt(6);
-        }
+        _dieRollProgress = (1 - remaining / 1300).clamp(0, 1).toDouble();
+        _dieRollPhase += dt * 13;
       }
     }
 
@@ -803,85 +878,76 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       _effectOpacities = const {};
       return;
     }
+    if (_randomizerRunning) return;
 
-    if (_activeToys.contains(_ToyKind.radar)) {
+    final radarOn = _activeToys.contains(_ToyKind.radar);
+    final sweepOn = _activeToys.contains(_ToyKind.redSweep);
+    final breathingOn = _activeToys.contains(_ToyKind.breathing);
+    final heartbeatOn = _activeToys.contains(_ToyKind.heartbeat);
+    if (!radarOn && !sweepOn && !breathingOn && !heartbeatOn) {
+      _effectOpacities = const {};
+      return;
+    }
+
+    final table = _physicalBoardSize();
+    final center = PhysicalPoint(table.width / 2, table.height / 2);
+    if (radarOn) {
       _radarAngleDegrees = normalizeDegrees(_radarAngleDegrees + 1.8);
-      final board = _physicalBoardSize();
-      final center = PhysicalPoint(board.width / 2, board.height / 2);
-      _effectOpacities = {
-        for (final e in elements)
-          e.id: _radarOpacity(e.position, center, _radarAngleDegrees),
-      };
-      return;
     }
-
-    if (_activeToys.contains(_ToyKind.redSweep)) {
+    if (sweepOn) {
       final phase = (_toyClock * 0.30) % 2;
-      _redSweepDirection = phase <= 1 ? 1 : -1;
       _redSweepY = phase <= 1 ? phase : 2 - phase;
-      final board = _physicalBoardSize();
-      final lineY = board.height * _redSweepY;
-      _effectOpacities = {
-        for (final e in elements)
-          e.id: _sweepOpacity(e.position.yMm, lineY, _redSweepDirection),
-      };
-      return;
     }
+    final lineY = table.height * _redSweepY;
+    final elapsedHeartbeat = _toyClock - _heartbeatStartedAt;
 
-    if (_activeToys.contains(_ToyKind.breathing)) {
-      _effectOpacities = {for (final e in elements) e.id: _breathOpacity(e)};
-      return;
-    }
-
-    if (_activeToys.contains(_ToyKind.nestCycle)) {
-      final phase = ((_toyClock / 0.58).floor()) % 3;
-      final wanted = [
-        PyramidSize.large,
-        PyramidSize.medium,
-        PyramidSize.small,
-      ][phase];
-      final nestedIds = <String>{};
-      for (var i = 0; i < elements.length; i++) {
-        for (var j = i + 1; j < elements.length; j++) {
-          if (elements[i].position.distanceTo(elements[j].position) <= 2.2) {
-            nestedIds.add(elements[i].id);
-            nestedIds.add(elements[j].id);
-          }
-        }
+    final next = <String, double>{};
+    for (final element in elements) {
+      var opacity = 1.0;
+      if (breathingOn) opacity = math.min(opacity, _breathOpacity(element));
+      if (radarOn) {
+        opacity = math.min(
+          opacity,
+          _radarOpacity(element.position, center, _radarAngleDegrees),
+        );
       }
-      _effectOpacities = {
-        for (final e in elements)
-          e.id: nestedIds.contains(e.id)
-              ? (e.size == wanted ? 1.0 : 0.025)
-              : 1.0,
-      };
-      return;
+      if (sweepOn) {
+        final polygon = polygonForElement(element, _controller.geometry);
+        final minY = polygon.map((p) => p.yMm).reduce(math.min);
+        final maxY = polygon.map((p) => p.yMm).reduce(math.max);
+        opacity = math.min(
+          opacity,
+          lineY >= minY && lineY <= maxY ? 1.0 : 0.035,
+        );
+      }
+      if (heartbeatOn) {
+        opacity = math.min(
+          opacity,
+          _heartbeatOpacity(element.id == _heartbeatOddId, elapsedHeartbeat),
+        );
+      }
+      next[element.id] = opacity;
     }
+    _effectOpacities = next;
+  }
 
-    if (_activeToys.contains(_ToyKind.blackoutWave)) {
-      final phase = (_toyClock * 0.18) % 2;
-      final down = phase <= 1;
-      final front = down ? phase : 2 - phase;
-      final board = _physicalBoardSize();
-      _effectOpacities = {
-        for (final e in elements)
-          e.id: down
-              ? (e.position.yMm / board.height <= front ? 0.025 : 1.0)
-              : (e.position.yMm / board.height <= front ? 0.025 : 1.0),
-      };
-      return;
+  Map<String, double> get _paintElementOpacities {
+    if (!_activeToys.contains(_ToyKind.nestCycle)) return _effectOpacities;
+    final result = Map<String, double>.from(_effectOpacities);
+    final phase = ((_toyClock / 0.58).floor()) % 3;
+    final wanted = [
+      PyramidSize.large,
+      PyramidSize.medium,
+      PyramidSize.small,
+    ][phase];
+    for (final structure in _controller.state.structures) {
+      if (structure.kind != StructureKind.nest) continue;
+      for (final id in structure.memberIds) {
+        final element = _controller.state.elementById(id);
+        if (element != null) result[id] = element.size == wanted ? 1.0 : 0.025;
+      }
     }
-
-    if (_activeToys.contains(_ToyKind.heartbeat)) {
-      final elapsed = _toyClock - _heartbeatStartedAt;
-      _effectOpacities = {
-        for (final e in elements)
-          e.id: _heartbeatOpacity(e.id == _heartbeatOddId, elapsed),
-      };
-      return;
-    }
-
-    if (!_randomizerRunning) _effectOpacities = const {};
+    return result;
   }
 
   double _breathOpacity(LightElement element) {
@@ -904,15 +970,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     final dy = point.yMm - center.yMm;
     final elementAngle = normalizeDegrees(math.atan2(dy, dx) * 180 / math.pi);
     final behind = normalizeDegrees(angle - elementAngle);
-    if (behind <= 10) return 1;
-    if (behind <= 30) return 1 - (behind - 10) / 20 * 0.965;
-    return 0.035;
-  }
-
-  double _sweepOpacity(double y, double lineY, int direction) {
-    final behind = direction > 0 ? lineY - y : y - lineY;
-    if (behind >= 0 && behind <= 5) return 1;
-    if (behind > 5 && behind <= 25) return 1 - (behind - 5) / 20 * 0.965;
+    if (behind <= 18) return 1;
+    if (behind <= 62) return 1 - (behind - 18) / 44 * 0.965;
     return 0.035;
   }
 
@@ -922,9 +981,59 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     return 0.04 + pulse * 0.96;
   }
 
+  ({PhysicalPoint contact, PhysicalPoint normal, double distance})
+  _nearestBoundary(LightElement element, PhysicalPoint point) {
+    final polygon = polygonForElement(element, _controller.geometry);
+    var cx = 0.0;
+    var cy = 0.0;
+    for (final p in polygon) {
+      cx += p.xMm;
+      cy += p.yMm;
+    }
+    final centroid = PhysicalPoint(cx / polygon.length, cy / polygon.length);
+    var bestDistance = double.infinity;
+    var bestContact = polygon.first;
+    var bestOutward = const PhysicalPoint(1, 0);
+    for (var i = 0; i < polygon.length; i += 1) {
+      final a = polygon[i];
+      final b = polygon[(i + 1) % polygon.length];
+      final ex = b.xMm - a.xMm;
+      final ey = b.yMm - a.yMm;
+      final length2 = ex * ex + ey * ey;
+      final t = length2 <= 0
+          ? 0.0
+          : (((point.xMm - a.xMm) * ex + (point.yMm - a.yMm) * ey) / length2)
+                .clamp(0.0, 1.0)
+                .toDouble();
+      final q = PhysicalPoint(a.xMm + ex * t, a.yMm + ey * t);
+      final dx = point.xMm - q.xMm;
+      final dy = point.yMm - q.yMm;
+      final distance = math.sqrt(dx * dx + dy * dy);
+      if (distance >= bestDistance) continue;
+      final edgeLength = math.max(0.0001, math.sqrt(length2));
+      var nx = ey / edgeLength;
+      var ny = -ex / edgeLength;
+      final mx = (a.xMm + b.xMm) / 2;
+      final my = (a.yMm + b.yMm) / 2;
+      if ((centroid.xMm - mx) * nx + (centroid.yMm - my) * ny > 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      bestDistance = distance;
+      bestContact = q;
+      bestOutward = PhysicalPoint(nx, ny);
+    }
+    if (!_containsPoint(element, point) && bestDistance > 0.001) {
+      final dx = point.xMm - bestContact.xMm;
+      final dy = point.yMm - bestContact.yMm;
+      bestOutward = PhysicalPoint(dx / bestDistance, dy / bestDistance);
+    }
+    return (contact: bestContact, normal: bestOutward, distance: bestDistance);
+  }
+
   void _tickProjectiles(double dt) {
     if (_projectiles.isEmpty && _impacts.isEmpty) return;
-    final board = _physicalBoardSize();
+    final table = _physicalBoardSize();
     final next = <ToyProjectile>[];
     final hitIds = <String>{};
     final impacts = <ToyImpact>[
@@ -933,107 +1042,102 @@ class _BoardScreenNextState extends State<BoardScreenNext>
           impact.copyWith(lifeSeconds: impact.lifeSeconds - dt),
     ];
 
-    for (var projectile in _projectiles) {
-      var position =
-          projectile.position +
-          PhysicalPoint(
-            projectile.velocity.xMm * dt,
-            projectile.velocity.yMm * dt,
-          );
+    for (final projectile in _projectiles) {
+      var position = projectile.position;
       var velocity = projectile.velocity;
       var edgeHits = projectile.edgeHits;
       var escaping = projectile.escaping;
+      final speed = math.sqrt(
+        velocity.xMm * velocity.xMm + velocity.yMm * velocity.yMm,
+      );
+      final stepDistance = math.max(0.55, projectile.radiusMm * 0.55);
+      final steps = math.max(1, (speed * dt / stepDistance).ceil());
+      final stepDt = dt / steps;
+      var consumed = false;
 
-      if (projectile.ricochet) {
-        if (!escaping) {
-          var bounced = false;
-          if (position.xMm <= 0 || position.xMm >= board.width) {
-            edgeHits += 1;
-            if (edgeHits >= 4) {
-              escaping = true;
-            } else {
-              velocity = PhysicalPoint(-velocity.xMm, velocity.yMm);
-              position = PhysicalPoint(
-                position.xMm.clamp(0.2, board.width - 0.2),
-                position.yMm,
-              );
-              bounced = true;
+      for (var step = 0; step < steps && !consumed; step += 1) {
+        position =
+            position +
+            PhysicalPoint(velocity.xMm * stepDt, velocity.yMm * stepDt);
+
+        if (projectile.ricochet) {
+          if (!escaping) {
+            final radius = projectile.radiusMm;
+            final hitLeft = position.xMm <= radius;
+            final hitRight = position.xMm >= table.width - radius;
+            final hitTop = position.yMm <= radius;
+            final hitBottom = position.yMm >= table.height - radius;
+            if (hitLeft || hitRight || hitTop || hitBottom) {
+              edgeHits += 1;
+              if (edgeHits >= 4) {
+                escaping = true;
+              } else {
+                if (hitLeft || hitRight) {
+                  velocity = PhysicalPoint(-velocity.xMm, velocity.yMm);
+                }
+                if (hitTop || hitBottom) {
+                  velocity = PhysicalPoint(velocity.xMm, -velocity.yMm);
+                }
+                position = PhysicalPoint(
+                  position.xMm.clamp(radius, table.width - radius).toDouble(),
+                  position.yMm.clamp(radius, table.height - radius).toDouble(),
+                );
+              }
+            }
+
+            if (!escaping) {
+              for (final element in _controller.state.elements) {
+                final boundary = _nearestBoundary(element, position);
+                final inside = _containsPoint(element, position);
+                if (!inside && boundary.distance > projectile.radiusMm)
+                  continue;
+                final normal = boundary.normal;
+                final dot =
+                    velocity.xMm * normal.xMm + velocity.yMm * normal.yMm;
+                if (dot < 0) {
+                  velocity = PhysicalPoint(
+                    velocity.xMm - 2 * dot * normal.xMm,
+                    velocity.yMm - 2 * dot * normal.yMm,
+                  );
+                }
+                position = PhysicalPoint(
+                  boundary.contact.xMm +
+                      normal.xMm * (projectile.radiusMm + 0.18),
+                  boundary.contact.yMm +
+                      normal.yMm * (projectile.radiusMm + 0.18),
+                );
+                break;
+              }
             }
           }
-          if (!escaping &&
-              (position.yMm <= 0 || position.yMm >= board.height)) {
-            edgeHits += 1;
-            if (edgeHits >= 4) {
-              escaping = true;
-            } else {
-              velocity = PhysicalPoint(velocity.xMm, -velocity.yMm);
-              position = PhysicalPoint(
-                position.xMm,
-                position.yMm.clamp(0.2, board.height - 0.2),
-              );
-              bounced = true;
-            }
-          }
-          if (!bounced && !escaping) {
-            final hit = _controller.hitTest(
-              position,
-              haloMm: projectile.radiusMm,
-            );
-            if (hit != null) {
-              final normal = position - hit.position;
-              final length = math.max(
-                0.001,
-                normal.distanceTo(PhysicalPoint.zero),
-              );
-              final nx = normal.xMm / length;
-              final ny = normal.yMm / length;
-              final dot = velocity.xMm * nx + velocity.yMm * ny;
-              velocity = PhysicalPoint(
-                velocity.xMm - 2 * dot * nx,
-                velocity.yMm - 2 * dot * ny,
-              );
-              position =
-                  position +
-                  PhysicalPoint(velocity.xMm * 0.035, velocity.yMm * 0.035);
-            }
+        } else {
+          for (final element in _controller.state.elements) {
+            if (!_containsPoint(element, position)) continue;
+            hitIds.add(element.id);
+            impacts.add(ToyImpact(position: position, lifeSeconds: 0.8));
+            consumed = true;
+            break;
           }
         }
-        final outside =
-            position.xMm < -6 ||
-            position.xMm > board.width + 6 ||
-            position.yMm < -6 ||
-            position.yMm > board.height + 6;
-        if (!outside) {
-          next.add(
-            projectile.copyWith(
-              position: position,
-              velocity: velocity,
-              edgeHits: edgeHits,
-              escaping: escaping,
-            ),
-          );
-        }
-        continue;
       }
 
-      LightElement? hit;
-      for (final element in _controller.state.elements) {
-        if (_containsPoint(element, position)) {
-          hit = element;
-          break;
-        }
-      }
-      if (hit != null) {
-        hitIds.add(hit.id);
-        impacts.add(ToyImpact(position: position, lifeSeconds: 0.8));
-        continue;
-      }
+      if (consumed) continue;
+      final margin = projectile.ricochet ? 7.0 : 2.0;
       final outside =
-          position.xMm < -2 ||
-          position.xMm > board.width + 2 ||
-          position.yMm < -2 ||
-          position.yMm > board.height + 2;
-      if (!outside) next.add(projectile.copyWith(position: position));
+          position.xMm < -margin ||
+          position.xMm > table.width + margin ||
+          position.yMm < -margin ||
+          position.yMm > table.height + margin;
+      if (!outside) {
+        next.add(
+          projectile.copyWith(
+            position: position,
+            velocity: velocity,
+            edgeHits: edgeHits,
+            escaping: escaping,
+          ),
+        );
+      }
     }
 
     _projectiles = next;
@@ -1048,103 +1152,45 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     if (_randomizerRunning || _controller.state.elements.isEmpty) return;
     final generation = ++_effectGeneration;
     _randomizerRunning = true;
-    var delay = 420;
-    String? chosen;
-    for (var i = 0; i < 28; i++) {
+    var current = _controller
+        .state
+        .elements[_random.nextInt(_controller.state.elements.length)];
+    final recent = <String>[current.id];
+    var delay = 390;
+    for (var i = 0; i < 30; i += 1) {
       if (!mounted || generation != _effectGeneration) return;
       final elements = _controller.state.elements;
       if (elements.isEmpty) break;
-      chosen = elements[_random.nextInt(elements.length)].id;
+      final available = elements.where((e) => e.id != current.id).toList()
+        ..sort(
+          (a, b) => current.position
+              .distanceTo(a.position)
+              .compareTo(current.position.distanceTo(b.position)),
+        );
+      if (available.isNotEmpty) {
+        final fresh = available.where((e) => !recent.contains(e.id)).toList();
+        final pool = fresh.isNotEmpty
+            ? fresh.take(2).toList()
+            : available.take(2).toList();
+        current = pool[_random.nextInt(pool.length)];
+      }
+      recent.add(current.id);
+      if (recent.length > 4) recent.removeAt(0);
+      final previous = recent.length >= 2 ? recent[recent.length - 2] : null;
       setState(() {
         _effectOpacities = {
-          for (final e in elements) e.id: e.id == chosen ? 1.0 : 0.035,
+          for (final e in elements)
+            e.id: e.id == current.id
+                ? 1.0
+                : e.id == previous
+                ? 0.28
+                : 0.035,
         };
       });
       await Future<void>.delayed(Duration(milliseconds: delay));
-      delay = math.max(65, (delay * 0.88).round());
+      delay = math.max(80, (delay * 0.92).round());
     }
-    await Future<void>.delayed(const Duration(milliseconds: 1100));
-    if (!mounted || generation != _effectGeneration) return;
-    setState(() {
-      _randomizerRunning = false;
-      _effectOpacities = const {};
-    });
-  }
-
-  Future<void> _runComet() async {
-    if (_randomizerRunning || _controller.state.elements.isEmpty) return;
-    final generation = ++_effectGeneration;
-    _randomizerRunning = true;
-    final remaining = [..._controller.state.elements];
-    final ordered = <LightElement>[];
-    ordered.add(remaining.removeAt(_random.nextInt(remaining.length)));
-    while (remaining.isNotEmpty) {
-      final last = ordered.last;
-      remaining.sort(
-        (a, b) => last.position
-            .distanceTo(a.position)
-            .compareTo(last.position.distanceTo(b.position)),
-      );
-      ordered.add(remaining.removeAt(0));
-    }
-    for (var i = 0; i < ordered.length + 4; i++) {
-      if (!mounted || generation != _effectGeneration) return;
-      final opacities = <String, double>{};
-      for (var j = 0; j < ordered.length; j++) {
-        final behind = i - j;
-        opacities[ordered[j].id] = switch (behind) {
-          0 => 1.0,
-          1 => 0.62,
-          2 => 0.30,
-          3 => 0.12,
-          _ => 0.025,
-        };
-      }
-      setState(() => _effectOpacities = opacities);
-      await Future<void>.delayed(const Duration(milliseconds: 145));
-    }
-    if (!mounted || generation != _effectGeneration) return;
-    setState(() {
-      _randomizerRunning = false;
-      _effectOpacities = const {};
-    });
-  }
-
-  Future<void> _runInfection() async {
-    if (_randomizerRunning || _controller.state.elements.isEmpty) return;
-    final generation = ++_effectGeneration;
-    _randomizerRunning = true;
-    final infected = <String>{};
-    final first = _controller
-        .state
-        .elements[_random.nextInt(_controller.state.elements.length)];
-    infected.add(first.id);
-    while (mounted && generation == _effectGeneration) {
-      final elements = _controller.state.elements;
-      if (infected.length >= elements.length) break;
-      LightElement? best;
-      var bestDistance = double.infinity;
-      for (final source in elements.where((e) => infected.contains(e.id))) {
-        for (final candidate in elements.where(
-          (e) => !infected.contains(e.id),
-        )) {
-          final d = source.position.distanceTo(candidate.position);
-          if (d < bestDistance) {
-            bestDistance = d;
-            best = candidate;
-          }
-        }
-      }
-      if (best == null) break;
-      infected.add(best.id);
-      setState(() {
-        _effectOpacities = {
-          for (final e in elements) e.id: infected.contains(e.id) ? 1.0 : 0.035,
-        };
-      });
-      await Future<void>.delayed(const Duration(milliseconds: 430));
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 750));
+    await Future<void>.delayed(const Duration(milliseconds: 1350));
     if (!mounted || generation != _effectGeneration) return;
     setState(() {
       _randomizerRunning = false;
@@ -1161,99 +1207,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     });
     Future<void>.delayed(const Duration(seconds: 4), () {
       if (mounted) setState(() => _constellation = const []);
-    });
-  }
-
-  Future<void> _runRoulette() async {
-    if (_randomizerRunning || _controller.state.elements.isEmpty) return;
-    final generation = ++_effectGeneration;
-    _randomizerRunning = true;
-    final board = _physicalBoardSize();
-    final center = PhysicalPoint(board.width / 2, board.height / 2);
-    final target = _controller
-        .state
-        .elements[_random.nextInt(_controller.state.elements.length)];
-    final targetAngle = normalizeDegrees(
-      math.atan2(
-            target.position.yMm - center.yMm,
-            target.position.xMm - center.xMm,
-          ) *
-          180 /
-          math.pi,
-    );
-    const frames = 72;
-    for (var i = 0; i <= frames; i++) {
-      if (!mounted || generation != _effectGeneration) return;
-      final t = i / frames;
-      final eased = 1 - math.pow(1 - t, 3).toDouble();
-      setState(
-        () => _rouletteAngleDegrees = normalizeDegrees(
-          (1080 + targetAngle) * eased,
-        ),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 28));
-    }
-    setState(() {
-      _effectOpacities = {
-        for (final e in _controller.state.elements)
-          e.id: e.id == target.id ? 1.0 : 0.035,
-      };
-    });
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
-    if (!mounted || generation != _effectGeneration) return;
-    setState(() {
-      _randomizerRunning = false;
-      _rouletteAngleDegrees = null;
-      _effectOpacities = const {};
-    });
-  }
-
-  Future<void> _runFalseEnding() async {
-    if (_randomizerRunning || _controller.state.elements.isEmpty) return;
-    final generation = ++_effectGeneration;
-    _randomizerRunning = true;
-    final elements = _controller.state.elements;
-    for (var i = 0; i < 18; i++) {
-      if (!mounted || generation != _effectGeneration) return;
-      final id = elements[_random.nextInt(elements.length)].id;
-      setState(
-        () => _effectOpacities = {
-          for (final e in _controller.state.elements)
-            e.id: e.id == id ? 1.0 : 0.025,
-        },
-      );
-      await Future<void>.delayed(Duration(milliseconds: 80 + i * 13));
-    }
-    if (!mounted || generation != _effectGeneration) return;
-    final first = elements[_random.nextInt(elements.length)];
-    setState(
-      () => _effectOpacities = {
-        for (final e in elements) e.id: e.id == first.id ? 1 : 0.02,
-      },
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted || generation != _effectGeneration) return;
-    setState(() => _effectOpacities = {for (final e in elements) e.id: 0.0});
-    await Future<void>.delayed(const Duration(milliseconds: 360));
-    if (!mounted || generation != _effectGeneration) return;
-    final alternatives = elements.where((e) => e.id != first.id).toList();
-    final finalPick = alternatives.isEmpty
-        ? first
-        : alternatives[_random.nextInt(alternatives.length)];
-    setState(() {
-      _effectOpacities = {
-        for (final e in elements) e.id: e.id == finalPick.id ? 1.0 : 0.025,
-      };
-      _burstCenter = finalPick.position;
-      _burstProgress = 0.35;
-    });
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
-    if (!mounted || generation != _effectGeneration) return;
-    setState(() {
-      _randomizerRunning = false;
-      _effectOpacities = const {};
-      _burstCenter = null;
-      _burstProgress = null;
     });
   }
 
@@ -1897,7 +1850,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Board name'),
+        title: const Text('Table name'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -1931,7 +1884,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     if (!mounted) return;
     setState(() => _activeSavedId = id);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(asCopy ? 'Saved a copy.' : 'Board saved.')),
+      SnackBar(content: Text(asCopy ? 'Saved a copy.' : 'Table saved.')),
     );
   }
 
@@ -1946,7 +1899,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
           child: SizedBox(
             height: math.min(MediaQuery.sizeOf(context).height * 0.7, 520),
             child: summaries.isEmpty
-                ? const Center(child: Text('No saved boards yet.'))
+                ? const Center(child: Text('No saved tables yet.'))
                 : ListView.builder(
                     itemCount: summaries.length,
                     itemBuilder: (context, index) {
@@ -1964,7 +1917,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                           }
                         },
                         trailing: IconButton(
-                          tooltip: 'Delete saved board',
+                          tooltip: 'Delete saved table',
                           icon: const Icon(Icons.delete_outline),
                           onPressed: () async {
                             await _store.deleteNamed(item.id);
@@ -1981,30 +1934,48 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     );
   }
 
-  Future<void> _exportBoard() async {
-    await Clipboard.setData(
-      ClipboardData(text: _store.exportJson(_controller.state)),
+  Future<void> _exportTableFile() async {
+    final raw = _store.exportJson(_controller.state);
+    final cleaned = _controller.state.title
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final name = cleaned.isEmpty ? 'lighthouse-table' : cleaned;
+    final saved = await FileSaver.instance.saveAs(
+      name: name,
+      bytes: Uint8List.fromList(utf8.encode(raw)),
+      fileExtension: 'json',
+      mimeType: MimeType.json,
     );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Board JSON copied to clipboard.')),
-    );
+    if (!mounted || saved == null) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Table JSON saved.')));
   }
 
-  Future<void> _importBoard() async {
-    final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
-    final raw = clipboard?.text;
-    if (raw == null) return;
-    final board = _store.importJson(raw);
-    if (!mounted) return;
-    if (board == null) {
+  Future<void> _importTableFile() async {
+    final file = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+    );
+    if (file == null) return;
+    try {
+      final raw = utf8.decode(await file.readAsBytes());
+      final table = _store.importJson(raw);
+      if (!mounted) return;
+      if (table == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('That file is not a LightHouse table.')),
+        );
+        return;
+      }
+      _controller.replaceState(table);
+      setState(() => _activeSavedId = null);
+    } on Object {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Clipboard is not a LightHouse board.')),
+        const SnackBar(content: Text('Could not read that table file.')),
       );
-      return;
     }
-    _controller.replaceState(board);
-    setState(() => _activeSavedId = null);
   }
 
   Future<void> _renameBoard() async {
@@ -2028,22 +1999,49 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     _controller.setUnderlay(underlay);
   }
 
+  Future<void> _openAndroidDisplaySettings() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _displayChannel.invokeMethod<bool>('openDisplaySettings');
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open Android display settings.'),
+        ),
+      );
+    }
+  }
+
   Future<void> _showOrientationLockInfo() async {
-    final nativeMobile =
-        !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.android);
+    final isAndroid =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Orientation lock'),
         content: Text(
-          nativeMobile
-              ? 'LightHouse locks the board to one device orientation while it is open.'
-              : defaultTargetPlatform == TargetPlatform.iOS
-              ? 'Safari may rotate its viewport, but LightHouse freezes the board in the orientation where it opened and compensates for later turns so the play surface stays fixed to the glass.'
-              : 'Orientation locking depends on browser and platform support. The native mobile app locks the board while it is open.',
+          isAndroid
+              ? 'LightHouse locks the table to one orientation while it is open. Android can open the system Display settings directly.'
+              : isIos
+              ? 'LightHouse locks the table while it is open. iOS does not provide a supported app link to Rotation Lock; change it in Control Center.'
+              : 'Orientation locking depends on browser and platform support.',
         ),
+        actions: [
+          if (isAndroid)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _openAndroidDisplaySettings();
+              },
+              child: const Text('Display settings'),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Done'),
+          ),
+        ],
       ),
     );
   }
@@ -2055,41 +2053,60 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         builder: (context) => const AlertDialog(
           title: Text('Brightness'),
           content: Text(
-            'Browsers do not let LightHouse control screen brightness. Use the device brightness control.',
+            'Browsers cannot control screen brightness. Use the device brightness control.',
           ),
         ),
       );
       return;
     }
 
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
     var value = _brightness;
     await showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Board brightness'),
-          content: Slider(
-            min: 0.25,
-            max: 1,
-            value: value,
-            onChanged: (next) {
-              value = next;
-              setDialogState(() {});
-              setState(() => _brightness = next);
-              _applyBrightness();
-            },
+          title: const Text('Table brightness'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Slider(
+                min: 0.25,
+                max: 1,
+                value: value,
+                onChanged: (next) {
+                  value = next;
+                  setDialogState(() {});
+                  setState(() => _brightness = next);
+                  _applyBrightness();
+                },
+              ),
+              if (defaultTargetPlatform == TargetPlatform.iOS)
+                const Text(
+                  'iOS does not expose a supported deep link to its Brightness panel; use Control Center for the system setting.',
+                  style: TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () async {
                 await ScreenBrightness.instance
                     .resetApplicationScreenBrightness();
-                if (context.mounted) Navigator.pop(context);
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
               child: const Text('Use system'),
             ),
+            if (isAndroid)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _openAndroidDisplaySettings();
+                },
+                child: const Text('Display settings'),
+              ),
             FilledButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Done'),
             ),
           ],
@@ -2115,11 +2132,12 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             const SizedBox(height: 24),
             const Text('A Large upright pyramid should fit this square:'),
             const SizedBox(height: 12),
-            Container(
-              width: largeBase * pixelsPerMm,
-              height: largeBase * pixelsPerMm,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: largeBase * pixelsPerMm,
+                height: largeBase * pixelsPerMm,
+                child: const ColoredBox(color: Colors.white),
               ),
             ),
             const SizedBox(height: 12),
@@ -2173,230 +2191,371 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     ),
   );
 
+  RelativeRect _compactMenuPosition() {
+    final size = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.viewPaddingOf(context);
+    final left = padding.left + 8;
+    final bottom = padding.bottom + 50;
+    return RelativeRect.fromLTRB(
+      left,
+      size.height - bottom,
+      math.max(0.0, size.width - left - 1),
+      bottom,
+    );
+  }
+
+  PopupMenuItem<String> _compactMenuItem(
+    String value,
+    IconData icon,
+    String label, {
+    bool enabled = true,
+    bool checked = false,
+  }) => PopupMenuItem<String>(
+    value: value,
+    enabled: enabled,
+    height: 40,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(checked ? Icons.check : icon, size: 19),
+        const SizedBox(width: 10),
+        Text(label),
+      ],
+    ),
+  );
+
+  Future<String?> _showCompactMenu(List<PopupMenuEntry<String>> items) =>
+      showMenu<String>(
+        context: context,
+        position: _compactMenuPosition(),
+        color: const Color(0xFF202020),
+        items: items,
+      );
+
   Future<void> _showMainMenu() async {
     await _ensureMotionPermission();
     if (!mounted) return;
+    final choice = await _showCompactMenu([
+      _compactMenuItem('file', Icons.folder_outlined, 'File'),
+      _compactMenuItem('edit', Icons.edit_outlined, 'Edit'),
+      _compactMenuItem('toys', Icons.toys_outlined, 'Toys'),
+      _compactMenuItem('display', Icons.display_settings, 'Display'),
+      _compactMenuItem('instructions', Icons.help_outline, 'Instructions'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'file':
+        await _showFileMenu();
+      case 'edit':
+        await _showEditMenu();
+      case 'toys':
+        await _showToyMenu();
+      case 'display':
+        await _showDisplayMenu();
+      case 'instructions':
+        setState(() => _instructionsVisible = true);
+    }
+  }
+
+  Future<void> _showFileMenu() async {
+    final choice = await _showCompactMenu([
+      _compactMenuItem('new', Icons.note_add_outlined, 'New'),
+      _compactMenuItem('open', Icons.folder_open, 'Open…'),
+      _compactMenuItem('save', Icons.save_outlined, 'Save'),
+      _compactMenuItem('copy', Icons.copy, 'Save a Copy…'),
+      _compactMenuItem('rename', Icons.drive_file_rename_outline, 'Rename…'),
+      _compactMenuItem(
+        'import',
+        Icons.file_open_outlined,
+        'Import Table JSON…',
+      ),
+      _compactMenuItem('export', Icons.download_outlined, 'Export Table JSON…'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'new':
+        _newBoard();
+      case 'open':
+        await _manageSavedBoards();
+      case 'save':
+        await _saveBoard();
+      case 'copy':
+        await _saveBoard(asCopy: true);
+      case 'rename':
+        await _renameBoard();
+      case 'import':
+        await _importTableFile();
+      case 'export':
+        await _exportTableFile();
+    }
+  }
+
+  Future<void> _showEditMenu() async {
+    final choice = await _showCompactMenu([
+      _compactMenuItem(
+        'undo',
+        Icons.undo,
+        'Undo',
+        enabled: _controller.canUndo,
+      ),
+      _compactMenuItem(
+        'redo',
+        Icons.redo,
+        'Redo',
+        enabled: _controller.canRedo,
+      ),
+      _compactMenuItem('left', Icons.rotate_left, 'Rotate Left 15°'),
+      _compactMenuItem('right', Icons.rotate_right, 'Rotate Right 15°'),
+      _compactMenuItem(
+        'orientation',
+        Icons.explore_outlined,
+        'Set Orientation',
+      ),
+      _compactMenuItem('snap', Icons.rotate_90_degrees_ccw, 'Rotation Snap'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'undo':
+        _undoFromUi();
+      case 'redo':
+        _redoFromUi();
+      case 'left':
+        _rotateSelected(-15);
+      case 'right':
+        _rotateSelected(15);
+      case 'orientation':
+        await _showOrientationMenu();
+      case 'snap':
+        await _showRotationSnapMenu();
+    }
+  }
+
+  Future<void> _showOrientationMenu() async {
     const angles = <double>[0, 45, 90, 135, 180, 225, 270, 315];
-    const snapOptions = <double>[15, 30, 45, 90];
-    await showModalBottomSheet<void>(
+    final choice = await _showCompactMenu([
+      for (final angle in angles)
+        _compactMenuItem(
+          'a${angle.toInt()}',
+          Icons.navigation_outlined,
+          '${angle.toInt()}°',
+        ),
+    ]);
+    if (choice == null) return;
+    _setHeading(double.parse(choice.substring(1)));
+  }
+
+  Future<void> _showRotationSnapMenu() async {
+    const options = <double>[15, 30, 45, 90];
+    final choice = await _showCompactMenu([
+      _compactMenuItem(
+        'off',
+        Icons.radio_button_unchecked,
+        'Off',
+        checked: _rotationSnapDegrees == null,
+      ),
+      for (final degrees in options)
+        _compactMenuItem(
+          's${degrees.toInt()}',
+          Icons.radio_button_unchecked,
+          '${degrees.toInt()}° increments',
+          checked: _rotationSnapDegrees == degrees,
+        ),
+    ]);
+    if (choice == null) return;
+    if (choice == 'off') {
+      await _setRotationSnap(null);
+    } else {
+      await _setRotationSnap(double.parse(choice.substring(1)));
+    }
+  }
+
+  Future<void> _showUnderlayMenu() async {
+    final choice = await _showCompactMenu([
+      _compactMenuItem(
+        'snap',
+        Icons.grid_4x4,
+        'Snap pieces to underlay',
+        checked: _gridSnapEnabled,
+      ),
+      for (final underlay in BoardUnderlay.values)
+        _compactMenuItem(
+          'u${underlay.index}',
+          Icons.grid_on,
+          underlay.menuLabel,
+          checked: _controller.state.underlay == underlay,
+        ),
+    ]);
+    if (!mounted || choice == null) return;
+    if (choice == 'snap') {
+      await _toggleGridSnap();
+    } else {
+      _selectUnderlay(BoardUnderlay.values[int.parse(choice.substring(1))]);
+    }
+  }
+
+  IconData _toyIcon(_ToyKind toy) {
+    if (toy == _ToyKind.entropy) {
+      return _entropyEnabled ? Icons.hourglass_top : Icons.hourglass_bottom;
+    }
+    return toy.icon;
+  }
+
+  Future<void> _showToyMenu() async {
+    await showGeneralDialog<void>(
       context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF171717),
-      builder: (sheetContext) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.78,
-        minChildSize: 0.34,
-        maxChildSize: 0.94,
-        builder: (context, scrollController) => StatefulBuilder(
-          builder: (context, setSheetState) => ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 20),
-            children: [
-              ExpansionTile(
-                leading: const Icon(Icons.dashboard_outlined),
-                title: const Text('Board'),
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.note_add_outlined),
-                    title: const Text('New'),
-                    onTap: _newBoard,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.folder_open),
-                    title: const Text('Open…'),
-                    onTap: _manageSavedBoards,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.save_outlined),
-                    title: const Text('Save'),
-                    onTap: () => _saveBoard(),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.copy),
-                    title: const Text('Save a Copy…'),
-                    onTap: () => _saveBoard(asCopy: true),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.drive_file_rename_outline),
-                    title: const Text('Rename…'),
-                    onTap: _renameBoard,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.input),
-                    title: const Text('Import Board JSON…'),
-                    onTap: _importBoard,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.content_copy),
-                    title: const Text('Copy Board JSON'),
-                    onTap: _exportBoard,
-                  ),
-                  ExpansionTile(
-                    leading: const Icon(Icons.grid_on),
-                    title: const Text('Underlays'),
-                    children: [
-                      SwitchListTile(
-                        secondary: const Icon(Icons.grid_4x4),
-                        title: const Text('Snap pieces to underlay'),
-                        value: _gridSnapEnabled,
-                        onChanged: (_) async {
-                          await _toggleGridSnap();
-                          setSheetState(() {});
-                        },
-                      ),
-                      for (final underlay in BoardUnderlay.values)
-                        ListTile(
-                          leading: Icon(
-                            _controller.state.underlay == underlay
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
-                          ),
-                          title: Text(underlay.menuLabel),
+      barrierDismissible: true,
+      barrierLabel: 'Close Toys',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 120),
+      pageBuilder: (dialogContext, _, __) => SafeArea(
+        child: Align(
+          alignment: Alignment.bottomLeft,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 56),
+            child: StatefulBuilder(
+              builder: (context, setDialogState) => Material(
+                color: const Color(0xFF202020),
+                elevation: 10,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: SizedBox(
+                    width: 270,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          borderRadius: BorderRadius.circular(6),
                           onTap: () {
-                            _selectUnderlay(underlay);
-                            setSheetState(() {});
+                            Navigator.pop(dialogContext);
+                            Future<void>.microtask(_showUnderlayMenu);
                           },
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-              ExpansionTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('Edit'),
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.undo),
-                    title: const Text('Undo'),
-                    enabled: _controller.canUndo,
-                    onTap: _controller.canUndo ? _controller.undo : null,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.redo),
-                    title: const Text('Redo'),
-                    enabled: _controller.canRedo,
-                    onTap: _controller.canRedo ? _controller.redo : null,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.rotate_left),
-                    title: const Text('Rotate Left 15°'),
-                    onTap: () => _rotateSelected(-15),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.rotate_right),
-                    title: const Text('Rotate Right 15°'),
-                    onTap: () => _rotateSelected(15),
-                  ),
-                  ExpansionTile(
-                    leading: const Icon(Icons.explore_outlined),
-                    title: const Text('Set Orientation'),
-                    children: [
-                      for (final angle in angles)
-                        ListTile(
-                          title: Text('${angle.toInt()}°'),
-                          onTap: () => _setHeading(angle),
-                        ),
-                    ],
-                  ),
-                  ExpansionTile(
-                    leading: const Icon(Icons.rotate_90_degrees_ccw),
-                    title: Text(
-                      _rotationSnapDegrees == null
-                          ? 'Always Snap Rotation · Off'
-                          : 'Always Snap Rotation · ${_rotationSnapDegrees!.toInt()}°',
-                    ),
-                    children: [
-                      ListTile(
-                        leading: Icon(
-                          _rotationSnapDegrees == null
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_unchecked,
-                        ),
-                        title: const Text('Off'),
-                        onTap: () async {
-                          await _setRotationSnap(null);
-                          setSheetState(() {});
-                        },
-                      ),
-                      for (final degrees in snapOptions)
-                        ListTile(
-                          leading: Icon(
-                            _rotationSnapDegrees == degrees
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 7,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.grid_on, size: 20),
+                                SizedBox(width: 9),
+                                Expanded(child: Text('Underlays')),
+                                Icon(Icons.chevron_right, size: 19),
+                              ],
+                            ),
                           ),
-                          title: Text('${degrees.toInt()}° increments'),
-                          onTap: () async {
-                            await _setRotationSnap(degrees);
-                            setSheetState(() {});
-                          },
                         ),
-                    ],
-                  ),
-                ],
-              ),
-              ExpansionTile(
-                initiallyExpanded: true,
-                leading: const Icon(Icons.toys_outlined),
-                title: const Text('Toys'),
-                children: [
-                  for (final toy in _ToyKind.values)
-                    ListTile(
-                      leading: Icon(toy.icon),
-                      title: Text(toy.label),
-                      trailing: Icon(
-                        (_toyVisible[toy] ?? toy.defaultVisible)
-                            ? Icons.check_box
-                            : Icons.check_box_outline_blank,
-                      ),
-                      onTap: () async {
-                        await _toggleToyVisibility(toy);
-                        setSheetState(() {});
-                      },
+                        const Divider(height: 8),
+                        Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            for (final toy in _ToyKind.values)
+                              Tooltip(
+                                message: toy.label,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () async {
+                                    await _toggleToyVisibility(toy);
+                                    if (dialogContext.mounted)
+                                      setDialogState(() {});
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 120),
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          (_toyVisible[toy] ??
+                                              toy.defaultVisible)
+                                          ? Colors.white.withValues(alpha: 0.13)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color:
+                                            (_toyVisible[toy] ??
+                                                toy.defaultVisible)
+                                            ? Colors.white38
+                                            : Colors.transparent,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      _toyIcon(toy),
+                                      size: 21,
+                                      color:
+                                          (_toyVisible[toy] ??
+                                              toy.defaultVisible)
+                                          ? Colors.white
+                                          : Colors.white38,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
-                ],
-              ),
-              ExpansionTile(
-                leading: const Icon(Icons.display_settings),
-                title: const Text('Display'),
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.straighten),
-                    title: const Text('Size'),
-                    onTap: _showCalibrationCheck,
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.brightness_6_outlined),
-                    title: const Text('Brightness'),
-                    onTap: _showBrightnessDialog,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.screen_lock_rotation),
-                    title: const Text('Orientation Lock'),
-                    onTap: _showOrientationLockInfo,
-                  ),
-                  if (kIsWeb)
-                    ListTile(
-                      leading: const Icon(Icons.fullscreen),
-                      title: const Text('Full-screen'),
-                      onTap: _showWebInstallHelp,
-                    ),
-                ],
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.help_outline),
-                title: const Text('Instructions'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  setState(() => _instructionsVisible = true);
-                },
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _showDisplayMenu() async {
+    final choice = await _showCompactMenu([
+      _compactMenuItem('size', Icons.straighten, 'Size'),
+      _compactMenuItem('brightness', Icons.brightness_6_outlined, 'Brightness'),
+      _compactMenuItem(
+        'orientation',
+        Icons.screen_lock_rotation,
+        'Orientation Lock',
+      ),
+      _compactMenuItem(
+        'round',
+        Icons.change_history,
+        'Rounded Triangle Tips',
+        checked: _roundedTriangleTips,
+      ),
+      if (kIsWeb)
+        _compactMenuItem('fullscreen', Icons.fullscreen, 'Full-screen'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'size':
+        await _showCalibrationCheck();
+      case 'brightness':
+        await _showBrightnessDialog();
+      case 'orientation':
+        await _showOrientationLockInfo();
+      case 'round':
+        await _toggleRoundedTriangleTips();
+      case 'fullscreen':
+        await _showWebInstallHelp();
+    }
+  }
+
+  void _showHistoryControls() {
+    _historyControlsTimer?.cancel();
+    setState(() => _historyControlsVisible = true);
+    _historyControlsTimer = Timer(const Duration(seconds: 57), () {
+      if (mounted) setState(() => _historyControlsVisible = false);
+    });
+  }
+
+  void _undoFromUi() {
+    if (!_controller.canUndo) return;
+    _controller.undo();
+    _showHistoryControls();
+  }
+
+  void _redoFromUi() {
+    if (!_controller.canRedo) return;
+    _controller.redo();
+    _showHistoryControls();
   }
 
   Widget _instructionsPane() {
@@ -2425,14 +2584,14 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             ('Move', 'Two-finger scroll over a footprint'),
             ('Rotate', 'Hold Shift while two-finger scrolling'),
             ('Exact rotation', 'Menu > Edit > Rotation'),
-            ('Grid snap', 'Menu > Board > Underlays > Snap pieces to underlay'),
+            ('Grid snap', 'Menu > Toys > Underlays > Snap pieces to underlay'),
             (
               'Light lottery',
-              'Enable in Menu > Toys, then tap the starburst button',
+              'Enable in Menu > Toys, then tap the matching starburst button',
             ),
             (
               'Entropy',
-              'Enable in Menu > Toys, then toggle the deletion control',
+              'Enable in Menu > Toys, then tap the matching hourglass control',
             ),
             ('More toys', 'Menu > Toys controls which toy icons appear'),
           ]
@@ -2446,14 +2605,14 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             ('Light full / walls', 'Draw a loop around an upright footprint'),
             ('Move + rotate', 'Two fingers: drag and twist'),
             ('Exact rotation', 'Menu > Edit > Rotation'),
-            ('Grid snap', 'Menu > Board > Underlays > Snap pieces to underlay'),
+            ('Grid snap', 'Menu > Toys > Underlays > Snap pieces to underlay'),
             (
               'Light lottery',
-              'Enable in Menu > Toys, then tap the starburst button',
+              'Enable in Menu > Toys, then tap the matching starburst button',
             ),
             (
               'Entropy',
-              'Enable in Menu > Toys, then toggle the deletion control',
+              'Enable in Menu > Toys, then tap the matching hourglass control',
             ),
             ('More toys', 'Menu > Toys controls which toy icons appear'),
           ];
@@ -2532,24 +2691,50 @@ class _BoardScreenNextState extends State<BoardScreenNext>
 
   Widget _toyControl(_ToyKind toy) {
     final active = _toyIsActive(toy);
-    if (toy == _ToyKind.entropy) {
-      return Semantics(
-        button: true,
-        toggled: _entropyEnabled,
-        label: 'Delete one random footprint every 30 seconds',
-        child: Tooltip(
-          message: 'Entropy · delete one random footprint every 30 seconds',
-          child: GestureDetector(
-            onTap: _toggleEntropy,
-            behavior: HitTestBehavior.opaque,
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: CustomPaint(
-                painter: _EntropyControlPainter(enabled: _entropyEnabled),
+    if (toy == _ToyKind.turnTimer) {
+      return SizedBox(
+        width: 40,
+        height: 40,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Semantics(
+              button: true,
+              label: 'Turn Timer. Hold and drag left or right to adjust speed.',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _startTurnTimer,
+                onLongPressStart: _beginTimerAdjustment,
+                onLongPressMoveUpdate: _updateTimerAdjustment,
+                onLongPressEnd: _endTimerAdjustment,
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(
+                    toy.icon,
+                    size: 21,
+                    color: active ? Colors.white : Colors.white70,
+                  ),
+                ),
               ),
             ),
-          ),
+            if (_timerNeedleVisible)
+              Positioned(
+                bottom: 34,
+                child: IgnorePointer(
+                  child: SizedBox(
+                    width: 92,
+                    height: 66,
+                    child: CustomPaint(
+                      painter: _TimerNeedlePainter(
+                        durationSeconds: _turnTimerDurationSeconds,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       );
     }
@@ -2558,30 +2743,14 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       visualDensity: VisualDensity.compact,
       onPressed:
           _randomizerRunning &&
-              {
-                _ToyKind.lightLottery,
-                _ToyKind.hotPotato,
-                _ToyKind.comet,
-                _ToyKind.infection,
-                _ToyKind.rouletteField,
-                _ToyKind.falseEndings,
-              }.contains(toy)
+              {_ToyKind.lightLottery, _ToyKind.hotPotato}.contains(toy)
           ? null
           : () => _activateToy(toy),
-      icon: toy == _ToyKind.lightLottery
-          ? Text(
-              '✦',
-              style: TextStyle(
-                color: active ? Colors.white : Colors.white70,
-                fontSize: 23,
-                fontWeight: FontWeight.w300,
-              ),
-            )
-          : Icon(
-              toy.icon,
-              size: 21,
-              color: active ? Colors.white : Colors.white70,
-            ),
+      icon: Icon(
+        _toyIcon(toy),
+        size: 21,
+        color: active ? Colors.white : Colors.white70,
+      ),
     );
   }
 
@@ -2598,6 +2767,55 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       ],
     ),
   );
+  Widget _gunAimHandle(int index, Alignment alignment) => Align(
+    alignment: alignment,
+    child: SizedBox(
+      width: 48,
+      height: 48,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onPanDown: (details) => _aimGunFromLocal(index, details.localPosition),
+        onPanUpdate: (details) =>
+            _aimGunFromLocal(index, details.localPosition),
+      ),
+    ),
+  );
+
+  Widget _sideGunAimHandles() => Stack(
+    children: [
+      _gunAimHandle(0, Alignment.centerLeft),
+      _gunAimHandle(1, Alignment.centerRight),
+      _gunAimHandle(2, Alignment.topCenter),
+      _gunAimHandle(3, Alignment.bottomCenter),
+    ],
+  );
+
+  Widget _historyControls() => AnimatedOpacity(
+    opacity: _historyControlsVisible ? 1 : 0,
+    duration: const Duration(seconds: 3),
+    curve: Curves.easeOut,
+    child: IgnorePointer(
+      ignoring: !_historyControlsVisible,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Undo',
+            visualDensity: VisualDensity.compact,
+            onPressed: _controller.canUndo ? _undoFromUi : null,
+            icon: const Icon(Icons.undo, size: 21),
+          ),
+          IconButton(
+            tooltip: 'Redo',
+            visualDensity: VisualDensity.compact,
+            onPressed: _controller.canRedo ? _redoFromUi : null,
+            icon: const Icon(Icons.redo, size: 21),
+          ),
+        ],
+      ),
+    ),
+  );
+
   Widget _credits() => GestureDetector(
     behavior: HitTestBehavior.opaque,
     onTap: null,
@@ -2668,8 +2886,16 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                   logicalPixelsPerMm: widget.logicalPixelsPerMm,
                   geometry: _controller.geometry,
                   selectedId: _selectedId,
-                  elementOpacities: _effectOpacities,
+                  elementOpacities: _paintElementOpacities,
                   burstCenter: _burstCenter,
+                  triangleBouncePhase:
+                      _activeToys.contains(_ToyKind.triangleBounce)
+                      ? 0.5 - 0.5 * math.cos(_toyClock * math.pi * 0.9)
+                      : null,
+                  squareChasePhase: _activeToys.contains(_ToyKind.squareChase)
+                      ? (_toyClock * 0.24) % 1
+                      : null,
+                  roundTriangleTips: _roundedTriangleTips,
                   burstProgress: _burstProgress,
                 ),
                 child: const SizedBox.expand(),
@@ -2702,23 +2928,32 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                     ? _dieValue
                     : null,
                 dieRollPhase: _dieRollPhase,
+                dieRollProgress: _dieRollProgress,
                 projectiles: _projectiles,
                 impacts: _impacts,
                 sideGunsVisible: _activeToys.contains(_ToyKind.sideGuns),
+                sideGunAnglesDegrees: _sideGunAnglesDegrees,
                 cornerGunsVisible:
                     _activeToys.contains(_ToyKind.cornerRicochet) ||
                     _projectiles.any((p) => p.ricochet),
                 constellation: _constellation,
-                rouletteAngleDegrees: _rouletteAngleDegrees,
               ),
               child: const SizedBox.expand(),
             ),
           ),
         ),
+        if (_activeToys.contains(_ToyKind.sideGuns))
+          Padding(padding: safePadding, child: _sideGunAimHandles()),
         SafeArea(
           child: Align(
             alignment: Alignment.bottomLeft,
-            child: Padding(padding: const EdgeInsets.all(8), child: _menu()),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [_menu(), _historyControls()],
+              ),
+            ),
           ),
         ),
         SafeArea(
@@ -2836,30 +3071,50 @@ class _MenuCirclePainter extends CustomPainter {
       oldDelegate.snapDegrees != snapDegrees;
 }
 
-class _EntropyControlPainter extends CustomPainter {
-  const _EntropyControlPainter({required this.enabled});
+class _TimerNeedlePainter extends CustomPainter {
+  const _TimerNeedlePainter({required this.durationSeconds});
 
-  final bool enabled;
+  final double durationSeconds;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint()
-      ..color = enabled ? Colors.white : Colors.white54
+    final center = Offset(size.width / 2, size.height - 7);
+    final gauge = Paint()
+      ..color = Colors.white54
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
-    canvas.drawCircle(center, 11, paint);
-    canvas.drawLine(
-      Offset(center.dx - 4.5, center.dy),
-      Offset(center.dx + 4.5, center.dy),
-      paint,
+      ..strokeWidth = 1.2;
+    final rect = Rect.fromCircle(center: center, radius: 32);
+    canvas.drawArc(rect, math.pi * 1.12, math.pi * 0.76, false, gauge);
+    final logSpeed = (math.log(30 / durationSeconds) / math.ln2).clamp(
+      -1.5,
+      1.5,
     );
-    if (enabled) {
-      canvas.drawCircle(center, 2, Paint()..color = Colors.white);
-    }
+    final fraction = (logSpeed + 1.5) / 3;
+    final angle = math.pi * 1.12 + math.pi * 0.76 * fraction;
+    final tip = Offset(
+      center.dx + math.cos(angle) * 27,
+      center.dy + math.sin(angle) * 27,
+    );
+    canvas.drawLine(
+      center,
+      tip,
+      Paint()
+        ..color = Colors.white
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(center, 2.2, Paint()..color = Colors.white);
+    final label = TextPainter(
+      text: TextSpan(
+        text: '${durationSeconds.round()}s',
+        style: const TextStyle(color: Colors.white70, fontSize: 11),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(canvas, Offset(center.dx - label.width / 2, 0));
   }
 
   @override
-  bool shouldRepaint(_EntropyControlPainter oldDelegate) =>
-      oldDelegate.enabled != enabled;
+  bool shouldRepaint(_TimerNeedlePainter oldDelegate) =>
+      oldDelegate.durationSeconds != durationSeconds;
 }
