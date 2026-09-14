@@ -17,7 +17,13 @@ def replace_once(text, old, new, label):
 
 
 def replace_regex(text, pattern, replacement, label):
-    next_text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+    next_text, count = re.subn(
+        pattern,
+        lambda _: replacement,
+        text,
+        count=1,
+        flags=re.S,
+    )
     if count != 1:
         raise SystemExit(f"missing regex marker: {label} ({count})")
     return next_text
