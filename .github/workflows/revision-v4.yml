@@ -24,6 +24,7 @@ jobs:
           python3 scripts/revision_v4_underlays.py
           python3 scripts/revision_v4_ui.py
           python3 scripts/revision_v4_overlay.py
+          python3 scripts/revision_v4_cleanup.py
       - name: Format and verify
         run: |
           dart format lib test
