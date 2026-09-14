@@ -1,0 +1,39 @@
+name: Apply revision v4
+
+on:
+  push:
+    paths:
+      - '.github/revision-v4.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-revision-v4:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lighthouse-2-rewrite
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Apply revision
+        run: |
+          python3 scripts/revision_v4_underlays.py
+          python3 scripts/revision_v4_ui.py
+          python3 scripts/revision_v4_overlay.py
+      - name: Format and verify
+        run: |
+          dart format lib test
+          flutter pub get
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze
+          flutter test
+      - name: Commit verified source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib pubspec.yaml pubspec.lock test
+          git commit -m "feat: refine boards toys and credits"
+          git push
