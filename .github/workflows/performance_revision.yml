@@ -5,7 +5,7 @@ on:
     branches:
       - lighthouse-2-rewrite
     paths:
-      - tools/performance_revision.py
+      - tools/**
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,13 @@ jobs:
           cache: true
       - name: Apply performance revision
         run: python3 tools/performance_revision.py
+      - name: Remove final rotation-workaround reference
+        run: |
+          sed -i 's/final size = _webBoardSize ?? MediaQuery.sizeOf(context);/final size = MediaQuery.sizeOf(context);/' lib/ui/board_screen_next.dart
+          if grep -nE '_webBoard|_webReferenceOrientation|_webObservedOrientation|currentWebOrientationAngle' lib/ui/board_screen_next.dart; then
+            echo "Rotation workaround references remain"
+            exit 1
+          fi
       - name: Get packages
         run: flutter pub get
       - name: Format
@@ -36,7 +43,7 @@ jobs:
       - name: Build web release
         run: flutter build web --release --base-href /LightHouse-StashBoard/
       - name: Remove staging files
-        run: git rm .github/workflows/performance_revision.yml tools/performance_revision.py
+        run: git rm .github/workflows/performance_revision.yml tools/performance_revision.py tools/performance_revision.trigger
       - name: Commit optimized implementation
         run: |
           git config user.name "github-actions[bot]"
