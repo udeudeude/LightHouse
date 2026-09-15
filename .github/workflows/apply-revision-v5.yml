@@ -1,0 +1,34 @@
+name: Apply revision v5
+
+on:
+  push:
+    branches: [lighthouse-2-rewrite]
+    paths: [tooling/apply_revision_v5.py]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lighthouse-2-rewrite
+      - name: Apply requested revision
+        run: python tooling/apply_revision_v5.py
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format lib test
+      - run: flutter analyze
+      - run: flutter test
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib test CHANGELOG.md
+          git commit -m "feat: refine toys and game boards"
+          git push origin HEAD:lighthouse-2-rewrite
