@@ -22,25 +22,13 @@ jobs:
           from pathlib import Path
           p = Path('lib/ui/board_screen_next.dart')
           s = p.read_text()
-          old = '''  RelativeRect _compactMenuPosition() {
-            final size = MediaQuery.sizeOf(context);
-            final padding = MediaQuery.viewPaddingOf(context);
-            final left = padding.left + 8;
-            final bottom = padding.bottom + 50;
-            return RelativeRect.fromLTRB(
-              left,
-              size.height - bottom,
-              max(0.0, size.width - left - 1),
-              bottom,
-            );
-          }
-
-          '''
-          # Source uses math.max; keep this tolerant of either form.
-          old = old.replace('max(0.0', 'math.max(0.0')
-          if s.count(old) != 1:
-              raise SystemExit(f'obsolete menu helper: expected 1 match, found {s.count(old)}')
-          p.write_text(s.replace(old, '', 1))
+          start_marker = '  RelativeRect _compactMenuPosition() {'
+          end_marker = '  Future<String?> _showCompactMenu'
+          start = s.find(start_marker)
+          end = s.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit(f'obsolete menu helper boundaries not found: start={start}, end={end}')
+          p.write_text(s[:start] + s[end:])
           PY
       - uses: subosito/flutter-action@v2
         with:
