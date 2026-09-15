@@ -10,7 +10,11 @@ class ZendoStonesWidget extends StatefulWidget {
 enum _ZendoStoneKind { white, black, green }
 
 class _ZendoStone {
-  const _ZendoStone({required this.id, required this.kind, required this.center});
+  const _ZendoStone({
+    required this.id,
+    required this.kind,
+    required this.center,
+  });
 
   final int id;
   final _ZendoStoneKind kind;
@@ -87,7 +91,11 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
               color: _fill(kind),
               border: Border.all(color: Colors.white70),
               boxShadow: const [
-                BoxShadow(color: Colors.black54, blurRadius: 2, spreadRadius: 1),
+                BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 2,
+                  spreadRadius: 1,
+                ),
               ],
             ),
           ),
@@ -131,7 +139,8 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                 message: '${_label(stone.kind)} · drag · double-tap to remove',
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onPanUpdate: (details) => _move(stone.id, details.delta, size),
+                  onPanUpdate: (details) =>
+                      _move(stone.id, details.delta, size),
                   onDoubleTap: () => _remove(stone.id),
                   onLongPress: () => _remove(stone.id),
                   child: Center(
