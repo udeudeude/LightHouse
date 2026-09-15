@@ -132,6 +132,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   final Set<_ToyKind> _activeToys = {};
   Timer? _entropyTimer;
   Timer? _toyTicker;
+  final ValueNotifier<int> _toyRevision = ValueNotifier<int>(0);
   int _effectGeneration = 0;
   int _entropyGeneration = 0;
   double _toyClock = 0;
@@ -244,6 +245,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     _historyControlsTimer?.cancel();
     _entropyTimer?.cancel();
     _toyTicker?.cancel();
+    _toyRevision.dispose();
     _effectGeneration += 1;
     _entropyGeneration += 1;
     _accelerometerSubscription?.cancel();
@@ -801,6 +803,9 @@ class _BoardScreenNextState extends State<BoardScreenNext>
 
   void _tickToys(double dt) {
     if (!mounted) return;
+    final eventWasActive = _eventZoneCenter != null;
+    final timerWasActive = _turnTimerProgress != null;
+    final ricochetWasActive = _projectiles.any((p) => p.ricochet);
     _toyClock += dt;
     final now = DateTime.now();
 
@@ -839,8 +844,14 @@ class _BoardScreenNextState extends State<BoardScreenNext>
 
     _tickProjectiles(dt);
     _updateContinuousLighting();
-    setState(() {});
+    _toyRevision.value += 1;
     _maybeStopToyTicker();
+
+    final controlStateChanged =
+        eventWasActive != (_eventZoneCenter != null) ||
+        timerWasActive != (_turnTimerProgress != null) ||
+        ricochetWasActive != _projectiles.any((p) => p.ricochet);
+    if (controlStateChanged && mounted) setState(() {});
   }
 
   void _updateContinuousLighting() {
@@ -2993,26 +3004,32 @@ class _BoardScreenNextState extends State<BoardScreenNext>
               onScaleStart: _onScaleStart,
               onScaleUpdate: _onScaleUpdate,
               onScaleEnd: _onScaleEnd,
-              child: CustomPaint(
-                painter: BoardPainter(
-                  state: _controller.state,
-                  logicalPixelsPerMm: widget.logicalPixelsPerMm,
-                  geometry: _controller.geometry,
-                  selectedId: _selectedId,
-                  elementOpacities: _paintElementOpacities,
-                  burstCenter: _burstCenter,
-                  triangleBouncePhase:
-                      _activeToys.contains(_ToyKind.triangleBounce)
-                      ? 0.5 - 0.5 * math.cos(_toyClock * math.pi * 0.9)
-                      : null,
-                  squareChasePhase: _activeToys.contains(_ToyKind.squareChase)
-                      ? (_toyClock * 0.24) % 1
-                      : null,
-                  roundTriangleTips: _roundedTriangleTips,
-                  checkerUnderlays: _checkerUnderlays,
-                  burstProgress: _burstProgress,
+              child: ValueListenableBuilder<int>(
+                valueListenable: _toyRevision,
+                builder: (context, revision, child) => RepaintBoundary(
+                  child: CustomPaint(
+                    painter: BoardPainter(
+                      state: _controller.state,
+                      logicalPixelsPerMm: widget.logicalPixelsPerMm,
+                      geometry: _controller.geometry,
+                      selectedId: _selectedId,
+                      elementOpacities: _paintElementOpacities,
+                      burstCenter: _burstCenter,
+                      triangleBouncePhase:
+                          _activeToys.contains(_ToyKind.triangleBounce)
+                          ? 0.5 - 0.5 * math.cos(_toyClock * math.pi * 0.9)
+                          : null,
+                      squareChasePhase:
+                          _activeToys.contains(_ToyKind.squareChase)
+                          ? (_toyClock * 0.24) % 1
+                          : null,
+                      roundTriangleTips: _roundedTriangleTips,
+                      checkerUnderlays: _checkerUnderlays,
+                      burstProgress: _burstProgress,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
                 ),
-                child: const SizedBox.expand(),
               ),
             ),
           ),
@@ -3020,41 +3037,46 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         Padding(
           padding: safePadding,
           child: IgnorePointer(
-            child: CustomPaint(
-              painter: ToyOverlayPainter(
-                logicalPixelsPerMm: widget.logicalPixelsPerMm,
-                geometry: _controller.geometry,
-                elements: _controller.state.elements,
-                ghostTrails: _ghostTrails,
-                ghostTrailsVisible: _ghostTrailActive,
-                eventZoneCenter: _eventZoneCenter,
-                eventZoneRadiusMm: _eventZoneRadiusMm,
-                eventZoneProgress: _eventZoneProgress,
-                eventZoneDismiss: _eventZoneDismiss,
-                turnTimerProgress: _turnTimerProgress,
-                radarAngleDegrees: _activeToys.contains(_ToyKind.radar)
-                    ? _radarAngleDegrees
-                    : null,
-                redSweepY: _activeToys.contains(_ToyKind.redSweep)
-                    ? _redSweepY
-                    : null,
-                dieValue: null,
-                dieRollPhase: 0,
-                dieRollProgress: 1,
-                diePressed: false,
-                projectiles: _projectiles,
-                impacts: _impacts,
-                sideGunsVisible: _activeToys.contains(_ToyKind.sideGuns),
-                sideGunAnglesDegrees: List<double>.unmodifiable(
-                  _sideGunAnglesDegrees,
+            child: ValueListenableBuilder<int>(
+              valueListenable: _toyRevision,
+              builder: (context, revision, child) => RepaintBoundary(
+                child: CustomPaint(
+                  painter: ToyOverlayPainter(
+                    logicalPixelsPerMm: widget.logicalPixelsPerMm,
+                    geometry: _controller.geometry,
+                    elements: _controller.state.elements,
+                    ghostTrails: _ghostTrails,
+                    ghostTrailsVisible: _ghostTrailActive,
+                    eventZoneCenter: _eventZoneCenter,
+                    eventZoneRadiusMm: _eventZoneRadiusMm,
+                    eventZoneProgress: _eventZoneProgress,
+                    eventZoneDismiss: _eventZoneDismiss,
+                    turnTimerProgress: _turnTimerProgress,
+                    radarAngleDegrees: _activeToys.contains(_ToyKind.radar)
+                        ? _radarAngleDegrees
+                        : null,
+                    redSweepY: _activeToys.contains(_ToyKind.redSweep)
+                        ? _redSweepY
+                        : null,
+                    dieValue: null,
+                    dieRollPhase: 0,
+                    dieRollProgress: 1,
+                    diePressed: false,
+                    projectiles: _projectiles,
+                    impacts: _impacts,
+                    sideGunsVisible: _activeToys.contains(_ToyKind.sideGuns),
+                    sideGunAnglesDegrees: List<double>.unmodifiable(
+                      _sideGunAnglesDegrees,
+                    ),
+                    sideGunAmmo: List<int>.unmodifiable(_sideGunAmmo),
+                    cornerGunsVisible:
+                        _activeToys.contains(_ToyKind.cornerRicochet) ||
+                        _projectiles.any((p) => p.ricochet),
+                    constellation: _constellationPoints,
+                  ),
+                  child: const SizedBox.expand(),
                 ),
-                sideGunAmmo: List<int>.unmodifiable(_sideGunAmmo),
-                cornerGunsVisible:
-                    _activeToys.contains(_ToyKind.cornerRicochet) ||
-                    _projectiles.any((p) => p.ricochet),
-                constellation: _constellationPoints,
               ),
-              child: const SizedBox.expand(),
             ),
           ),
         ),
