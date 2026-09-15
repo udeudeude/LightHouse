@@ -5,13 +5,12 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="description" content="LightHouse: an interactive illuminated physical play surface for Looney Pyramids.">
   <meta name="theme-color" content="#000000">
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LightHouse">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
@@ -20,7 +19,7 @@
   <title>LightHouse</title>
   <link rel="manifest" href="manifest.json">
 </head>
-<body style="margin:0;background:#000000;overscroll-behavior:none;">
+<body style="margin:0;background:#000000;">
   <script>
     const lighthouseMotionState = {
       x: Number.NaN,
@@ -58,6 +57,32 @@
     window.lighthouseMotionX = function () { return lighthouseMotionState.x; };
     window.lighthouseMotionY = function () { return lighthouseMotionState.y; };
     window.lighthouseMotionZ = function () { return lighthouseMotionState.z; };
+
+    const lighthouseCalibrationCookie = 'lighthouse_calibration';
+
+    window.lighthouseReadCalibrationCookie = function () {
+      const prefix = lighthouseCalibrationCookie + '=';
+      const entry = document.cookie
+        .split(';')
+        .map(function (part) { return part.trim(); })
+        .find(function (part) { return part.startsWith(prefix); });
+      if (!entry) return Number.NaN;
+      const value = Number(decodeURIComponent(entry.substring(prefix.length)));
+      return Number.isFinite(value) && value > 0 ? value : Number.NaN;
+    };
+
+    window.lighthouseWriteCalibrationCookie = function (value) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric <= 0) return;
+      document.cookie = lighthouseCalibrationCookie + '=' +
+        encodeURIComponent(String(numeric)) +
+        '; Max-Age=31536000; Path=/; SameSite=Lax; Secure';
+    };
+
+    window.lighthouseClearCalibrationCookie = function () {
+      document.cookie = lighthouseCalibrationCookie +
+        '=; Max-Age=0; Path=/; SameSite=Lax; Secure';
+    };
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
