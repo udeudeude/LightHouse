@@ -83,7 +83,43 @@
       document.cookie = lighthouseCalibrationCookie +
         '=; Max-Age=0; Path=/; SameSite=Lax; Secure';
     };
+
+    window.lighthousePrepareFreshRuntime = (async function () {
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          const lighthouseRegistrations = registrations.filter(function (registration) {
+            try {
+              return new URL(registration.scope).pathname.startsWith('/LightHouse-StashBoard/');
+            } catch (_) {
+              return false;
+            }
+          });
+          await Promise.all(
+            lighthouseRegistrations.map(function (registration) {
+              return registration.unregister();
+            }),
+          );
+        }
+
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          const legacyFlutterCaches = new Set([
+            'flutter-app-cache',
+            'flutter-temp-cache',
+            'flutter-app-manifest',
+          ]);
+          await Promise.all(
+            cacheNames
+              .filter(function (name) { return legacyFlutterCaches.has(name); })
+              .map(function (name) { return caches.delete(name); }),
+          );
+        }
+      } catch (_) {
+        // Cache repair is best-effort. Never block LightHouse from starting.
+      }
+    })();
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="flutter_bootstrap.js?v={{flutter_service_worker_version}}" async></script>
 </body>
 </html>
