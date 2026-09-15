@@ -22,10 +22,7 @@ class SpecialBoardPainter {
     );
     final cityCenters = [
       for (final point in cityCentersMm)
-        Offset(
-          point.xMm * logicalPixelsPerMm,
-          point.yMm * logicalPixelsPerMm,
-        ),
+        Offset(point.xMm * logicalPixelsPerMm, point.yMm * logicalPixelsPerMm),
     ];
     final cityRadius = 15.5 * logicalPixelsPerMm;
     final canal = _linePaint(0.28);
@@ -36,10 +33,10 @@ class SpecialBoardPainter {
     // without reproducing the printed board artwork.
     for (var i = 0; i < 8; i += 1) {
       final angle = math.pi / 8 + i * math.pi / 4;
-      final from = center +
-          Offset(math.cos(angle), math.sin(angle)) * cityRadius * 1.05;
-      final to = center +
-          Offset(math.cos(angle), math.sin(angle)) * boardRadius;
+      final from =
+          center + Offset(math.cos(angle), math.sin(angle)) * cityRadius * 1.05;
+      final to =
+          center + Offset(math.cos(angle), math.sin(angle)) * boardRadius;
       canvas.drawLine(from, to, canal);
     }
 
@@ -52,22 +49,17 @@ class SpecialBoardPainter {
       );
       for (var port = 0; port < 3; port += 1) {
         final angle = -math.pi / 2 + port * 2 * math.pi / 3 + city * 0.23;
-        final outer = cityCenter +
-            Offset(math.cos(angle), math.sin(angle)) * cityRadius;
-        final inward = cityCenter +
+        final outer =
+            cityCenter + Offset(math.cos(angle), math.sin(angle)) * cityRadius;
+        final inward =
+            cityCenter +
             Offset(math.cos(angle), math.sin(angle)) * cityRadius * 0.76;
         final normal = Offset(-math.sin(angle), math.cos(angle));
         final half = 3.0 * logicalPixelsPerMm;
         final portPath = Path()
           ..moveTo(outer.dx, outer.dy)
-          ..lineTo(
-            inward.dx + normal.dx * half,
-            inward.dy + normal.dy * half,
-          )
-          ..lineTo(
-            inward.dx - normal.dx * half,
-            inward.dy - normal.dy * half,
-          )
+          ..lineTo(inward.dx + normal.dx * half, inward.dy + normal.dy * half)
+          ..lineTo(inward.dx - normal.dx * half, inward.dy - normal.dy * half)
           ..close();
         canvas.drawPath(portPath, _linePaint(0.38));
       }
@@ -200,16 +192,8 @@ class SpecialBoardPainter {
       canvas.drawPath(arrowPath, Paint()..color = paint.color);
     }
 
-    arrow(
-      Offset(left + cell * 0.42, top + cell * 0.20),
-      -math.pi / 2,
-      dark,
-    );
-    arrow(
-      Offset(left + cell * 4.60, top + cell * 3.92),
-      math.pi / 2,
-      light,
-    );
+    arrow(Offset(left + cell * 0.42, top + cell * 0.20), -math.pi / 2, dark);
+    arrow(Offset(left + cell * 4.60, top + cell * 3.92), math.pi / 2, light);
 
     void cornerTriangle(Offset triangleCenter, bool pointsDown) {
       final radius = cell * 0.20;
@@ -217,8 +201,8 @@ class SpecialBoardPainter {
       final triangle = Path();
       for (var i = 0; i < 3; i += 1) {
         final angle = initialAngle + i * 2 * math.pi / 3;
-        final point = triangleCenter +
-            Offset(math.cos(angle), math.sin(angle)) * radius;
+        final point =
+            triangleCenter + Offset(math.cos(angle), math.sin(angle)) * radius;
         if (i == 0) {
           triangle.moveTo(point.dx, point.dy);
         } else {
@@ -229,13 +213,7 @@ class SpecialBoardPainter {
       canvas.drawPath(triangle, _linePaint(0.46));
     }
 
-    cornerTriangle(
-      Offset(left + cell * 4.55, top + cell * 0.45),
-      true,
-    );
-    cornerTriangle(
-      Offset(left + cell * 0.55, top + cell * 3.55),
-      false,
-    );
+    cornerTriangle(Offset(left + cell * 4.55, top + cell * 0.45), true);
+    cornerTriangle(Offset(left + cell * 0.55, top + cell * 3.55), false);
   }
 }

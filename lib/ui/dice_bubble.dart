@@ -81,13 +81,14 @@ class _DiceBubbleState extends State<DiceBubble>
   @override
   void initState() {
     super.initState();
-    _rollController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1180),
-      value: 1,
-    )..addListener(() {
-      if (mounted) setState(() {});
-    });
+    _rollController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 1180),
+          value: 1,
+        )..addListener(() {
+          if (mounted) setState(() {});
+        });
   }
 
   @override
@@ -146,16 +147,10 @@ class _DiceBubbleState extends State<DiceBubble>
 
   Offset _clampCenter(Offset center, Size size) => Offset(
     center.dx
-        .clamp(
-          _radius + 2,
-          math.max(_radius + 2, size.width - _radius - 2),
-        )
+        .clamp(_radius + 2, math.max(_radius + 2, size.width - _radius - 2))
         .toDouble(),
     center.dy
-        .clamp(
-          _radius + 2,
-          math.max(_radius + 2, size.height - _radius - 2),
-        )
+        .clamp(_radius + 2, math.max(_radius + 2, size.height - _radius - 2))
         .toDouble(),
   );
 
@@ -480,13 +475,7 @@ class _DiceBubblePainter extends CustomPainter {
           math.sin(plan.bounceAngle) * wobble,
         );
       }
-      _paintDie(
-        canvas,
-        dieCenter,
-        15.2 * squeeze,
-        choice.kind,
-        rotation,
-      );
+      _paintDie(canvas, dieCenter, 15.2 * squeeze, choice.kind, rotation);
     }
   }
 
@@ -498,8 +487,10 @@ class _DiceBubblePainter extends CustomPainter {
     _Rotation3 rotation,
   ) {
     final rotated = [for (final vertex in _vertices) _rotate(vertex, rotation)];
-    final projected = [for (final vertex in rotated) _project(vertex, center, scale)];
-    final visible = <({ _Face face, double depth, _V3 normal })>[];
+    final projected = [
+      for (final vertex in rotated) _project(vertex, center, scale),
+    ];
+    final visible = <({_Face face, double depth, _V3 normal})>[];
     for (final face in _cubeFaces) {
       final normal = _rotate(face.normal, rotation);
       if (normal.z <= 0.02) continue;
@@ -590,12 +581,7 @@ class _DiceBubblePainter extends CustomPainter {
       1 => const [Offset.zero],
       2 => const [Offset(-a, -a), Offset(a, a)],
       3 => const [Offset(-a, -a), Offset.zero, Offset(a, a)],
-      4 => const [
-        Offset(-a, -a),
-        Offset(a, -a),
-        Offset(-a, a),
-        Offset(a, a),
-      ],
+      4 => const [Offset(-a, -a), Offset(a, -a), Offset(-a, a), Offset(a, a)],
       5 => const [
         Offset(-a, -a),
         Offset(a, -a),
@@ -646,7 +632,14 @@ class _DiceBubblePainter extends CustomPainter {
         _paintPyramidMark(canvas, center, scale, rotation, face, black);
       case ArcadeDieKind.treehouse:
         const labels = ['AIM', 'DIG', 'SWAP', 'HOP', 'TIP', 'WILD'];
-        _paintFaceText(canvas, center, scale, rotation, face, labels[face.index]);
+        _paintFaceText(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          labels[face.index],
+        );
       case ArcadeDieKind.color:
         if (face.index < 5) {
           final colors = [
@@ -882,17 +875,7 @@ class _DiceBubblePainter extends CustomPainter {
       }
       canvas.drawPath(path, stroke);
     }
-    _projectedDisc(
-      canvas,
-      center,
-      scale,
-      rotation,
-      face,
-      0,
-      0,
-      0.10,
-      fill,
-    );
+    _projectedDisc(canvas, center, scale, rotation, face, 0, 0, 0.10, fill);
   }
 
   void _projectedTriangle(

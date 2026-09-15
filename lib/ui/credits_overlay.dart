@@ -145,11 +145,7 @@ class ArtDecoCreditsMarkPainter extends CustomPainter {
       fine,
     );
     canvas.drawRect(
-      Rect.fromCenter(
-        center: Offset(centerX, lanternY),
-        width: 31,
-        height: 14,
-      ),
+      Rect.fromCenter(center: Offset(centerX, lanternY), width: 31, height: 14),
       strong,
     );
     final roof = Path()
