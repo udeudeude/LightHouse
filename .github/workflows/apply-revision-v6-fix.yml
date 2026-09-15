@@ -23,7 +23,7 @@ jobs:
           p = Path('lib/ui/board_screen_next.dart')
           s = p.read_text()
           start_marker = '  RelativeRect _compactMenuPosition() {'
-          end_marker = '  Future<String?> _showCompactMenu'
+          end_marker = '  PopupMenuItem<String> _compactMenuItem'
           start = s.find(start_marker)
           end = s.find(end_marker, start)
           if start < 0 or end < 0:
