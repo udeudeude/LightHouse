@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../platform/calibration_transfer.dart';
+
 class CalibrationResult {
   const CalibrationResult({
     required this.logicalPixelsPerMm,
@@ -24,13 +26,22 @@ class DisplayCalibrationService {
     final prefs = SharedPreferencesAsync();
     final savedManual = await prefs.getDouble(_manualKey);
     if (savedManual != null && savedManual > 0) {
+      if (kIsWeb) writeTransferredCalibration(savedManual);
       return CalibrationResult(
         logicalPixelsPerMm: savedManual,
         source: 'Manual calibration',
       );
     }
 
-    if (kIsWeb) return null;
+    if (kIsWeb) {
+      final transferred = readTransferredCalibration();
+      if (transferred == null) return null;
+      await prefs.setDouble(_manualKey, transferred);
+      return CalibrationResult(
+        logicalPixelsPerMm: transferred,
+        source: 'Manual calibration',
+      );
+    }
 
     final devicePixelRatio = View.of(context).devicePixelRatio;
     if (defaultTargetPlatform == TargetPlatform.iOS) {
@@ -70,11 +81,13 @@ class DisplayCalibrationService {
   static Future<void> saveManual(double logicalPixelsPerMm) async {
     final prefs = SharedPreferencesAsync();
     await prefs.setDouble(_manualKey, logicalPixelsPerMm);
+    if (kIsWeb) writeTransferredCalibration(logicalPixelsPerMm);
   }
 
   static Future<void> clearManual() async {
     final prefs = SharedPreferencesAsync();
     await prefs.remove(_manualKey);
+    if (kIsWeb) clearTransferredCalibration();
   }
 
   static const Map<String, double> _iosPpi = {
