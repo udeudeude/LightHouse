@@ -143,7 +143,7 @@ enum BoardUnderlay {
       BoardUnderlay.lunarInvaders2 => _twoMoonPoints(center),
       BoardUnderlay.petalBattle => _petalPoints(center),
       BoardUnderlay.sandships => _sandshipsPoints(center),
-      BoardUnderlay.martianBackgammon => _rectGridPoints(center, 5, 4),
+      BoardUnderlay.martianBackgammon => _rectGridPoints(center, 5, 5),
       BoardUnderlay.worldWar5 => _worldWarPoints(center),
       _ => const <PhysicalPoint>[],
     };
