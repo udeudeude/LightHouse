@@ -32,7 +32,7 @@ enum BoardUnderlay {
   static const double wheelOuterRadiusMm = 127;
   static const double wheelPlayableRadiusMm = 112;
   static const double moonRadiusMm = 48;
-  static const double petalRadiusMm = 46;
+  static const double petalRadiusMm = 40;
 
   bool get isVisible => this != BoardUnderlay.none;
 
@@ -246,10 +246,10 @@ List<PhysicalPoint> _petalPoints(PhysicalPoint center) {
 
 List<PhysicalPoint> _sandshipsPoints(PhysicalPoint center) => [
   center,
-  PhysicalPoint(center.xMm, center.yMm - 48),
-  PhysicalPoint(center.xMm + 58, center.yMm),
-  PhysicalPoint(center.xMm, center.yMm + 48),
-  PhysicalPoint(center.xMm - 58, center.yMm),
+  PhysicalPoint(center.xMm - 58, center.yMm - 48),
+  PhysicalPoint(center.xMm + 58, center.yMm - 48),
+  PhysicalPoint(center.xMm + 58, center.yMm + 48),
+  PhysicalPoint(center.xMm - 58, center.yMm + 48),
 ];
 
 List<PhysicalPoint> _worldWarPoints(PhysicalPoint center) {

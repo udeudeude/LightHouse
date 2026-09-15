@@ -2206,19 +2206,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     ),
   );
 
-  RelativeRect _compactMenuPosition() {
-    final size = MediaQuery.sizeOf(context);
-    final padding = MediaQuery.viewPaddingOf(context);
-    final left = padding.left + 8;
-    final bottom = padding.bottom + 50;
-    return RelativeRect.fromLTRB(
-      left,
-      size.height - bottom,
-      math.max(0.0, size.width - left - 1),
-      bottom,
-    );
-  }
-
   PopupMenuItem<String> _compactMenuItem(
     String value,
     IconData icon,
@@ -2240,11 +2227,29 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   );
 
   Future<String?> _showCompactMenu(List<PopupMenuEntry<String>> items) =>
-      showMenu<String>(
+      showModalBottomSheet<String>(
         context: context,
-        position: _compactMenuPosition(),
-        color: const Color(0xFF202020),
-        items: items,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        isDismissible: true,
+        enableDrag: true,
+        useSafeArea: true,
+        builder: (sheetContext) => Align(
+          alignment: Alignment.bottomLeft,
+          heightFactor: 1,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 50),
+            child: Material(
+              color: const Color(0xFF202020),
+              elevation: 10,
+              borderRadius: BorderRadius.circular(8),
+              clipBehavior: Clip.antiAlias,
+              child: IntrinsicWidth(
+                child: Column(mainAxisSize: MainAxisSize.min, children: items),
+              ),
+            ),
+          ),
+        ),
       );
 
   Future<void> _showMainMenu() async {
@@ -2417,12 +2422,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       ),
       _compactMenuItem('grids', Icons.grid_4x4, 'Grids'),
       _compactMenuItem('chess', Icons.grid_view, 'Martian Chess'),
-      _compactMenuItem(
-        'checker',
-        Icons.grid_on,
-        'Checker shading',
-        checked: _checkerUnderlays,
-      ),
       const PopupMenuDivider(),
       _compactMenuItem(
         'snap',
@@ -2435,6 +2434,12 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         Icons.layers_clear_outlined,
         'None',
         checked: _controller.state.underlay == BoardUnderlay.none,
+      ),
+      _compactMenuItem(
+        'checker',
+        Icons.grid_on,
+        'Checker Shading',
+        checked: _checkerUnderlays,
       ),
     ]);
     if (!mounted || choice == null) return;
@@ -2578,7 +2583,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       _compactMenuItem(
         'round',
         Icons.change_history,
-        'Rounded Triangle Tips',
+        'Safety Tips',
         checked: _roundedTriangleTips,
       ),
       if (kIsWeb)
@@ -2644,10 +2649,13 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             ('Move', 'Two-finger scroll over a footprint'),
             ('Rotate', 'Shift + two-finger scroll'),
             ('Board snap', 'Boards > Snap pieces to board'),
-            ('Dice bubble', 'Hold/release to roll; latch selects up to 3 dice'),
+            (
+              'Dice bubble',
+              'Press/release to roll; two-finger drag moves; latch chooses dice',
+            ),
             (
               'Zendo stones',
-              'Use the tray; drag stones; double-click to remove',
+              'Tap or drag from tray; drag stones; double-click to remove',
             ),
             ('Toys', 'Toys chooses controls; hold an icon for its name'),
           ]
@@ -2659,9 +2667,12 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
-              'Hold/release to roll; 2 fingers move; latch selects dice',
+              'Tap or hold/release to roll; two-finger drag moves; latch chooses dice',
             ),
-            ('Zendo stones', 'Use the tray; drag stones; double-tap to remove'),
+            (
+              'Zendo stones',
+              'Tap or drag from tray; drag stones; double-tap to remove',
+            ),
             ('Toys', 'Toys chooses controls; hold an icon for its name'),
           ];
 

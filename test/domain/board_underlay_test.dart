@@ -66,7 +66,19 @@ void main() {
       boardWidthMm: 300,
       boardHeightMm: 300,
     );
-    expect(points.first.yMm, closeTo(104, 0.001));
+    expect(points.first.yMm, closeTo(110, 0.001));
+  });
+
+  test('Sandships uses a central city and four corner cities', () {
+    final points = BoardUnderlay.sandships.snapPoints(
+      boardWidthMm: 300,
+      boardHeightMm: 300,
+    );
+    expect(points.first, const PhysicalPoint(150, 150));
+    expect(points[1].xMm, lessThan(150));
+    expect(points[1].yMm, lessThan(150));
+    expect(points[3].xMm, greaterThan(150));
+    expect(points[3].yMm, greaterThan(150));
   });
 
   test('World War 5 is oriented sideways', () {

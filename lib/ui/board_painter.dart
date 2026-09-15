@@ -166,10 +166,11 @@ class BoardPainter extends CustomPainter {
           final point =
               centers[i] +
               Offset(math.cos(angle), math.sin(angle)) * node * 0.53;
-          if (p == 0)
+          if (p == 0) {
             oct.moveTo(point.dx, point.dy);
-          else
+          } else {
             oct.lineTo(point.dx, point.dy);
+          }
         }
         oct.close();
         canvas.drawPath(oct, _linePaint(0.62));
@@ -180,12 +181,26 @@ class BoardPainter extends CustomPainter {
           _linePaint(isLaunchpad ? 0.64 : 0.40),
         );
         if (isLaunchpad) {
+          const launchpadLabels = <int, String>{
+            0: 'LAUNCH PAD 23-A',
+            2: 'LAUNCH PAD 23-B',
+            8: 'LAUNCH PAD 23-C',
+            6: 'LAUNCH PAD 23-D',
+          };
           final arrow = Path()
-            ..moveTo(centers[i].dx, centers[i].dy - node * 0.18)
-            ..lineTo(centers[i].dx + node * 0.14, centers[i].dy + node * 0.10)
-            ..lineTo(centers[i].dx - node * 0.14, centers[i].dy + node * 0.10)
+            ..moveTo(centers[i].dx, centers[i].dy - node * 0.24)
+            ..lineTo(centers[i].dx + node * 0.11, centers[i].dy - node * 0.02)
+            ..lineTo(centers[i].dx - node * 0.11, centers[i].dy - node * 0.02)
             ..close();
           canvas.drawPath(arrow, _linePaint(0.52));
+          _paintTinyLabel(
+            canvas,
+            centers[i] + Offset(0, node * 0.19),
+            launchpadLabels[i]!,
+            fontSize: 5.5,
+          );
+        } else {
+          _paintTinyLabel(canvas, centers[i], 'STORAGE DEPOT', fontSize: 5.5);
         }
       }
     }
@@ -360,7 +375,12 @@ class BoardPainter extends CustomPainter {
         trio.map((p) => p.dx).reduce((a, b) => a + b) / 3,
         trio.map((p) => p.dy).reduce((a, b) => a + b) / 3,
       );
-      _paintTinyLabel(canvas, labelCenter, labels[continent]);
+      _paintTinyLabel(
+        canvas,
+        labelCenter,
+        labels[continent],
+        angleRadians: math.pi / 2,
+      );
     }
     const links = <(int, int)>[
       (1, 6),
@@ -392,18 +412,32 @@ class BoardPainter extends CustomPainter {
     final _ = centerMm;
   }
 
-  void _paintTinyLabel(Canvas canvas, Offset center, String text) {
+  void _paintTinyLabel(
+    Canvas canvas,
+    Offset center,
+    String text, {
+    double angleRadians = 0,
+    double fontSize = 7,
+  }) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
-        style: const TextStyle(color: Colors.white54, fontSize: 7),
+        style: TextStyle(color: Colors.white54, fontSize: fontSize),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    painter.paint(
-      canvas,
-      Offset(center.dx - painter.width / 2, center.dy - painter.height / 2),
-    );
+    if (angleRadians == 0) {
+      painter.paint(
+        canvas,
+        Offset(center.dx - painter.width / 2, center.dy - painter.height / 2),
+      );
+      return;
+    }
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(angleRadians);
+    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
+    canvas.restore();
   }
 
   void _paintArrowBetween(

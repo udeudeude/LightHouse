@@ -527,10 +527,10 @@ class ToyOverlayPainter extends CustomPainter {
     for (var i = 0; i < visible; i += 1) {
       final delta = (i - (visible - 1) / 2) * 6.2;
       final point = switch (gunIndex) {
-        0 => gunCenter + Offset(15, delta),
-        1 => gunCenter + Offset(-15, delta),
-        2 => gunCenter + Offset(delta, 15),
-        _ => gunCenter + Offset(delta, -15),
+        0 => gunCenter + Offset(18, 26 + delta),
+        1 => gunCenter + Offset(-18, 26 + delta),
+        2 => gunCenter + Offset(26 + delta, 18),
+        _ => gunCenter + Offset(26 + delta, -18),
       };
       canvas.drawCircle(point, 2.15, paint);
     }

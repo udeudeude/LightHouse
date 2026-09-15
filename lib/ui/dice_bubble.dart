@@ -67,16 +67,18 @@ class _SpinPlan {
 
 class _DiceBubbleState extends State<DiceBubble>
     with SingleTickerProviderStateMixin {
-  static const double _radius = 59;
+  static const double _radius = 70;
   final math.Random _random = math.Random();
   final List<String> _selectedIds = ['standard-1'];
   final Map<String, int> _faces = {'standard-1': 0};
   final Map<String, _SpinPlan> _plans = {};
   late final AnimationController _rollController;
 
-  Offset _center = const Offset(69, 69);
+  Offset _center = const Offset(80, 80);
   bool _pressed = false;
   bool _twoFingerMove = false;
+  bool _gestureMoved = false;
+  double _gestureTravel = 0;
 
   @override
   void initState() {
@@ -154,6 +156,62 @@ class _DiceBubbleState extends State<DiceBubble>
         .toDouble(),
   );
 
+  Widget _selectorImage(ArcadeDieChoice choice) {
+    Widget mark;
+    switch (choice.kind) {
+      case ArcadeDieKind.standard:
+        mark = const Stack(
+          children: [
+            Positioned(left: 11, top: 11, child: _SelectorPip()),
+            Positioned(right: 11, top: 11, child: _SelectorPip()),
+            Center(child: _SelectorPip()),
+            Positioned(left: 11, bottom: 11, child: _SelectorPip()),
+            Positioned(right: 11, bottom: 11, child: _SelectorPip()),
+          ],
+        );
+      case ArcadeDieKind.lightning:
+        mark = const Icon(Icons.bolt, color: Colors.black, size: 35);
+      case ArcadeDieKind.pyramid:
+        mark = const Icon(Icons.change_history, color: Colors.black, size: 35);
+      case ArcadeDieKind.treehouse:
+        mark = const Center(
+          child: Text(
+            'AIM',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        );
+      case ArcadeDieKind.color:
+        mark = Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 1,
+            runSpacing: -4,
+            children: const [
+              Text('♠', style: TextStyle(color: Colors.purple, fontSize: 17)),
+              Text('♥', style: TextStyle(color: Colors.red, fontSize: 17)),
+              Text('♦', style: TextStyle(color: Colors.cyan, fontSize: 17)),
+              Text('♣', style: TextStyle(color: Colors.green, fontSize: 17)),
+              Text('★', style: TextStyle(color: Colors.yellow, fontSize: 15)),
+            ],
+          ),
+        );
+    }
+    return Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black87),
+      ),
+      child: mark,
+    );
+  }
+
   Future<void> _showPicker() async {
     HapticFeedback.selectionClick();
     await showModalBottomSheet<void>(
@@ -164,44 +222,102 @@ class _DiceBubbleState extends State<DiceBubble>
         builder: (context, setSheetState) {
           final atLimit = _selectedIds.length >= 3;
           return SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 18),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-                  child: Text(
-                    'Dice · ${_selectedIds.length}/3 selected',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
+                    child: Text(
+                      'Dice · ${_selectedIds.length}/3 selected',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                for (final choice in arcadeDiceChoices)
-                  CheckboxListTile(
-                    value: _selectedIds.contains(choice.id),
-                    title: Text(choice.label),
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    onChanged: !_selectedIds.contains(choice.id) && atLimit
-                        ? null
-                        : (selected) {
-                            setState(() {
-                              if (selected == true) {
-                                _selectedIds.add(choice.id);
-                                _faces[choice.id] = _random.nextInt(6);
-                              } else {
-                                _selectedIds.remove(choice.id);
-                                _faces.remove(choice.id);
-                                _plans.remove(choice.id);
-                              }
-                            });
-                            setSheetState(() {});
-                          },
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 9,
+                          crossAxisSpacing: 9,
+                          childAspectRatio: 1,
+                        ),
+                    itemCount: arcadeDiceChoices.length,
+                    itemBuilder: (context, index) {
+                      final choice = arcadeDiceChoices[index];
+                      final selected = _selectedIds.contains(choice.id);
+                      final disabled = !selected && atLimit;
+                      return Tooltip(
+                        message: choice.label,
+                        child: Semantics(
+                          button: true,
+                          selected: selected,
+                          label: choice.label,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: disabled
+                                ? null
+                                : () {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedIds.remove(choice.id);
+                                        _faces.remove(choice.id);
+                                        _plans.remove(choice.id);
+                                      } else {
+                                        _selectedIds.add(choice.id);
+                                        _faces[choice.id] = _random.nextInt(6);
+                                      }
+                                    });
+                                    setSheetState(() {});
+                                  },
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 100),
+                              opacity: disabled ? 0.30 : 1,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? Colors.white.withValues(alpha: 0.12)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: selected
+                                        ? Colors.white
+                                        : Colors.white24,
+                                    width: selected ? 2 : 1,
+                                  ),
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    _selectorImage(choice),
+                                    if (selected)
+                                      const Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: Icon(
+                                          Icons.check_circle,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -226,12 +342,21 @@ class _DiceBubbleState extends State<DiceBubble>
               behavior: HitTestBehavior.opaque,
               onScaleStart: (details) {
                 _twoFingerMove = details.pointerCount >= 2;
+                _gestureMoved = false;
+                _gestureTravel = 0;
                 setState(() => _pressed = !_twoFingerMove);
                 if (_pressed) HapticFeedback.selectionClick();
               },
               onScaleUpdate: (details) {
-                if (details.pointerCount < 2) return;
+                _gestureTravel += details.focalPointDelta.distance;
+                if (_gestureTravel > 4) _gestureMoved = true;
+                if (details.pointerCount < 2) {
+                  if (_gestureMoved && _pressed)
+                    setState(() => _pressed = false);
+                  return;
+                }
                 _twoFingerMove = true;
+                if (details.focalPointDelta.distance > 0) _gestureMoved = true;
                 setState(() {
                   _pressed = false;
                   _center = _clampCenter(
@@ -241,10 +366,12 @@ class _DiceBubbleState extends State<DiceBubble>
                 });
               },
               onScaleEnd: (_) {
-                final roll = _pressed && !_twoFingerMove;
+                final roll = _pressed && !_twoFingerMove && !_gestureMoved;
                 setState(() => _pressed = false);
                 if (roll) _roll();
                 _twoFingerMove = false;
+                _gestureMoved = false;
+                _gestureTravel = 0;
               },
               child: Stack(
                 fit: StackFit.expand,
@@ -264,19 +391,14 @@ class _DiceBubbleState extends State<DiceBubble>
                       behavior: HitTestBehavior.opaque,
                       onTap: _showPicker,
                       child: Container(
-                        width: 25,
-                        height: 34,
+                        width: 12,
+                        height: 38,
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.72),
-                          border: Border.all(color: Colors.white54),
+                          color: Colors.white.withValues(alpha: 0.10),
+                          border: Border.all(color: Colors.white70, width: 1.2),
                           borderRadius: const BorderRadius.horizontal(
-                            left: Radius.circular(4),
+                            left: Radius.circular(2),
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.lock_open_outlined,
-                          size: 15,
-                          color: Colors.white70,
                         ),
                       ),
                     ),
@@ -288,6 +410,20 @@ class _DiceBubbleState extends State<DiceBubble>
         ],
       );
     },
+  );
+}
+
+class _SelectorPip extends StatelessWidget {
+  const _SelectorPip();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 7,
+    height: 7,
+    decoration: const BoxDecoration(
+      color: Colors.black,
+      shape: BoxShape.circle,
+    ),
   );
 }
 
@@ -426,36 +562,37 @@ class _DiceBubblePainter extends CustomPainter {
 
   List<Offset> _dieOffsets(int count) => switch (count) {
     1 => const [Offset.zero],
-    2 => const [Offset(-18, 0), Offset(18, 0)],
-    _ => const [Offset(-18, -10), Offset(18, -10), Offset(0, 19)],
+    2 => const [Offset(-24, 0), Offset(24, 0)],
+    _ => const [Offset(-27, -17), Offset(27, -17), Offset(0, 29)],
   };
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - 2;
+    final baseRadius = math.min(size.width, size.height) / 2 - 5;
+    final radius = baseRadius + (pressed ? 3.5 : 0);
     canvas.drawCircle(
       center,
       radius,
-      Paint()..color = Colors.white.withValues(alpha: 0.035),
+      Paint()..color = Colors.white.withValues(alpha: pressed ? 0.055 : 0.035),
     );
     canvas.drawCircle(
       center,
       radius,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.72)
+        ..color = Colors.white.withValues(alpha: pressed ? 0.82 : 0.72)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.35,
+        ..strokeWidth = pressed ? 1.55 : 1.35,
     );
     canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius - 5),
-      math.pi * 1.12,
-      math.pi * 0.64,
+      Rect.fromCircle(center: center, radius: radius - (pressed ? 8 : 5)),
+      math.pi * (pressed ? 1.07 : 1.12),
+      math.pi * (pressed ? 0.73 : 0.64),
       false,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.22)
+        ..color = Colors.white.withValues(alpha: pressed ? 0.30 : 0.22)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2,
+        ..strokeWidth = pressed ? 2.55 : 2.2,
     );
 
     final offsets = _dieOffsets(choices.length);
@@ -475,7 +612,7 @@ class _DiceBubblePainter extends CustomPainter {
           math.sin(plan.bounceAngle) * wobble,
         );
       }
-      _paintDie(canvas, dieCenter, 15.2 * squeeze, choice.kind, rotation);
+      _paintDie(canvas, dieCenter, 13.8 * squeeze, choice.kind, rotation);
     }
   }
 
@@ -641,28 +778,138 @@ class _DiceBubblePainter extends CustomPainter {
           labels[face.index],
         );
       case ArcadeDieKind.color:
-        if (face.index < 5) {
-          final colors = [
-            Colors.red,
-            Colors.yellow,
-            Colors.green,
-            Colors.cyan,
-            Colors.purple,
-          ];
-          _projectedDisc(
-            canvas,
-            center,
-            scale,
-            rotation,
-            face,
-            0,
-            0,
-            0.36,
-            Paint()..color = colors[face.index],
-          );
-        } else {
-          _paintAtom(canvas, center, scale, rotation, face, black);
+        _paintColorMark(canvas, center, scale, rotation, face, black);
+    }
+  }
+
+  void _projectedPolygon(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face,
+    List<Offset> points,
+    Paint paint,
+  ) {
+    final path = Path();
+    for (var i = 0; i < points.length; i += 1) {
+      final p = _facePoint(
+        center,
+        scale,
+        rotation,
+        face,
+        points[i].dx,
+        points[i].dy,
+      );
+      if (i == 0) {
+        path.moveTo(p.dx, p.dy);
+      } else {
+        path.lineTo(p.dx, p.dy);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _paintColorMark(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face,
+    Paint black,
+  ) {
+    switch (face.index) {
+      case 0: // purple spade
+        final purple = Paint()..color = Colors.purple;
+        _projectedPolygon(canvas, center, scale, rotation, face, const [
+          Offset(0, -0.58),
+          Offset(-0.50, 0.08),
+          Offset(-0.34, 0.36),
+          Offset(-0.10, 0.29),
+          Offset(-0.16, 0.58),
+          Offset(0.16, 0.58),
+          Offset(0.10, 0.29),
+          Offset(0.34, 0.36),
+          Offset(0.50, 0.08),
+        ], purple);
+      case 1: // red heart
+        _projectedPolygon(canvas, center, scale, rotation, face, const [
+          Offset(0, 0.58),
+          Offset(-0.47, 0.05),
+          Offset(-0.46, -0.25),
+          Offset(-0.25, -0.45),
+          Offset(0, -0.25),
+          Offset(0.25, -0.45),
+          Offset(0.46, -0.25),
+          Offset(0.47, 0.05),
+        ], Paint()..color = Colors.red);
+      case 2: // cyan diamond
+        _projectedPolygon(canvas, center, scale, rotation, face, const [
+          Offset(0, -0.58),
+          Offset(0.42, 0),
+          Offset(0, 0.58),
+          Offset(-0.42, 0),
+        ], Paint()..color = Colors.cyan);
+      case 3: // green club
+        final green = Paint()..color = Colors.green;
+        _projectedDisc(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          0,
+          -0.29,
+          0.25,
+          green,
+        );
+        _projectedDisc(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          -0.24,
+          0.02,
+          0.25,
+          green,
+        );
+        _projectedDisc(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          0.24,
+          0.02,
+          0.25,
+          green,
+        );
+        _projectedPolygon(canvas, center, scale, rotation, face, const [
+          Offset(-0.11, 0.08),
+          Offset(0.11, 0.08),
+          Offset(0.18, 0.58),
+          Offset(-0.18, 0.58),
+        ], green);
+      case 4: // yellow star
+        final star = <Offset>[];
+        for (var i = 0; i < 10; i += 1) {
+          final angle = -math.pi / 2 + i * math.pi / 5;
+          final radius = i.isEven ? 0.58 : 0.25;
+          star.add(Offset(math.cos(angle) * radius, math.sin(angle) * radius));
         }
+        _projectedPolygon(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          star,
+          Paint()..color = Colors.yellow,
+        );
+      case 5:
+        _paintAtom(canvas, center, scale, rotation, face, black);
     }
   }
 

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Refined Safety Tips, dice bubble, Zendo stones, menus, Launchpad 23, Sandships, Petal Battle, and World War 5 labels.
 
 - Refined flat-pyramid rendering, live constellation anchors, radar trails, side guns, and concise device instructions.
 - Rebuilt the dice toy as a movable Pop-O-Matic-style bubble with up to three selectable Pyramid Arcade dice and research-informed damped rolling.

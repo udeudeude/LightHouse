@@ -14,20 +14,29 @@ class _ZendoStone {
     required this.id,
     required this.kind,
     required this.center,
+    required this.expanded,
   });
 
   final int id;
   final _ZendoStoneKind kind;
   final Offset center;
+  final bool expanded;
 
-  _ZendoStone copyWith({Offset? center}) =>
-      _ZendoStone(id: id, kind: kind, center: center ?? this.center);
+  _ZendoStone copyWith({Offset? center, bool? expanded}) => _ZendoStone(
+    id: id,
+    kind: kind,
+    center: center ?? this.center,
+    expanded: expanded ?? this.expanded,
+  );
 }
 
 class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
-  static const double _radius = 10.5;
+  static const double _smallRadius = 10.5;
+  static const double _largeRadius = 21;
+  final GlobalKey _surfaceKey = GlobalKey();
   final List<_ZendoStone> _stones = [];
   int _nextId = 1;
+  int? _trayDragStoneId;
 
   Color _fill(_ZendoStoneKind kind) => switch (kind) {
     _ZendoStoneKind.white => Colors.white,
@@ -41,30 +50,82 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     _ZendoStoneKind.green => 'Green guessing stone',
   };
 
+  Offset _local(Offset global) {
+    final box = _surfaceKey.currentContext?.findRenderObject() as RenderBox?;
+    return box?.globalToLocal(global) ?? global;
+  }
+
+  Offset _clamp(Offset center, Size size) => Offset(
+    center.dx.clamp(_largeRadius, size.width - _largeRadius).toDouble(),
+    center.dy.clamp(_largeRadius, size.height - _largeRadius).toDouble(),
+  );
+
   void _add(_ZendoStoneKind kind, Size size) {
     final n = _nextId++;
-    final offset = Offset(((n % 5) - 2) * 8.0, ((n % 3) - 1) * 8.0);
+    final offset = Offset(((n % 5) - 2) * 12.0, ((n % 3) - 1) * 12.0);
     setState(() {
       _stones.add(
         _ZendoStone(
           id: n,
           kind: kind,
-          center: Offset(size.width / 2, size.height / 2) + offset,
+          center: _clamp(
+            Offset(size.width / 2, size.height / 2) + offset,
+            size,
+          ),
+          expanded: true,
         ),
       );
     });
   }
 
+  void _beginTrayDrag(
+    _ZendoStoneKind kind,
+    DragStartDetails details,
+    Size size,
+  ) {
+    final id = _nextId++;
+    _trayDragStoneId = id;
+    setState(() {
+      _stones.add(
+        _ZendoStone(
+          id: id,
+          kind: kind,
+          center: _clamp(_local(details.globalPosition), size),
+          expanded: false,
+        ),
+      );
+    });
+  }
+
+  void _updateTrayDrag(DragUpdateDetails details, Size size) {
+    final id = _trayDragStoneId;
+    if (id == null) return;
+    final index = _stones.indexWhere((stone) => stone.id == id);
+    if (index < 0) return;
+    setState(() {
+      _stones[index] = _stones[index].copyWith(
+        center: _clamp(_local(details.globalPosition), size),
+        expanded: true,
+      );
+    });
+  }
+
+  void _endTrayDrag() {
+    final id = _trayDragStoneId;
+    _trayDragStoneId = null;
+    if (id == null) return;
+    final index = _stones.indexWhere((stone) => stone.id == id);
+    if (index < 0) return;
+    setState(() => _stones[index] = _stones[index].copyWith(expanded: true));
+  }
+
   void _move(int id, Offset delta, Size size) {
     final index = _stones.indexWhere((stone) => stone.id == id);
     if (index < 0) return;
-    final next = _stones[index].center + delta;
     setState(() {
       _stones[index] = _stones[index].copyWith(
-        center: Offset(
-          next.dx.clamp(_radius, size.width - _radius).toDouble(),
-          next.dy.clamp(_radius, size.height - _radius).toDouble(),
-        ),
+        center: _clamp(_stones[index].center + delta, size),
+        expanded: true,
       );
     });
   }
@@ -81,6 +142,10 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _add(kind, size),
+        onPanStart: (details) => _beginTrayDrag(kind, details, size),
+        onPanUpdate: (details) => _updateTrayDrag(details, size),
+        onPanEnd: (_) => _endTrayDrag(),
+        onPanCancel: _endTrayDrag,
         child: Padding(
           padding: const EdgeInsets.all(5),
           child: Container(
@@ -109,6 +174,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     builder: (context, constraints) {
       final size = Size(constraints.maxWidth, constraints.maxHeight);
       return Stack(
+        key: _surfaceKey,
         children: [
           Positioned(
             top: 8,
@@ -131,10 +197,10 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
           ),
           for (final stone in _stones)
             Positioned(
-              left: stone.center.dx - _radius - 5,
-              top: stone.center.dy - _radius - 5,
-              width: (_radius + 5) * 2,
-              height: (_radius + 5) * 2,
+              left: stone.center.dx - _largeRadius - 5,
+              top: stone.center.dy - _largeRadius - 5,
+              width: (_largeRadius + 5) * 2,
+              height: (_largeRadius + 5) * 2,
               child: Tooltip(
                 message: '${_label(stone.kind)} · drag · double-tap to remove',
                 child: GestureDetector(
@@ -144,9 +210,12 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                   onDoubleTap: () => _remove(stone.id),
                   onLongPress: () => _remove(stone.id),
                   child: Center(
-                    child: Container(
-                      width: _radius * 2,
-                      height: _radius * 2,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      curve: Curves.easeOutBack,
+                      width: (stone.expanded ? _largeRadius : _smallRadius) * 2,
+                      height:
+                          (stone.expanded ? _largeRadius : _smallRadius) * 2,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: _fill(stone.kind),
@@ -158,7 +227,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                         boxShadow: const [
                           BoxShadow(
                             color: Colors.black54,
-                            blurRadius: 2,
+                            blurRadius: 3,
                             offset: Offset(0, 1),
                           ),
                         ],

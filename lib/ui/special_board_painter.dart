@@ -24,20 +24,35 @@ class SpecialBoardPainter {
       for (final point in cityCentersMm)
         Offset(point.xMm * logicalPixelsPerMm, point.yMm * logicalPixelsPerMm),
     ];
-    final cityRadius = 15.5 * logicalPixelsPerMm;
-    final canal = _linePaint(0.28);
+    final cityRadius = 15.0 * logicalPixelsPerMm;
     final boardRadius = math.min(size.width, size.height) * 0.47;
 
-    // Sandships uses five circular cities, eight wasteland zones, canals, and
-    // triangular ports. This keeps those gameplay landmarks clear without
-    // reproducing the printed board artwork.
+    // The published board has a central city, four corner cities and eight
+    // wasteland zones. Canals radiate between the zones; ports open from each
+    // city into the neighboring zones.
+    final canal = _linePaint(0.30);
     for (var i = 0; i < 8; i += 1) {
       final angle = math.pi / 8 + i * math.pi / 4;
-      final from =
-          center + Offset(math.cos(angle), math.sin(angle)) * cityRadius * 1.05;
-      final to =
-          center + Offset(math.cos(angle), math.sin(angle)) * boardRadius;
-      canvas.drawLine(from, to, canal);
+      final direction = Offset(math.cos(angle), math.sin(angle));
+      canvas.drawLine(
+        center + direction * cityRadius,
+        center + direction * boardRadius,
+        canal,
+      );
+    }
+
+    void paintPort(Offset cityCenter, double angle) {
+      final direction = Offset(math.cos(angle), math.sin(angle));
+      final normal = Offset(-direction.dy, direction.dx);
+      final tip = cityCenter + direction * cityRadius * 1.02;
+      final base = cityCenter + direction * cityRadius * 0.70;
+      final half = 3.2 * logicalPixelsPerMm;
+      final path = Path()
+        ..moveTo(tip.dx, tip.dy)
+        ..lineTo(base.dx + normal.dx * half, base.dy + normal.dy * half)
+        ..lineTo(base.dx - normal.dx * half, base.dy - normal.dy * half)
+        ..close();
+      canvas.drawPath(path, _linePaint(0.46));
     }
 
     for (var city = 0; city < cityCenters.length; city += 1) {
@@ -45,23 +60,20 @@ class SpecialBoardPainter {
       canvas.drawCircle(
         cityCenter,
         cityRadius,
-        _linePaint(city == 0 ? 0.62 : 0.48),
+        _linePaint(city == 0 ? 0.66 : 0.52),
       );
-      for (var port = 0; port < 3; port += 1) {
-        final angle = -math.pi / 2 + port * 2 * math.pi / 3 + city * 0.23;
-        final outer =
-            cityCenter + Offset(math.cos(angle), math.sin(angle)) * cityRadius;
-        final inward =
-            cityCenter +
-            Offset(math.cos(angle), math.sin(angle)) * cityRadius * 0.76;
-        final normal = Offset(-math.sin(angle), math.cos(angle));
-        final half = 3.0 * logicalPixelsPerMm;
-        final portPath = Path()
-          ..moveTo(outer.dx, outer.dy)
-          ..lineTo(inward.dx + normal.dx * half, inward.dy + normal.dy * half)
-          ..lineTo(inward.dx - normal.dx * half, inward.dy - normal.dy * half)
-          ..close();
-        canvas.drawPath(portPath, _linePaint(0.38));
+      if (city == 0) {
+        for (var port = 0; port < 8; port += 1) {
+          paintPort(cityCenter, port * math.pi / 4);
+        }
+      } else {
+        final inward = math.atan2(
+          center.dy - cityCenter.dy,
+          center.dx - cityCenter.dx,
+        );
+        for (final offset in const [-math.pi / 4, 0.0, math.pi / 4]) {
+          paintPort(cityCenter, inward + offset);
+        }
       }
     }
   }
