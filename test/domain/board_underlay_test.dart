@@ -53,7 +53,7 @@ void main() {
         boardWidthMm: 300,
         boardHeightMm: 300,
       ),
-      hasLength(20),
+      hasLength(25),
     );
     expect(
       BoardUnderlay.worldWar5.snapPoints(boardWidthMm: 300, boardHeightMm: 300),
