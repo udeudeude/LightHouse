@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Added **File → Restore Previous Autosave…** so the automatically retained recovery snapshot can be restored deliberately; restoration is undoable.
+- Made continuous toy timing use actual elapsed time, cached Red Sweep footprint bounds between board changes, and indexed immutable board-state lookups to reduce repeated work.
+- Removed the obsolete alternate board-screen implementation and normalized the active board screen/file naming.
 - Removed the iPhone/iPad web rotation-compensation workaround and its orientation polling/bridge code.
 - Reduced runtime overhead by debouncing and serializing board saves, coalescing touch transforms to display frames, pausing sensors and toy animation while backgrounded, throttling motion sampling, adding cheap collision broad-phase checks, tightening painter invalidation, and isolating continuous toy animation from the rest of the interface.
 - Refined Safety Tips, dice bubble, Zendo stones, menus, Launchpad 23, Sandships, Petal Battle, and World War 5 labels.
@@ -77,5 +80,3 @@ Major LightHouse 2 development milestone.
 Initial clean-sheet Flutter rewrite foundation.
 
 ## 0.1.0
-
-2025 React / Google AI Studio interaction prototype.
