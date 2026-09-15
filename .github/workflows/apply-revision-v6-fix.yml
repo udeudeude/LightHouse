@@ -1,0 +1,59 @@
+name: Apply revision v6 fixed
+
+on:
+  push:
+    branches: [lighthouse-2-rewrite]
+    paths: [.github/workflows/apply-revision-v6-fix.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lighthouse-2-rewrite
+      - name: Apply revision and remove obsolete menu helper
+        run: |
+          python tooling/apply_revision_v6.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('lib/ui/board_screen_next.dart')
+          s = p.read_text()
+          old = '''  RelativeRect _compactMenuPosition() {
+            final size = MediaQuery.sizeOf(context);
+            final padding = MediaQuery.viewPaddingOf(context);
+            final left = padding.left + 8;
+            final bottom = padding.bottom + 50;
+            return RelativeRect.fromLTRB(
+              left,
+              size.height - bottom,
+              max(0.0, size.width - left - 1),
+              bottom,
+            );
+          }
+
+          '''
+          # Source uses math.max; keep this tolerant of either form.
+          old = old.replace('max(0.0', 'math.max(0.0')
+          if s.count(old) != 1:
+              raise SystemExit(f'obsolete menu helper: expected 1 match, found {s.count(old)}')
+          p.write_text(s.replace(old, '', 1))
+          PY
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format lib test
+      - run: flutter analyze
+      - run: flutter test
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib test CHANGELOG.md
+          git commit -m "feat: refine dice stones menus and boards"
+          git push origin HEAD:lighthouse-2-rewrite
