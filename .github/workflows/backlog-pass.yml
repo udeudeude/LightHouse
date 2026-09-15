@@ -1,0 +1,488 @@
+name: Backlog improvement pass
+
+on:
+  push:
+    branches:
+      - lighthouse-2-rewrite
+    paths:
+      - .github/workflows/backlog-pass.yml
+
+permissions:
+  contents: write
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lighthouse-2-rewrite
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply backlog improvements
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, found {count}: {old[:80]!r}')
+              path.write_text(text.replace(old, new, 1))
+
+          # BoardState: immutable lookup indexes and cheaper document validation.
+          path = Path('lib/domain/board_state.dart')
+          replace_once(path,
+          """  }) : elements = List.unmodifiable(elements),
+                 structures = List.unmodifiable(structures);
+          """,
+          """  }) : elements = List.unmodifiable(elements),
+                 structures = List.unmodifiable(structures) {
+              _elementsById = Map.unmodifiable(_indexElements(this.elements));
+              _structureByElementId = Map.unmodifiable(
+                _indexStructures(this.structures),
+              );
+            }
+          """)
+          replace_once(path,
+          """  final BoardUnderlay underlay;
+
+            LightElement? elementById(String id) {
+              for (final element in elements) {
+                if (element.id == id) return element;
+              }
+              return null;
+            }
+
+            LightStructure? structureForElement(String id) {
+              for (final structure in structures) {
+                if (structure.memberIds.contains(id)) return structure;
+              }
+              return null;
+            }
+          """,
+          """  final BoardUnderlay underlay;
+
+            late final Map<String, LightElement> _elementsById;
+            late final Map<String, LightStructure> _structureByElementId;
+
+            static Map<String, LightElement> _indexElements(
+              Iterable<LightElement> elements,
+            ) {
+              final result = <String, LightElement>{};
+              for (final element in elements) {
+                result.putIfAbsent(element.id, () => element);
+              }
+              return result;
+            }
+
+            static Map<String, LightStructure> _indexStructures(
+              Iterable<LightStructure> structures,
+            ) {
+              final result = <String, LightStructure>{};
+              for (final structure in structures) {
+                for (final id in structure.memberIds) {
+                  result.putIfAbsent(id, () => structure);
+                }
+              }
+              return result;
+            }
+
+            LightElement? elementById(String id) => _elementsById[id];
+
+            LightStructure? structureForElement(String id) =>
+                _structureByElementId[id];
+          """)
+          replace_once(path,
+          """    final elements = rawElements
+                .map(
+                  (entry) =>
+                      LightElement.fromJson((entry as Map).cast<String, Object?>()),
+                )
+                .toList();
+
+            if (version == 1) {
+          """,
+          """    final elements = rawElements
+                .map(
+                  (entry) =>
+                      LightElement.fromJson((entry as Map).cast<String, Object?>()),
+                )
+                .toList();
+            final elementIds = {for (final element in elements) element.id};
+
+            if (version == 1) {
+          """)
+          replace_once(path,
+          """          .where(
+                        (structure) => structure.memberIds.every(
+                          (id) => elements.any((element) => element.id == id),
+                        ),
+                      )
+          """,
+          """          .where(
+                        (structure) => structure.memberIds.every(elementIds.contains),
+                      )
+          """)
+
+          # BoardStore: expose the already-maintained recovery snapshot.
+          path = Path('lib/application/board_store.dart')
+          replace_once(path,
+          """  Future<void> save(BoardState state) {
+          """,
+          """  Future<BoardState?> loadBackup() async {
+              try {
+                await _saveTail;
+              } on Object {
+                // A failed current save does not make an older backup unusable.
+              }
+              final raw = await SharedPreferencesAsync().getString(_backupKey);
+              return raw == null ? null : _decodeBoard(raw);
+            }
+
+            Future<void> save(BoardState state) {
+          """)
+
+          # BoardController: restoration is a semantic, undoable board change.
+          path = Path('lib/application/board_controller.dart')
+          replace_once(path,
+          """  void newBoard() => replaceState(BoardState.empty());
+          """,
+          """  void restoreState(BoardState state) {
+              _execute(ReplaceBoardStateCommand(before: _state, after: state));
+            }
+
+            void newBoard() => replaceState(BoardState.empty());
+          """)
+
+          # Active board screen: elapsed-time ticker, Red Sweep geometry cache,
+          # and user-facing autosave recovery.
+          path = Path('lib/ui/board_screen_next.dart')
+          replace_once(path,
+          """  Timer? _toyTicker;
+            final ValueNotifier<int> _toyRevision = ValueNotifier<int>(0);
+          """,
+          """  Timer? _toyTicker;
+            DateTime? _lastToyTickAt;
+            final ValueNotifier<int> _toyRevision = ValueNotifier<int>(0);
+          """)
+          replace_once(path,
+          """  final Map<String, List<PhysicalPoint>> _ghostTrails = {};
+            bool _ghostTrailActive = false;
+          """,
+          """  final Map<String, List<PhysicalPoint>> _ghostTrails = {};
+            final Map<String, ({double minY, double maxY})> _elementVerticalBounds = {};
+            bool _ghostTrailActive = false;
+          """)
+          replace_once(path,
+          """    _toyTicker?.cancel();
+              _toyTicker = null;
+              unawaited(_flushPendingSave());
+          """,
+          """    _toyTicker?.cancel();
+              _toyTicker = null;
+              _lastToyTickAt = null;
+              unawaited(_flushPendingSave());
+          """)
+          replace_once(path,
+          """  void _ensureToyTicker() {
+              _toyTicker ??= Timer.periodic(const Duration(milliseconds: 33), (_) {
+                _tickToys(0.033);
+              });
+            }
+          """,
+          """  void _ensureToyTicker() {
+              if (_toyTicker != null) return;
+              _lastToyTickAt = DateTime.now();
+              _toyTicker = Timer.periodic(const Duration(milliseconds: 33), (_) {
+                final now = DateTime.now();
+                final previous = _lastToyTickAt;
+                _lastToyTickAt = now;
+                final elapsedSeconds = previous == null
+                    ? 0.033
+                    : now.difference(previous).inMicroseconds / 1000000;
+                _tickToys(elapsedSeconds.clamp(0.0, 0.1).toDouble());
+              });
+            }
+          """)
+          replace_once(path,
+          """    _toyTicker?.cancel();
+              _toyTicker = null;
+            }
+
+            void _tickToys(double dt) {
+          """,
+          """    _toyTicker?.cancel();
+              _toyTicker = null;
+              _lastToyTickAt = null;
+            }
+
+            void _tickToys(double dt) {
+          """)
+          replace_once(path,
+          """  void _updateContinuousLighting() {
+          """,
+          """  ({double minY, double maxY}) _verticalBoundsFor(
+              LightElement element,
+            ) {
+              final cached = _elementVerticalBounds[element.id];
+              if (cached != null) return cached;
+              final polygon = polygonForElement(element, _controller.geometry);
+              var minY = double.infinity;
+              var maxY = double.negativeInfinity;
+              for (final point in polygon) {
+                minY = math.min(minY, point.yMm);
+                maxY = math.max(maxY, point.yMm);
+              }
+              final bounds = (minY: minY, maxY: maxY);
+              _elementVerticalBounds[element.id] = bounds;
+              return bounds;
+            }
+
+            void _updateContinuousLighting() {
+          """)
+          replace_once(path,
+          """      if (sweepOn) {
+                final polygon = polygonForElement(element, _controller.geometry);
+                final minY = polygon.map((p) => p.yMm).reduce(math.min);
+                final maxY = polygon.map((p) => p.yMm).reduce(math.max);
+                opacity = math.min(
+                  opacity,
+                  lineY >= minY && lineY <= maxY ? 1.0 : 0.035,
+                );
+              }
+          """,
+          """      if (sweepOn) {
+                final bounds = _verticalBoundsFor(element);
+                opacity = math.min(
+                  opacity,
+                  lineY >= bounds.minY && lineY <= bounds.maxY ? 1.0 : 0.035,
+                );
+              }
+          """)
+          replace_once(path,
+          """  void _refresh() {
+              if (!mounted) return;
+          """,
+          """  void _refresh() {
+              if (!mounted) return;
+              _elementVerticalBounds.clear();
+          """)
+          replace_once(path,
+          """  Future<void> _saveBoard({bool asCopy = false}) async {
+          """,
+          """  Future<void> _restoreAutosaveBackup(BoardState backup) async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Restore previous autosave?'),
+                  content: const Text(
+                    'Replace the current table with the previous autosaved snapshot? '
+                    'You can use Undo immediately afterward to return to the current table.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text('Restore'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed != true || !mounted) return;
+              _controller.restoreState(backup);
+              setState(() => _activeSavedId = null);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Previous autosave restored. Undo can reverse it.'),
+                ),
+              );
+            }
+
+            Future<void> _saveBoard({bool asCopy = false}) async {
+          """)
+          replace_once(path,
+          """  Future<void> _showFileMenu() async {
+              final choice = await _showCompactMenu([
+                _compactMenuItem('new', Icons.note_add_outlined, 'New'),
+                _compactMenuItem('open', Icons.folder_open, 'Open…'),
+                _compactMenuItem('save', Icons.save_outlined, 'Save'),
+          """,
+          """  Future<void> _showFileMenu() async {
+              final backup = await _store.loadBackup();
+              if (!mounted) return;
+              final choice = await _showCompactMenu([
+                _compactMenuItem('new', Icons.note_add_outlined, 'New'),
+                _compactMenuItem('open', Icons.folder_open, 'Open…'),
+                _compactMenuItem(
+                  'restore',
+                  Icons.history,
+                  'Restore Previous Autosave…',
+                  enabled: backup != null,
+                ),
+                _compactMenuItem('save', Icons.save_outlined, 'Save'),
+          """)
+          replace_once(path,
+          """      case 'open':
+                await _manageSavedBoards();
+              case 'save':
+          """,
+          """      case 'open':
+                await _manageSavedBoards();
+              case 'restore':
+                if (backup != null) await _restoreAutosaveBackup(backup);
+              case 'save':
+          """)
+
+          # Remove the obsolete screen and give the active implementation the normal name.
+          legacy = Path('lib/ui/board_screen.dart')
+          active = Path('lib/ui/board_screen_next.dart')
+          legacy.unlink()
+          active.rename(legacy)
+          main = Path('lib/main.dart')
+          replace_once(main, "import 'ui/board_screen_next.dart';", "import 'ui/board_screen.dart';")
+
+          # Regression tests for recovery semantics and lookup behavior.
+          path = Path('test/application/board_controller_test.dart')
+          text = path.read_text()
+          marker = '\n}\n'
+          index = text.rfind(marker)
+          if index < 0:
+              raise SystemExit('board_controller_test.dart: final brace not found')
+          addition = r'''
+
+            test('restoring a snapshot is undoable', () {
+              final controller = BoardController();
+              controller.createAt(const PhysicalPoint(25, 40));
+              final before = controller.state;
+              final backup = BoardState(title: 'Recovered snapshot');
+
+              controller.restoreState(backup);
+              expect(controller.state.title, 'Recovered snapshot');
+              expect(controller.state.elements, isEmpty);
+
+              controller.undo();
+              expect(controller.state.title, before.title);
+              expect(controller.state.elements, before.elements);
+            });
+          '''
+          path.write_text(text[:index] + addition + text[index:])
+
+          path = Path('test/domain/board_state_test.dart')
+          text = path.read_text()
+          index = text.rfind(marker)
+          if index < 0:
+              raise SystemExit('board_state_test.dart: final brace not found')
+          addition = r'''
+
+            test('element and structure lookups return indexed membership', () {
+              const a = LightElement(
+                id: 'a',
+                size: PyramidSize.large,
+                pose: PyramidPose.upright,
+                position: PhysicalPoint.zero,
+                headingDegrees: 0,
+                illumination: IlluminationPattern.full,
+              );
+              const b = LightElement(
+                id: 'b',
+                size: PyramidSize.small,
+                pose: PyramidPose.upright,
+                position: PhysicalPoint.zero,
+                headingDegrees: 0,
+                illumination: IlluminationPattern.wall,
+              );
+              const structure = LightStructure(
+                id: 's',
+                kind: StructureKind.nest,
+                memberIds: ['a', 'b'],
+              );
+              final state = BoardState(
+                elements: const [a, b],
+                structures: const [structure],
+              );
+
+              expect(state.elementById('b'), b);
+              expect(state.elementById('missing'), isNull);
+              expect(state.structureForElement('a'), structure);
+              expect(state.structureForElement('missing'), isNull);
+            });
+          '''
+          path.write_text(text[:index] + addition + text[index:])
+
+          # Bring documentation in line with the code that is actually shipping.
+          path = Path('README.md')
+          text = path.read_text()
+          text = text.replace(
+              '- local autosave with recovery backup, named saved boards, and JSON clipboard import/export',
+              '- debounced local autosave with a user-restorable previous snapshot, named saved boards, and JSON file import/export',
+          )
+          text = text.replace(
+              '- lower-left hierarchical Board > File / Underlays menu with Mac-like File ordering',
+              '- lower-left hierarchical menu for File, Edit, Boards, Toys, Display, and Instructions',
+          )
+          old_orientation = '''- native mobile orientation lock; iPhone/iPad web freezes the opening board frame and compensates for Safari viewport rotation so the physical play surface stays fixed to the glass
+          - web orientation compensation is rendering-only; saved millimeter coordinates and calibration do not change when the device turns
+          '''
+          new_orientation = '''- native mobile orientation lock; web uses ordinary browser viewport/orientation behavior without a counter-rotation workaround
+          '''
+          if old_orientation not in text:
+              raise SystemExit('README.md: old orientation text not found')
+          text = text.replace(old_orientation, new_orientation, 1)
+          text = text.replace(
+              '- Board > File: New, Open, Save, Save a Copy, Rename, JSON import/export\n- Board > Underlays: choose an underlay and optionally enable position snapping\n- Edit > Rotation: rotate in 15-degree steps, choose an exact orientation, or enable persistent rotation snapping',
+              '- File: New, Open, Restore Previous Autosave, Save, Save a Copy, Rename, JSON import/export\n- Boards: choose an underlay, checker shading, and optional position snapping\n- Edit: undo/redo, 15-degree rotation steps, exact orientation, and persistent rotation snapping',
+          )
+          path.write_text(text)
+
+          path = Path('docs/architecture.md')
+          text = path.read_text()
+          text = text.replace(
+              'Desktop testing adds mouse drag to translate and Shift-drag to rotate.',
+              'Desktop testing mirrors the board with mouse selection plus trackpad two-finger movement; holding Shift while scrolling rotates the selected footprint.',
+          )
+          text = text.replace(
+              '- scribble returning near its origin: switch full/wall illumination',
+              '- loose encirclement around an upright footprint: switch full/wall illumination',
+          )
+          text = text.replace(
+              'The board uses one custom painter. Rendering derives squares and triangles from domain pose and geometry. Rendered geometry is never stored in board state.',
+              'The board uses a base custom painter for underlays and light footprints plus a separate overlay painter for animated toy effects. Rendering derives squares and triangles from domain pose and geometry. Rendered geometry is never stored in board state.',
+          )
+          text = text.replace(
+              'Board document format version 2 contains title, elements, and structures. Version 1 documents migrate on read.',
+              'Board document format version 3 contains title, underlay, elements, and structures. Versions 1 and 2 migrate on read.',
+          )
+          text = text.replace(
+              'The current board autosaves after semantic changes. Before overwriting the current snapshot, the previous snapshot is retained as a recovery backup. Named boards are stored separately. Public interchange is indented JSON and deliberately contains no Flutter implementation details.',
+              'The current board autosaves shortly after changes settle, with writes serialized so rapid interactions cannot race persistence. Before overwriting the current snapshot, the previous snapshot is retained as a recovery backup and can be restored explicitly from the File menu. Named boards are stored separately. Public interchange is indented JSON and deliberately contains no Flutter implementation details.',
+          )
+          path.write_text(text)
+          PY
+
+      - name: Get packages
+        run: flutter pub get
+      - name: Format
+        run: dart format lib test
+      - name: Analyze
+        run: flutter analyze
+      - name: Test
+        run: flutter test
+      - name: Release web build
+        run: flutter build web --release --base-href /LightHouse-StashBoard/
+      - name: Commit validated changes
+        shell: bash
+        run: |
+          rm .github/workflows/backlog-pass.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: recover autosaves and tighten board runtime"
+          git push origin HEAD:lighthouse-2-rewrite
