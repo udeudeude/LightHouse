@@ -1,13 +1,12 @@
 {{flutter_js}}
 {{flutter_build_config}}
 
-const lighthouseBuildVersion = '{{flutter_service_worker_version}}';
+const lighthouseBuildVersion = '2';
 
 for (const build of (_flutter.buildConfig?.builds ?? [])) {
   if (build.mainJsPath) {
     const separator = build.mainJsPath.includes('?') ? '&' : '?';
-    build.mainJsPath =
-      `${build.mainJsPath}${separator}v=${encodeURIComponent(lighthouseBuildVersion)}`;
+    build.mainJsPath = `${build.mainJsPath}${separator}v=${lighthouseBuildVersion}`;
   }
 }
 
