@@ -23,6 +23,8 @@ enum BoardUnderlay {
   lunarInvaders1,
   lunarInvaders2,
   petalBattle,
+  sandships,
+  martianBackgammon,
   worldWar5;
 
   static const double cellMm = 27;
@@ -30,7 +32,7 @@ enum BoardUnderlay {
   static const double wheelOuterRadiusMm = 127;
   static const double wheelPlayableRadiusMm = 112;
   static const double moonRadiusMm = 48;
-  static const double petalRadiusMm = 54;
+  static const double petalRadiusMm = 46;
 
   bool get isVisible => this != BoardUnderlay.none;
 
@@ -118,6 +120,8 @@ enum BoardUnderlay {
     BoardUnderlay.lunarInvaders1 => 'Lunar Invaders · one moon',
     BoardUnderlay.lunarInvaders2 => 'Lunar Invaders · two moons',
     BoardUnderlay.petalBattle => 'Petal Battle',
+    BoardUnderlay.sandships => 'Sandships',
+    BoardUnderlay.martianBackgammon => 'Martian Backgammon',
     BoardUnderlay.worldWar5 => 'World War 5',
   };
 
@@ -138,6 +142,8 @@ enum BoardUnderlay {
       BoardUnderlay.lunarInvaders1 => _moonPoints(center),
       BoardUnderlay.lunarInvaders2 => _twoMoonPoints(center),
       BoardUnderlay.petalBattle => _petalPoints(center),
+      BoardUnderlay.sandships => _sandshipsPoints(center),
+      BoardUnderlay.martianBackgammon => _rectGridPoints(center, 5, 4),
       BoardUnderlay.worldWar5 => _worldWarPoints(center),
       _ => const <PhysicalPoint>[],
     };
@@ -238,11 +244,19 @@ List<PhysicalPoint> _petalPoints(PhysicalPoint center) {
   ];
 }
 
+List<PhysicalPoint> _sandshipsPoints(PhysicalPoint center) => [
+  center,
+  PhysicalPoint(center.xMm, center.yMm - 48),
+  PhysicalPoint(center.xMm + 58, center.yMm),
+  PhysicalPoint(center.xMm, center.yMm + 48),
+  PhysicalPoint(center.xMm - 58, center.yMm),
+];
+
 List<PhysicalPoint> _worldWarPoints(PhysicalPoint center) {
   const horizontal = 52.0;
   const vertical = 38.0;
   const spread = 12.0;
-  final continentCenters = <PhysicalPoint>[
+  final portraitCenters = <PhysicalPoint>[
     PhysicalPoint(center.xMm - horizontal, center.yMm - vertical),
     PhysicalPoint(center.xMm - horizontal * 0.72, center.yMm + vertical),
     PhysicalPoint(center.xMm - 8, center.yMm - vertical * 1.12),
@@ -250,14 +264,21 @@ List<PhysicalPoint> _worldWarPoints(PhysicalPoint center) {
     PhysicalPoint(center.xMm + horizontal * 0.70, center.yMm - vertical * 0.86),
     PhysicalPoint(center.xMm + horizontal, center.yMm + vertical * 1.06),
   ];
+  final continentCenters = [
+    for (final point in portraitCenters)
+      PhysicalPoint(
+        center.xMm - (point.yMm - center.yMm),
+        center.yMm + (point.xMm - center.xMm),
+      ),
+  ];
   return [
     for (var c = 0; c < continentCenters.length; c += 1)
       for (var i = 0; i < 3; i += 1)
         PhysicalPoint(
           continentCenters[c].xMm +
-              spread * math.cos((i + c * 0.2) * 2 * math.pi / 3),
+              spread * math.cos(math.pi / 2 + (i + c * 0.2) * 2 * math.pi / 3),
           continentCenters[c].yMm +
-              spread * math.sin((i + c * 0.2) * 2 * math.pi / 3),
+              spread * math.sin(math.pi / 2 + (i + c * 0.2) * 2 * math.pi / 3),
         ),
   ];
 }

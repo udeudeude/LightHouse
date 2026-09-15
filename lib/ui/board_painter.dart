@@ -6,6 +6,7 @@ import '../domain/board_state.dart';
 import '../domain/board_underlay.dart';
 import '../domain/light_element.dart';
 import '../domain/physical_point.dart';
+import 'special_board_painter.dart';
 import '../domain/pyramid_geometry.dart';
 
 class BoardPainter extends CustomPainter {
@@ -81,6 +82,13 @@ class BoardPainter extends CustomPainter {
         return;
       case BoardUnderlay.petalBattle:
         _paintPetalBattle(canvas, size);
+        return;
+      case BoardUnderlay.sandships:
+        SpecialBoardPainter(logicalPixelsPerMm).paintSandships(canvas, size);
+        return;
+      case BoardUnderlay.martianBackgammon:
+        SpecialBoardPainter(logicalPixelsPerMm)
+            .paintMartianBackgammon(canvas, size);
         return;
       case BoardUnderlay.worldWar5:
         _paintWorldWar5(canvas, size);
@@ -306,8 +314,8 @@ class BoardPainter extends CustomPainter {
   void _paintPetalBattle(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final orbit = BoardUnderlay.petalRadiusMm * logicalPixelsPerMm;
-    final petalLength = orbit * 0.58;
-    final petalWidth = orbit * 0.31;
+    final petalLength = 31.3 * logicalPixelsPerMm;
+    final petalWidth = 16.7 * logicalPixelsPerMm;
     for (var i = 0; i < 10; i += 1) {
       final angle = -math.pi / 2 + i * math.pi / 5;
       final petalCenter =
@@ -323,7 +331,7 @@ class BoardPainter extends CustomPainter {
       canvas.drawOval(rect, _linePaint(0.46));
       canvas.restore();
     }
-    canvas.drawCircle(center, orbit * 0.25, _linePaint(0.24));
+    canvas.drawCircle(center, 13.5 * logicalPixelsPerMm, _linePaint(0.24));
   }
 
   void _paintWorldWar5(Canvas canvas, Size size) {
@@ -721,7 +729,7 @@ class BoardPainter extends CustomPainter {
         Offset(-base / 2, flatLength / 2),
       ];
       final triangle = roundTriangleTips
-          ? _apexRoundedTriangle(points, math.min(base, flatLength) * 0.12)
+          ? _apexRoundedTriangle(points, math.min(base, flatLength) * 0.18)
           : (Path()
               ..moveTo(points[0].dx, points[0].dy)
               ..lineTo(points[1].dx, points[1].dy)

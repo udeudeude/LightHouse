@@ -26,7 +26,10 @@ import '../domain/physical_point.dart';
 import '../platform/motion_permission.dart';
 import '../platform/web_orientation.dart';
 import 'board_painter.dart';
+import 'credits_overlay.dart';
+import 'dice_bubble.dart';
 import 'toy_overlay.dart';
+import 'zendo_stones.dart';
 
 enum _ToyKind {
   lightLottery('Light Lottery', Icons.auto_awesome, true),
@@ -38,14 +41,15 @@ enum _ToyKind {
   nestCycle('Nest Cycle', Icons.layers, false),
   radar('Radar', Icons.track_changes, false),
   redSweep('Red Sweep', Icons.swap_vert, false),
-  wireDie('D6', Icons.casino, false),
+  wireDie('Dice Bubble', Icons.casino, false),
   sideGuns('Side Guns', Icons.gps_fixed, false),
   cornerRicochet('Corner Ricochet', Icons.radio_button_checked, false),
   hotPotato('Hot Potato', Icons.local_fire_department, false),
   constellationDraw('Constellation Draw', Icons.share, false),
   heartbeat('Heartbeat', Icons.favorite_border, false),
   triangleBounce('Triangle Bounce', Icons.change_history, false),
-  squareChase('Square Chase', Icons.crop_square, false);
+  squareChase('Square Chase', Icons.crop_square, false),
+  zendoStones('Zendo Stones', Icons.circle_outlined, false);
 
   const _ToyKind(this.label, this.icon, this.defaultVisible);
 
@@ -147,16 +151,11 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   double _turnTimerActiveDurationSeconds = 30;
   double _timerLongPressStartDuration = 30;
   bool _timerNeedleVisible = false;
-  int _dieValue = 1;
-  double _dieRollPhase = 0;
-  double _dieRollProgress = 1;
-  DateTime? _dieRollEndsAt;
-  bool _diePressed = false;
   List<ToyProjectile> _projectiles = const [];
   List<ToyImpact> _impacts = const [];
   final List<double> _sideGunAnglesDegrees = [0, 180, 90, 270];
   final List<int> _sideGunAmmo = [0, 0, 0, 0];
-  List<PhysicalPoint> _constellation = const [];
+  List<String> _constellationElementIds = const [];
   String? _heartbeatOddId;
   double _heartbeatStartedAt = 0;
   final Map<String, List<PhysicalPoint>> _ghostTrails = {};
@@ -175,6 +174,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   double? _faceUpZSign;
   double? _faceUpCandidateSign;
   int _faceUpStableSamples = 0;
+  double? _lastDominantZSign;
 
   @override
   void initState() {
@@ -355,6 +355,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     }
 
     final sign = z.sign;
+    _lastDominantZSign = sign;
     if (_faceUpZSign == null) {
       if (_faceUpCandidateSign == sign) {
         _faceUpStableSamples += 1;
@@ -501,10 +502,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         _turnTimerProgress = null;
         _timerNeedleVisible = false;
       case _ToyKind.wireDie:
-        _dieRollEndsAt = null;
-        _dieRollPhase = 0;
-        _dieRollProgress = 1;
-        _diePressed = false;
+      case _ToyKind.zendoStones:
       case _ToyKind.sideGuns:
         _projectiles = _projectiles.where((p) => p.ricochet).toList();
         for (var i = 0; i < _sideGunAmmo.length; i += 1) {
@@ -513,7 +511,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       case _ToyKind.cornerRicochet:
         _projectiles = _projectiles.where((p) => !p.ricochet).toList();
       case _ToyKind.constellationDraw:
-        _constellation = const [];
+        _constellationElementIds = const [];
       case _ToyKind.breathing:
       case _ToyKind.nestCycle:
       case _ToyKind.radar:
@@ -557,6 +555,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         _runHotPotato();
       case _ToyKind.constellationDraw:
         _toggleConstellation();
+      case _ToyKind.zendoStones:
+        _toggleOverlayToy(toy);
     }
   }
 
@@ -571,7 +571,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       _ToyKind.wireDie => _activeToys.contains(_ToyKind.wireDie),
       _ToyKind.sideGuns => _activeToys.contains(_ToyKind.sideGuns),
       _ToyKind.cornerRicochet => _projectiles.any((p) => p.ricochet),
-      _ToyKind.constellationDraw => _constellation.isNotEmpty,
+      _ToyKind.constellationDraw => _constellationElementIds.isNotEmpty,
+      _ToyKind.zendoStones => _activeToys.contains(_ToyKind.zendoStones),
       _ToyKind.breathing ||
       _ToyKind.nestCycle ||
       _ToyKind.radar ||
@@ -691,45 +692,18 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     unawaited(_saveTurnTimerDuration());
   }
 
-  void _toggleDie() {
+  void _toggleOverlayToy(_ToyKind toy) {
     setState(() {
-      if (!_activeToys.add(_ToyKind.wireDie)) {
-        _activeToys.remove(_ToyKind.wireDie);
-        _diePressed = false;
-        _dieRollEndsAt = null;
-        _dieRollProgress = 1;
-      }
+      if (!_activeToys.add(toy)) _activeToys.remove(toy);
     });
-    _maybeStopToyTicker();
   }
 
-  void _rollWireDie() {
-    if (!_activeToys.contains(_ToyKind.wireDie)) return;
-    _dieRollEndsAt = DateTime.now().add(const Duration(milliseconds: 1300));
-    _dieValue = 1 + _random.nextInt(6);
-    _dieRollPhase = 0;
-    _dieRollProgress = 0;
-    _ensureToyTicker();
-    setState(() {});
-  }
-
-  void _pressDie() {
-    if (!_activeToys.contains(_ToyKind.wireDie)) return;
-    HapticFeedback.selectionClick();
-    setState(() => _diePressed = true);
-  }
-
-  void _releaseDie() {
-    if (!_diePressed) return;
-    setState(() => _diePressed = false);
-    HapticFeedback.mediumImpact();
-    _rollWireDie();
-  }
+  void _toggleDie() => _toggleOverlayToy(_ToyKind.wireDie);
 
   void _loadSideGuns() {
     _activeToys.add(_ToyKind.sideGuns);
     for (var i = 0; i < _sideGunAmmo.length; i += 1) {
-      _sideGunAmmo[i] += 5;
+      _sideGunAmmo[i] = 5;
     }
     HapticFeedback.selectionClick();
     setState(() {});
@@ -750,7 +724,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     }
     final table = _physicalBoardSize();
     const speed = 85.0;
-    final inset = 8 / widget.logicalPixelsPerMm;
+    final inset = 14 / widget.logicalPixelsPerMm;
     final centerX = table.width / 2;
     final centerY = table.height / 2;
     final position = switch (index) {
@@ -776,10 +750,10 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   void _aimGunFromLocal(int gunIndex, Offset localPosition) {
     const box = 48.0;
     final center = switch (gunIndex) {
-      0 => const Offset(8, box / 2),
-      1 => const Offset(box - 8, box / 2),
-      2 => const Offset(box / 2, 8),
-      _ => const Offset(box / 2, box - 8),
+      0 => const Offset(14, box / 2),
+      1 => const Offset(box - 14, box / 2),
+      2 => const Offset(box / 2, 14),
+      _ => const Offset(box / 2, box - 14),
     };
     final base = <double>[0, 180, 90, 270][gunIndex];
     final raw = normalizeDegrees(
@@ -839,7 +813,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       _activeToys.any(_continuousLightToys.contains) ||
       _eventZoneCenter != null ||
       _turnTimerProgress != null ||
-      _dieRollEndsAt != null ||
       _projectiles.isNotEmpty ||
       _impacts.isNotEmpty;
 
@@ -884,19 +857,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
             (remaining / (_turnTimerActiveDurationSeconds * 1000))
                 .clamp(0, 1)
                 .toDouble();
-      }
-    }
-
-    final dieEnds = _dieRollEndsAt;
-    if (dieEnds != null) {
-      final remaining = dieEnds.difference(now).inMilliseconds;
-      if (remaining <= 0) {
-        _dieRollEndsAt = null;
-        _dieRollPhase = 0;
-        _dieRollProgress = 1;
-      } else {
-        _dieRollProgress = (1 - remaining / 1300).clamp(0, 1).toDouble();
-        _dieRollPhase += dt * 13;
       }
     }
 
@@ -1234,17 +1194,23 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   }
 
   void _toggleConstellation() {
-    if (_constellation.isNotEmpty) {
-      setState(() => _constellation = const []);
+    if (_constellationElementIds.isNotEmpty) {
+      setState(() => _constellationElementIds = const []);
       return;
     }
     final elements = [..._controller.state.elements]..shuffle(_random);
     if (elements.length < 2) return;
     final count = math.min(elements.length, 2 + _random.nextInt(4));
     setState(() {
-      _constellation = [for (final e in elements.take(count)) e.position];
+      _constellationElementIds = [for (final e in elements.take(count)) e.id];
     });
   }
+
+  List<PhysicalPoint> get _constellationPoints => [
+    for (final id in _constellationElementIds)
+      if (_controller.state.elementById(id) case final element?)
+        element.position,
+  ];
 
   PhysicalPoint? _nearestUnderlaySnapPoint() {
     if (!_gridSnapEnabled || !_transformTranslated) return null;
@@ -1256,11 +1222,20 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     final padding = _webBoardViewPadding ?? MediaQuery.viewPaddingOf(context);
     final widthPx = mediaSize.width - padding.horizontal;
     final heightPx = mediaSize.height - padding.vertical;
-    return _controller.state.underlay.nearestSnapPoint(
+    final snap = _controller.state.underlay.nearestSnapPoint(
       target.position,
       boardWidthMm: widthPx / widget.logicalPixelsPerMm,
       boardHeightMm: heightPx / widget.logicalPixelsPerMm,
     );
+    if (snap == null ||
+        _controller.state.underlay != BoardUnderlay.wheel ||
+        target.pose != PyramidPose.flat)
+      return snap;
+    final centroidOffset = rotateVector(
+      PhysicalPoint(0, _controller.geometry.flatLengthMm(target.size) / 6),
+      target.headingDegrees,
+    );
+    return snap - centroidOffset;
   }
 
   void _endTransformWithSnaps({bool includeGrid = true}) {
@@ -1425,11 +1400,15 @@ class _BoardScreenNextState extends State<BoardScreenNext>
         }
       }
     }
+    final liveIds = _controller.state.elements.map((e) => e.id).toSet();
+    _constellationElementIds = [
+      for (final id in _constellationElementIds)
+        if (liveIds.contains(id)) id,
+    ];
     setState(() {
       if (_selectedId != null &&
-          _controller.state.elementById(_selectedId!) == null) {
+          _controller.state.elementById(_selectedId!) == null)
         _selectedId = null;
-      }
     });
     _store.save(_controller.state);
   }
@@ -2660,45 +2639,30 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     final instructions = isDesktop
         ? <(String, String)>[
             ('Create / resize / delete', 'Double-click'),
-            ('Select', 'Click'),
-            ('Tip / stand', 'Click-drag across the actual footprint edge'),
-            ('Light full / walls', 'Draw a loop around an upright footprint'),
+            ('Tip / stand', 'Drag through the footprint edge'),
+            ('Full / wall light', 'Draw a loop around an upright footprint'),
             ('Move', 'Two-finger scroll over a footprint'),
-            ('Rotate', 'Hold Shift while two-finger scrolling'),
-            ('Exact rotation', 'Menu > Edit > Rotation'),
-            ('Grid snap', 'Menu > Boards > Snap pieces to board'),
+            ('Rotate', 'Shift + two-finger scroll'),
+            ('Board snap', 'Boards > Snap pieces to board'),
+            ('Dice bubble', 'Hold/release to roll; latch selects up to 3 dice'),
             (
-              'Light lottery',
-              'Enable in Menu > Toys, then tap the matching starburst button',
+              'Zendo stones',
+              'Use the tray; drag stones; double-click to remove',
             ),
-            (
-              'Entropy',
-              'Enable in Menu > Toys, then tap the matching hourglass control',
-            ),
-            ('Toy names', 'Press and hold a toy icon to pop up its name'),
-            ('More toys', 'Menu > Toys controls which toy icons appear'),
+            ('Toys', 'Toys chooses controls; hold an icon for its name'),
           ]
         : <(String, String)>[
             ('Create / resize / delete', 'Double-tap'),
-            ('Select', 'Tap'),
+            ('Tip / stand', 'Drag through the footprint edge'),
+            ('Full / wall light', 'Draw a loop around an upright footprint'),
+            ('Move + rotate', 'Two-finger drag and twist'),
+            ('Board snap', 'Boards > Snap pieces to board'),
             (
-              'Tip / stand',
-              'Drag from inside across the actual footprint edge',
+              'Dice bubble',
+              'Hold/release to roll; 2 fingers move; latch selects dice',
             ),
-            ('Light full / walls', 'Draw a loop around an upright footprint'),
-            ('Move + rotate', 'Two fingers: drag and twist'),
-            ('Exact rotation', 'Menu > Edit > Rotation'),
-            ('Grid snap', 'Menu > Boards > Snap pieces to board'),
-            (
-              'Light lottery',
-              'Enable in Menu > Toys, then tap the matching starburst button',
-            ),
-            (
-              'Entropy',
-              'Enable in Menu > Toys, then tap the matching hourglass control',
-            ),
-            ('Toy names', 'Press and hold a toy icon to pop up its name'),
-            ('More toys', 'Menu > Toys controls which toy icons appear'),
+            ('Zendo stones', 'Use the tray; drag stones; double-tap to remove'),
+            ('Toys', 'Toys chooses controls; hold an icon for its name'),
           ];
 
     return SafeArea(
@@ -2921,59 +2885,29 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  Widget _credits() => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTap: null,
-    child: ColoredBox(
-      color: Colors.black,
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 126,
-                  height: 112,
-                  child: CustomPaint(painter: _CreditsMarkPainter()),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'LightHouse',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'An illuminated physical play surface\nfor Looney Pyramids',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'Project: udeudeude\nSoftware: Flutter + ChatGPT\nLooney Pyramids: Looney Labs\nOpen source under the MIT License',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, height: 1.6),
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: _openGithub,
-                  icon: const Icon(Icons.code, size: 18),
-                  label: const Text(
-                    'github.com/udeudeude/LightHouse-StashBoard',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
+  void _dismissCreditsAndRecalibrate() {
+    _faceDownTimer?.cancel();
+    _faceDownTimer = null;
+    final sign = _lastDominantZSign;
+    final angle = kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+        ? currentWebOrientationAngle()
+        : null;
+    setState(() {
+      if (sign != null) _faceUpZSign = sign;
+      _faceUpCandidateSign = null;
+      _faceUpStableSamples = 0;
+      _faceDownLatched = false;
+      _creditsVisible = false;
+      if (angle != null) {
+        _webReferenceOrientationAngle = angle;
+        _webObservedOrientationAngle = angle;
+      }
+    });
+  }
+
+  Widget _credits() => CreditsOverlay(
+    onCloseAndRecalibrate: _dismissCreditsAndRecalibrate,
+    onOpenGithub: () => unawaited(_openGithub()),
   );
 
   Widget _buildBoardSurface(BuildContext surfaceContext) {
@@ -3044,12 +2978,10 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                 redSweepY: _activeToys.contains(_ToyKind.redSweep)
                     ? _redSweepY
                     : null,
-                dieValue: _activeToys.contains(_ToyKind.wireDie)
-                    ? _dieValue
-                    : null,
-                dieRollPhase: _dieRollPhase,
-                dieRollProgress: _dieRollProgress,
-                diePressed: _diePressed,
+                dieValue: null,
+                dieRollPhase: 0,
+                dieRollProgress: 1,
+                diePressed: false,
                 projectiles: _projectiles,
                 impacts: _impacts,
                 sideGunsVisible: _activeToys.contains(_ToyKind.sideGuns),
@@ -3058,28 +2990,15 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                 cornerGunsVisible:
                     _activeToys.contains(_ToyKind.cornerRicochet) ||
                     _projectiles.any((p) => p.ricochet),
-                constellation: _constellation,
+                constellation: _constellationPoints,
               ),
               child: const SizedBox.expand(),
             ),
           ),
         ),
-        if (_activeToys.contains(_ToyKind.wireDie))
-          Positioned(
-            left: safePadding.left + 4,
-            top: safePadding.top + 4,
-            width: 86,
-            height: 86,
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (_) => _pressDie(),
-              onPointerUp: (_) => _releaseDie(),
-              onPointerCancel: (_) {
-                if (mounted) setState(() => _diePressed = false);
-              },
-              child: const SizedBox.expand(),
-            ),
-          ),
+        if (_activeToys.contains(_ToyKind.wireDie)) const DiceBubble(),
+        if (_activeToys.contains(_ToyKind.zendoStones))
+          const ZendoStonesWidget(),
         if (_activeToys.contains(_ToyKind.sideGuns))
           Padding(padding: safePadding, child: _sideGunAimHandles()),
         SafeArea(
@@ -3166,98 +3085,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       ),
     );
   }
-}
-
-class _CreditsMarkPainter extends CustomPainter {
-  const _CreditsMarkPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final line = Paint()
-      ..color = Colors.white.withValues(alpha: 0.84)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeJoin = StrokeJoin.round;
-    final faint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.32)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    final c = Offset(size.width / 2, size.height * 0.48);
-
-    final frame = Path()
-      ..moveTo(size.width * 0.18, size.height * 0.84)
-      ..lineTo(size.width * 0.08, size.height * 0.48)
-      ..lineTo(size.width * 0.23, size.height * 0.12)
-      ..lineTo(size.width * 0.77, size.height * 0.12)
-      ..lineTo(size.width * 0.92, size.height * 0.48)
-      ..lineTo(size.width * 0.82, size.height * 0.84);
-    canvas.drawPath(frame, faint);
-
-    final tower = Path()
-      ..moveTo(c.dx - 13, size.height * 0.80)
-      ..lineTo(c.dx - 7, size.height * 0.35)
-      ..lineTo(c.dx + 7, size.height * 0.35)
-      ..lineTo(c.dx + 13, size.height * 0.80)
-      ..close();
-    canvas.drawPath(tower, line);
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: Offset(c.dx, size.height * 0.30),
-        width: 25,
-        height: 10,
-      ),
-      line,
-    );
-    canvas.drawLine(
-      Offset(c.dx, size.height * 0.17),
-      Offset(c.dx, size.height * 0.25),
-      line,
-    );
-    canvas.drawCircle(Offset(c.dx, size.height * 0.17), 2.2, line);
-
-    final beamY = size.height * 0.30;
-    canvas.drawLine(
-      Offset(c.dx - 14, beamY),
-      Offset(size.width * 0.14, beamY - 18),
-      faint,
-    );
-    canvas.drawLine(
-      Offset(c.dx - 14, beamY),
-      Offset(size.width * 0.10, beamY + 5),
-      faint,
-    );
-    canvas.drawLine(
-      Offset(c.dx + 14, beamY),
-      Offset(size.width * 0.86, beamY - 18),
-      faint,
-    );
-    canvas.drawLine(
-      Offset(c.dx + 14, beamY),
-      Offset(size.width * 0.90, beamY + 5),
-      faint,
-    );
-
-    void pyramid(Offset center, double scale) {
-      final p = Path()
-        ..moveTo(center.dx, center.dy - 12 * scale)
-        ..lineTo(center.dx + 10 * scale, center.dy + 8 * scale)
-        ..lineTo(center.dx - 10 * scale, center.dy + 8 * scale)
-        ..close();
-      canvas.drawPath(p, line);
-    }
-
-    pyramid(Offset(c.dx - 24, size.height * 0.87), 0.82);
-    pyramid(Offset(c.dx, size.height * 0.88), 1.0);
-    pyramid(Offset(c.dx + 24, size.height * 0.87), 0.66);
-    canvas.drawLine(
-      Offset(size.width * 0.18, size.height * 0.96),
-      Offset(size.width * 0.82, size.height * 0.96),
-      faint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _CreditsMarkPainter oldDelegate) => false;
 }
 
 class _MenuCirclePainter extends CustomPainter {

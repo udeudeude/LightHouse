@@ -257,7 +257,7 @@ class ToyOverlayPainter extends CustomPainter {
     // A stack of fading rays gives a phosphor-like radar persistence trail.
     for (var i = 12; i >= 0; i -= 1) {
       final radians = (degrees - i * 2.4) * math.pi / 180;
-      final alpha = i == 0 ? 0.68 : 0.01 + (1 - i / 12) * 0.18;
+      final alpha = i == 0 ? 0.72 : 0.025 + (1 - i / 12) * 0.23;
       final end = Offset(
         center.dx + math.cos(radians) * radius,
         center.dy + math.sin(radians) * radius,
@@ -496,15 +496,15 @@ class ToyOverlayPainter extends CustomPainter {
     final direction = Offset(math.cos(radians), math.sin(radians));
     final normal = Offset(-direction.dy, direction.dx);
     final body = Path()
-      ..moveTo(center.dx + normal.dx * 3.2, center.dy + normal.dy * 3.2)
-      ..lineTo(center.dx - normal.dx * 3.2, center.dy - normal.dy * 3.2)
+      ..moveTo(center.dx + normal.dx * 6.4, center.dy + normal.dy * 6.4)
+      ..lineTo(center.dx - normal.dx * 6.4, center.dy - normal.dy * 6.4)
       ..lineTo(
-        center.dx + direction.dx * 7 - normal.dx * 2.1,
-        center.dy + direction.dy * 7 - normal.dy * 2.1,
+        center.dx + direction.dx * 14 - normal.dx * 4.2,
+        center.dy + direction.dy * 14 - normal.dy * 4.2,
       )
       ..lineTo(
-        center.dx + direction.dx * 7 + normal.dx * 2.1,
-        center.dy + direction.dy * 7 + normal.dy * 2.1,
+        center.dx + direction.dx * 14 + normal.dx * 4.2,
+        center.dy + direction.dy * 14 + normal.dy * 4.2,
       )
       ..close();
     canvas.drawPath(
@@ -512,57 +512,42 @@ class ToyOverlayPainter extends CustomPainter {
       Paint()..color = Colors.white.withValues(alpha: 0.34),
     );
     canvas.drawLine(
-      center + direction * 5,
-      center + direction * 13,
+      center + direction * 10,
+      center + direction * 26,
       Paint()
         ..color = Colors.white.withValues(alpha: 0.60)
-        ..strokeWidth = 2,
+        ..strokeWidth = 4,
     );
   }
 
-  void _paintRounds(
-    Canvas canvas,
-    Offset gunCenter,
-    double angleDegrees,
-    int count,
-  ) {
+  void _paintRounds(Canvas canvas, Offset gunCenter, int gunIndex, int count) {
     if (count <= 0) return;
-    final radians = angleDegrees * math.pi / 180;
-    final direction = Offset(math.cos(radians), math.sin(radians));
-    final normal = Offset(-direction.dy, direction.dx);
-    final start = gunCenter - direction * 5 + normal * 8;
-    final paint = Paint()..color = Colors.white.withValues(alpha: 0.62);
-    for (var i = 0; i < count; i += 1) {
-      final row = i ~/ 10;
-      final column = i % 10;
-      final p = start - direction * (column * 3.2) + normal * (row * 3.4);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: p, width: 2.0, height: 3.4),
-          const Radius.circular(0.8),
-        ),
-        paint,
-      );
+    final visible = math.min(5, count);
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.68);
+    for (var i = 0; i < visible; i += 1) {
+      final delta = (i - (visible - 1) / 2) * 6.2;
+      final point = switch (gunIndex) {
+        0 => gunCenter + Offset(15, delta),
+        1 => gunCenter + Offset(-15, delta),
+        2 => gunCenter + Offset(delta, 15),
+        _ => gunCenter + Offset(delta, -15),
+      };
+      canvas.drawCircle(point, 2.15, paint);
     }
   }
 
   void _paintGuns(Canvas canvas, Size size) {
     if (sideGunsVisible && sideGunAnglesDegrees.length >= 4) {
       final centers = <Offset>[
-        Offset(8, size.height / 2),
-        Offset(size.width - 8, size.height / 2),
-        Offset(size.width / 2, 8),
-        Offset(size.width / 2, size.height - 8),
+        Offset(14, size.height / 2),
+        Offset(size.width - 14, size.height / 2),
+        Offset(size.width / 2, 14),
+        Offset(size.width / 2, size.height - 14),
       ];
       for (var i = 0; i < 4; i += 1) {
         _paintGun(canvas, centers[i], sideGunAnglesDegrees[i]);
         if (i < sideGunAmmo.length) {
-          _paintRounds(
-            canvas,
-            centers[i],
-            sideGunAnglesDegrees[i],
-            sideGunAmmo[i],
-          );
+          _paintRounds(canvas, centers[i], i, sideGunAmmo[i]);
         }
       }
     }

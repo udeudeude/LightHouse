@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Refined flat-pyramid rendering, live constellation anchors, radar trails, side guns, and concise device instructions.
+- Rebuilt the dice toy as a movable Pop-O-Matic-style bubble with up to three selectable Pyramid Arcade dice and research-informed damped rolling.
+- Added independent movable Zendo marking/guessing stones.
+- Redesigned credits with an Art Deco lighthouse mark, explicit orientation recalibration control, and the LightHouse haiku.
+- Added Sandships and Martian Backgammon boards, turned World War 5 sideways, tightened Petal Battle, and corrected Wheel snapping for flat pyramids.
 - Expanded Toys into a full opt-in tray: Light Lottery, Entropy Delete, Ghost Paths, Random Event Zone, Turn Timer, Breathing, Nest Cycle, Radar, Red Sweep, D6, Side Guns, Corner Ricochet, Hot Potato, Constellation Draw, Heartbeat, Triangle Bounce, and Square Chase. Each toy has a persistent menu visibility toggle and its own board icon.
 - Reworked iPhone/iPad web orientation handling: Safari orientation changes are now observed directly, rechecked after viewport changes, and polled as a fallback; the frozen opening board counter-rotates so the physical play surface and touch hit testing stay fixed to the glass.
 - Reworked iPhone/iPad web face-down credits to use a direct browser Device Motion bridge with gravity data after permission is granted; the face-up Z-axis sign is learned from stable samples, credits appear only while face-down, and vanish when face-up.
