@@ -9,7 +9,14 @@ class BoardState {
     this.title = 'Untitled Board',
     this.underlay = BoardUnderlay.none,
   }) : elements = List.unmodifiable(elements),
-       structures = List.unmodifiable(structures);
+       structures = List.unmodifiable(structures) {
+    _elementsById = Map<String, LightElement>.unmodifiable(
+      _indexElements(this.elements),
+    );
+    _structureByElementId = Map<String, LightStructure>.unmodifiable(
+      _indexStructures(this.structures),
+    );
+  }
 
   static BoardState empty({String title = 'Untitled Board'}) =>
       BoardState(title: title);
@@ -19,19 +26,34 @@ class BoardState {
   final String title;
   final BoardUnderlay underlay;
 
-  LightElement? elementById(String id) {
+  late final Map<String, LightElement> _elementsById;
+  late final Map<String, LightStructure> _structureByElementId;
+
+  static Map<String, LightElement> _indexElements(
+    Iterable<LightElement> elements,
+  ) {
+    final result = <String, LightElement>{};
     for (final element in elements) {
-      if (element.id == id) return element;
+      result.putIfAbsent(element.id, () => element);
     }
-    return null;
+    return result;
   }
 
-  LightStructure? structureForElement(String id) {
+  static Map<String, LightStructure> _indexStructures(
+    Iterable<LightStructure> structures,
+  ) {
+    final result = <String, LightStructure>{};
     for (final structure in structures) {
-      if (structure.memberIds.contains(id)) return structure;
+      for (final id in structure.memberIds) {
+        result.putIfAbsent(id, () => structure);
+      }
     }
-    return null;
+    return result;
   }
+
+  LightElement? elementById(String id) => _elementsById[id];
+
+  LightStructure? structureForElement(String id) => _structureByElementId[id];
 
   BoardState copyWith({
     List<LightElement>? elements,
@@ -117,6 +139,7 @@ class BoardState {
               LightElement.fromJson((entry as Map).cast<String, Object?>()),
         )
         .toList();
+    final elementIds = {for (final element in elements) element.id};
 
     if (version == 1) {
       return BoardState(elements: elements);
@@ -134,11 +157,7 @@ class BoardState {
             (entry) =>
                 LightStructure.fromJson((entry as Map).cast<String, Object?>()),
           )
-          .where(
-            (structure) => structure.memberIds.every(
-              (id) => elements.any((element) => element.id == id),
-            ),
-          )
+          .where((structure) => structure.memberIds.every(elementIds.contains))
           .toList(),
     );
   }

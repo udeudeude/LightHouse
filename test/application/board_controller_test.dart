@@ -174,4 +174,19 @@ void main() {
     expect(snapped.position, const PhysicalPoint(30, 40));
     expect(snapped.headingDegrees, closeTo(15, 0.001));
   });
+
+  test('restoring a snapshot is undoable', () {
+    final controller = BoardController();
+    controller.createAt(const PhysicalPoint(25, 40));
+    final before = controller.state;
+    final backup = BoardState(title: 'Recovered snapshot');
+
+    controller.restoreState(backup);
+    expect(controller.state.title, 'Recovered snapshot');
+    expect(controller.state.elements, isEmpty);
+
+    controller.undo();
+    expect(controller.state.title, before.title);
+    expect(controller.state.elements, orderedEquals(before.elements));
+  });
 }

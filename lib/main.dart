@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'application/board_store.dart';
 import 'application/display_calibration.dart';
 import 'domain/board_state.dart';
-import 'ui/board_screen_next.dart';
+import 'ui/board_screen.dart';
 import 'ui/calibration_screen.dart';
 
 void main() {
@@ -119,7 +119,7 @@ class _LightHouseAppState extends State<LightHouseApp> {
     }
 
     final calibration = _calibration!;
-    return BoardScreenNext(
+    return BoardScreen(
       logicalPixelsPerMm: calibration.logicalPixelsPerMm,
       initialState: _board!,
       calibrationLabel: calibration.source,

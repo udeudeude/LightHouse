@@ -385,6 +385,10 @@ class BoardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void restoreState(BoardState state) {
+    _execute(ReplaceBoardStateCommand(before: _state, after: state));
+  }
+
   void newBoard() => replaceState(BoardState.empty());
 
   void undo() {

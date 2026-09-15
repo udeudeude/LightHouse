@@ -97,4 +97,37 @@ void main() {
 
     expect(state.remove('a').structures, isEmpty);
   });
+
+  test('element and structure lookups use indexed membership', () {
+    const a = LightElement(
+      id: 'a',
+      size: PyramidSize.large,
+      pose: PyramidPose.upright,
+      position: PhysicalPoint.zero,
+      headingDegrees: 0,
+      illumination: IlluminationPattern.full,
+    );
+    const b = LightElement(
+      id: 'b',
+      size: PyramidSize.small,
+      pose: PyramidPose.upright,
+      position: PhysicalPoint.zero,
+      headingDegrees: 0,
+      illumination: IlluminationPattern.wall,
+    );
+    const structure = LightStructure(
+      id: 's',
+      kind: StructureKind.nest,
+      memberIds: ['a', 'b'],
+    );
+    final state = BoardState(
+      elements: const [a, b],
+      structures: const [structure],
+    );
+
+    expect(state.elementById('b'), b);
+    expect(state.elementById('missing'), isNull);
+    expect(state.structureForElement('a'), structure);
+    expect(state.structureForElement('missing'), isNull);
+  });
 }

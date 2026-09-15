@@ -81,9 +81,9 @@ The interactive canvas is inset by the platform's persistent display padding so 
 
 ## Persistence
 
-Board document format version 2 contains title, elements, and structures. Version 1 documents migrate on read.
+Board document format version 3 contains title, underlay, elements, and structures. Versions 1 and 2 migrate on read.
 
-The current board autosaves after semantic changes. Before overwriting the current snapshot, the previous snapshot is retained as a recovery backup. Named boards are stored separately. Public interchange is indented JSON and deliberately contains no Flutter implementation details.
+The current board autosaves shortly after changes settle, with writes serialized so rapid interactions cannot race persistence. Before overwriting the current snapshot, the previous snapshot is retained as a recovery backup and can be restored explicitly from the File menu. Named boards are stored separately. Public interchange is indented JSON and deliberately contains no Flutter implementation details.
 
 ## Device behavior
 

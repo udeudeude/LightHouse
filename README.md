@@ -35,14 +35,13 @@ The web build requires manual physical calibration because browsers do not relia
 - deterministic convex-polygon collision pushing across pyramid sizes
 - command-based undo/redo
 - versioned JSON board serialization with migration support
-- local autosave with recovery backup, named saved boards, and JSON clipboard import/export
-- lower-left hierarchical Board > File / Underlays menu with Mac-like File ordering
+- debounced local autosave with a user-restorable previous snapshot, named saved boards, and JSON file import/export
+- lower-left hierarchical menu for File, Edit, Boards, Toys, Display, and Instructions
 - device-specific instructions shown from the lower left
 - Light Lottery theatrical random chooser
 - optional Entropy Delete mode that fades and removes one random footprint every 30 seconds
 - deliberately hidden face-down-only credits on supported motion-enabled devices; they vanish the instant the device is face-up
-- native mobile orientation lock; iPhone/iPad web freezes the opening board frame and compensates for Safari viewport rotation so the physical play surface stays fixed to the glass
-- web orientation compensation is rendering-only; saved millimeter coordinates and calibration do not change when the device turns
+- native mobile orientation lock; web uses ordinary browser viewport/orientation behavior without a counter-rotation workaround
 - screen-awake behavior, native application-brightness control, haptics, and safe-board insets
 - installable PWA metadata and iOS Add-to-Home-Screen guidance
 - generated iOS, Android, and web platform runners
@@ -67,9 +66,9 @@ Desktop:
 
 Board controls:
 
-- Board > File: New, Open, Save, Save a Copy, Rename, JSON import/export
-- Board > Underlays: choose an underlay and optionally enable position snapping
-- Edit > Rotation: rotate in 15-degree steps, choose an exact orientation, or enable persistent rotation snapping
+- File: New, Open, Restore Previous Autosave, Save, Save a Copy, Rename, JSON import/export
+- Boards: choose an underlay, checker shading, and optional position snapping
+- Edit: undo/redo, 15-degree rotation steps, exact orientation, and persistent rotation snapping
 - Display: size/calibration, brightness, and orientation information
 
 The user-facing Structure menu was removed. Stack/nest relationships remain an internal board concept so physically grouped footprints still move, push, save, restore, and undo correctly.

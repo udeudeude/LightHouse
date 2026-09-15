@@ -34,6 +34,21 @@ class BoardStore {
     return BoardState.empty();
   }
 
+  Future<BoardState?> loadBackup() async {
+    try {
+      await _saveTail;
+    } on Object {
+      // A failed current save does not make an older backup unusable.
+    }
+    final raw = await SharedPreferencesAsync().getString(_backupKey);
+    if (raw == null) return null;
+    try {
+      return _decodeBoard(raw);
+    } on Object {
+      return null;
+    }
+  }
+
   Future<void> save(BoardState state) {
     final encoded = jsonEncode(state.toJson());
     final previousWrite = _saveTail;
