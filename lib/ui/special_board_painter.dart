@@ -28,9 +28,9 @@ class SpecialBoardPainter {
     final canal = _linePaint(0.28);
     final boardRadius = math.min(size.width, size.height) * 0.47;
 
-    // The official Sandships topology is five circular cities separated by
-    // canals into eight wasteland zones. Keep those gameplay landmarks clear
-    // without reproducing the printed board artwork.
+    // Sandships uses five circular cities, eight wasteland zones, canals, and
+    // triangular ports. This keeps those gameplay landmarks clear without
+    // reproducing the printed board artwork.
     for (var i = 0; i < 8; i += 1) {
       final angle = math.pi / 8 + i * math.pi / 4;
       final from =
@@ -69,7 +69,7 @@ class SpecialBoardPainter {
   void paintMartianBackgammon(Canvas canvas, Size size) {
     final cell = BoardUnderlay.cellMm * logicalPixelsPerMm;
     final width = cell * 5;
-    final height = cell * 4;
+    final height = cell * 5;
     final left = (size.width - width) / 2;
     final top = (size.height - height) / 2;
     final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.38);
@@ -89,7 +89,7 @@ class SpecialBoardPainter {
       final x = left + column * cell;
       dottedLine(Offset(x, top), Offset(x, top + height));
     }
-    for (var row = 0; row <= 4; row += 1) {
+    for (var row = 0; row <= 5; row += 1) {
       final y = top + row * cell;
       dottedLine(Offset(left, y), Offset(left + width, y));
     }
@@ -120,10 +120,10 @@ class SpecialBoardPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    // Geometry follows the supplied reference: two opposed, rounded U-shaped
-    // tracks around the three center blocks, each with a round start and arrow
-    // finish.
-    final darkStart = Offset(left + cell * 0.48, top + cell * 3.52);
+    // Match the supplied reference: two opposed rounded tracks weave around
+    // the three central blocks, each starting at a circle and ending in an
+    // arrowhead.
+    final darkStart = Offset(left + cell * 0.48, top + cell * 3.55);
     final darkPath = Path()
       ..moveTo(darkStart.dx, darkStart.dy)
       ..lineTo(left + cell * 4.30, darkStart.dy)
@@ -131,18 +131,18 @@ class SpecialBoardPainter {
         left + cell * 4.72,
         darkStart.dy,
         left + cell * 4.66,
-        top + cell * 1.58,
+        top + cell * 1.65,
         left + cell * 4.25,
-        top + cell * 1.58,
+        top + cell * 1.65,
       )
-      ..lineTo(left + cell * 0.88, top + cell * 1.58)
+      ..lineTo(left + cell * 0.88, top + cell * 1.65)
       ..cubicTo(
         left + cell * 0.40,
-        top + cell * 1.58,
+        top + cell * 1.65,
         left + cell * 0.34,
-        top + cell * 0.82,
+        top + cell * 0.75,
         left + cell * 0.42,
-        top + cell * 0.46,
+        top + cell * 0.38,
       );
     canvas.drawPath(darkPath, dark);
     canvas.drawCircle(
@@ -151,7 +151,7 @@ class SpecialBoardPainter {
       Paint()..color = Colors.white.withValues(alpha: 0.62),
     );
 
-    final lightStart = Offset(left + cell * 4.55, top + cell * 0.98);
+    final lightStart = Offset(left + cell * 4.55, top + cell * 1.35);
     final lightPath = Path()
       ..moveTo(lightStart.dx, lightStart.dy)
       ..lineTo(left + cell * 0.78, lightStart.dy)
@@ -159,18 +159,18 @@ class SpecialBoardPainter {
         left + cell * 0.31,
         lightStart.dy,
         left + cell * 0.30,
-        top + cell * 3.04,
+        top + cell * 3.35,
         left + cell * 0.76,
-        top + cell * 3.04,
+        top + cell * 3.35,
       )
-      ..lineTo(left + cell * 4.16, top + cell * 3.04)
+      ..lineTo(left + cell * 4.16, top + cell * 3.35)
       ..cubicTo(
         left + cell * 4.60,
-        top + cell * 3.04,
+        top + cell * 3.35,
         left + cell * 4.64,
-        top + cell * 3.48,
+        top + cell * 4.35,
         left + cell * 4.60,
-        top + cell * 3.72,
+        top + cell * 4.62,
       );
     canvas.drawPath(lightPath, light);
     canvas.drawCircle(
@@ -192,8 +192,8 @@ class SpecialBoardPainter {
       canvas.drawPath(arrowPath, Paint()..color = paint.color);
     }
 
-    arrow(Offset(left + cell * 0.42, top + cell * 0.20), -math.pi / 2, dark);
-    arrow(Offset(left + cell * 4.60, top + cell * 3.92), math.pi / 2, light);
+    arrow(Offset(left + cell * 0.42, top + cell * 0.16), -math.pi / 2, dark);
+    arrow(Offset(left + cell * 4.60, top + cell * 4.84), math.pi / 2, light);
 
     void cornerTriangle(Offset triangleCenter, bool pointsDown) {
       final radius = cell * 0.20;
@@ -214,6 +214,6 @@ class SpecialBoardPainter {
     }
 
     cornerTriangle(Offset(left + cell * 4.55, top + cell * 0.45), true);
-    cornerTriangle(Offset(left + cell * 0.55, top + cell * 3.55), false);
+    cornerTriangle(Offset(left + cell * 0.55, top + cell * 4.55), false);
   }
 }
