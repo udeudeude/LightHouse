@@ -17,6 +17,7 @@ class StoredBoardSummary {
 }
 
 class BoardStore {
+  Future<void> _saveTail = Future<void>.value();
   static const _boardKey = 'lighthouse-current-board-v2';
   static const _backupKey = 'lighthouse-current-board-backup-v2';
   static const _legacyBoardKey = 'lighthouse-current-board-v1';
@@ -33,13 +34,24 @@ class BoardStore {
     return BoardState.empty();
   }
 
-  Future<void> save(BoardState state) async {
-    final prefs = SharedPreferencesAsync();
-    final previous = await prefs.getString(_boardKey);
-    if (previous != null) {
-      await prefs.setString(_backupKey, previous);
-    }
-    await prefs.setString(_boardKey, jsonEncode(state.toJson()));
+  Future<void> save(BoardState state) {
+    final encoded = jsonEncode(state.toJson());
+    final previousWrite = _saveTail;
+    final nextWrite = () async {
+      try {
+        await previousWrite;
+      } on Object {
+        // A failed older write must not prevent newer board state from saving.
+      }
+      final prefs = SharedPreferencesAsync();
+      final previous = await prefs.getString(_boardKey);
+      if (previous != null) {
+        await prefs.setString(_backupKey, previous);
+      }
+      await prefs.setString(_boardKey, encoded);
+    }();
+    _saveTail = nextWrite;
+    return nextWrite;
   }
 
   Future<List<StoredBoardSummary>> listSavedBoards() async {

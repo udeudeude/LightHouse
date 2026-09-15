@@ -22,32 +22,12 @@
 </head>
 <body style="margin:0;background:#000000;overscroll-behavior:none;">
   <script>
-    const lighthouseOrientationState = { angle: 0 };
     const lighthouseMotionState = {
       x: Number.NaN,
       y: Number.NaN,
       z: Number.NaN,
       installed: false,
     };
-
-    function lighthouseNormalizeQuarterTurn(angle) {
-      const normalized = ((Number(angle) % 360) + 360) % 360;
-      return (Math.round(normalized / 90) * 90) % 360;
-    }
-
-    function lighthouseReadOrientationAngle() {
-      if (typeof window.orientation === 'number') {
-        return lighthouseNormalizeQuarterTurn(window.orientation);
-      }
-      if (screen.orientation && typeof screen.orientation.angle === 'number') {
-        return lighthouseNormalizeQuarterTurn(screen.orientation.angle);
-      }
-      return window.innerWidth > window.innerHeight ? 90 : 0;
-    }
-
-    function lighthouseUpdateOrientation() {
-      lighthouseOrientationState.angle = lighthouseReadOrientationAngle();
-    }
 
     function lighthouseInstallMotionListener() {
       if (lighthouseMotionState.installed) return;
@@ -60,18 +40,6 @@
         lighthouseMotionState.z = Number(acceleration.z);
       }, { passive: true });
     }
-
-    lighthouseUpdateOrientation();
-    window.addEventListener('orientationchange', function () {
-      lighthouseUpdateOrientation();
-      window.setTimeout(lighthouseUpdateOrientation, 80);
-      window.setTimeout(lighthouseUpdateOrientation, 300);
-    });
-    window.addEventListener('resize', lighthouseUpdateOrientation, { passive: true });
-
-    window.lighthouseOrientationAngle = function () {
-      return lighthouseOrientationState.angle;
-    };
 
     window.lighthouseRequestMotionPermission = async function () {
       try {

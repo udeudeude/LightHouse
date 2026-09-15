@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../domain/light_element.dart';
@@ -612,5 +613,28 @@ class ToyOverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant ToyOverlayPainter oldDelegate) => true;
+  bool shouldRepaint(covariant ToyOverlayPainter oldDelegate) =>
+      oldDelegate.logicalPixelsPerMm != logicalPixelsPerMm ||
+      oldDelegate.geometry != geometry ||
+      !listEquals(oldDelegate.elements, elements) ||
+      oldDelegate.ghostTrailsVisible != ghostTrailsVisible ||
+      (ghostTrailsVisible && oldDelegate.ghostTrails != ghostTrails) ||
+      oldDelegate.eventZoneCenter != eventZoneCenter ||
+      oldDelegate.eventZoneRadiusMm != eventZoneRadiusMm ||
+      oldDelegate.eventZoneProgress != eventZoneProgress ||
+      oldDelegate.eventZoneDismiss != eventZoneDismiss ||
+      oldDelegate.turnTimerProgress != turnTimerProgress ||
+      oldDelegate.radarAngleDegrees != radarAngleDegrees ||
+      oldDelegate.redSweepY != redSweepY ||
+      oldDelegate.dieValue != dieValue ||
+      oldDelegate.dieRollPhase != dieRollPhase ||
+      oldDelegate.dieRollProgress != dieRollProgress ||
+      oldDelegate.diePressed != diePressed ||
+      !listEquals(oldDelegate.projectiles, projectiles) ||
+      !listEquals(oldDelegate.impacts, impacts) ||
+      oldDelegate.sideGunsVisible != sideGunsVisible ||
+      !listEquals(oldDelegate.sideGunAnglesDegrees, sideGunAnglesDegrees) ||
+      !listEquals(oldDelegate.sideGunAmmo, sideGunAmmo) ||
+      oldDelegate.cornerGunsVisible != cornerGunsVisible ||
+      !listEquals(oldDelegate.constellation, constellation);
 }

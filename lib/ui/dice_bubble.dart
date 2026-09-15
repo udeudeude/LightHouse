@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -378,9 +379,9 @@ class _DiceBubbleState extends State<DiceBubble>
                 children: [
                   CustomPaint(
                     painter: _DiceBubblePainter(
-                      choices: selected,
-                      faces: _faces,
-                      plans: _plans,
+                      choices: List<ArcadeDieChoice>.unmodifiable(selected),
+                      faces: Map<String, int>.unmodifiable(_faces),
+                      plans: Map<String, _SpinPlan>.unmodifiable(_plans),
                       progress: _rollController.value,
                       pressed: _pressed,
                     ),
@@ -1218,5 +1219,10 @@ class _DiceBubblePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DiceBubblePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _DiceBubblePainter oldDelegate) =>
+      !listEquals(oldDelegate.choices, choices) ||
+      !mapEquals(oldDelegate.faces, faces) ||
+      !mapEquals(oldDelegate.plans, plans) ||
+      oldDelegate.progress != progress ||
+      oldDelegate.pressed != pressed;
 }

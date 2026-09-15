@@ -419,6 +419,19 @@ class BoardController extends ChangeNotifier {
         aStructure.id != bStructure.id;
   }
 
+  double _boundingRadiusMm(LightElement element) {
+    final halfBase = geometry.baseMm(element.size) / 2;
+    if (element.pose == PyramidPose.upright) {
+      return math.sqrt(halfBase * halfBase * 2);
+    }
+    final halfLength = geometry.flatLengthMm(element.size) / 2;
+    return math.sqrt(halfBase * halfBase + halfLength * halfLength);
+  }
+
+  bool _boundingCirclesOverlap(LightElement a, LightElement b) =>
+      a.position.distanceTo(b.position) <=
+      _boundingRadiusMm(a) + _boundingRadiusMm(b);
+
   BoardState _resolvePushes(BoardState initial, Set<String> movingIds) {
     var result = initial;
     final activeIds = <String>{...movingIds};
@@ -442,6 +455,7 @@ class BoardController extends ChangeNotifier {
           // a perfectly aligned nest.
           if (_isAutomaticNestPair(result, moving, stationary)) continue;
 
+          if (!_boundingCirclesOverlap(moving, stationary)) continue;
           final separation = minimumSeparationVector(
             polygonForElement(moving, geometry),
             polygonForElement(stationary, geometry),
@@ -488,6 +502,7 @@ class BoardController extends ChangeNotifier {
               !_isAutomaticNestPair(result, moving, candidate)) {
             continue;
           }
+          if (!_boundingCirclesOverlap(moving, candidate)) continue;
           final overlap = minimumSeparationVector(
             polygonForElement(moving, geometry),
             polygonForElement(candidate, geometry),

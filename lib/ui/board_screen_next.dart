@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,7 +25,6 @@ import '../domain/light_element.dart';
 import '../domain/light_structure.dart';
 import '../domain/physical_point.dart';
 import '../platform/motion_permission.dart';
-import '../platform/web_orientation.dart';
 import 'board_painter.dart';
 import 'credits_overlay.dart';
 import 'dice_bubble.dart';
@@ -112,16 +112,13 @@ class _BoardScreenNextState extends State<BoardScreenNext>
 
   double _brightness = 1.0;
   bool _orientationLocked = false;
-  Size? _webBoardSize;
-  EdgeInsets? _webBoardPadding;
-  EdgeInsets? _webBoardViewPadding;
-  double? _webReferenceOrientationAngle;
-  double? _webObservedOrientationAngle;
-  Timer? _webOrientationPollTimer;
   double? _rotationSnapDegrees;
   bool _gridSnapEnabled = false;
   bool _checkerUnderlays = false;
   bool _transformTranslated = false;
+  PhysicalPoint _pendingTransformDelta = PhysicalPoint.zero;
+  double _pendingTransformRotation = 0;
+  bool _transformFrameScheduled = false;
 
   final math.Random _random = math.Random();
   Map<String, double> _effectOpacities = const {};
@@ -171,6 +168,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   bool _roundedTriangleTips = false;
   bool _historyControlsVisible = false;
   Timer? _historyControlsTimer;
+  Timer? _saveDebounceTimer;
+  BoardState? _pendingSaveState;
   double? _faceUpZSign;
   double? _faceUpCandidateSign;
   int _faceUpStableSamples = 0;
@@ -196,19 +195,6 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-      final media = MediaQuery.of(context);
-      _webBoardSize ??= media.size;
-      _webBoardPadding ??= media.padding;
-      _webBoardViewPadding ??= media.viewPadding;
-      final angle = currentWebOrientationAngle();
-      _webReferenceOrientationAngle ??= angle;
-      _webObservedOrientationAngle ??= angle;
-      _webOrientationPollTimer ??= Timer.periodic(
-        const Duration(milliseconds: 120),
-        (_) => _pollWebOrientation(),
-      );
-    }
     if (_orientationLocked || kIsWeb) return;
     _orientationLocked = true;
     final orientation = MediaQuery.orientationOf(context);
@@ -219,41 +205,31 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     ]);
   }
 
-  void _pollWebOrientation() {
-    if (!mounted || !kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
-      return;
-    }
-    final angle = currentWebOrientationAngle();
-    if (angle == _webObservedOrientationAngle) return;
-    setState(() => _webObservedOrientationAngle = angle);
-  }
-
-  @override
-  void didChangeMetrics() {
-    if (!kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _webObservedOrientationAngle = currentWebOrientationAngle();
-        setState(() {});
-      }
-    });
-    Future<void>.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) _pollWebOrientation();
-    });
-    Future<void>.delayed(const Duration(milliseconds: 340), () {
-      if (mounted) _pollWebOrientation();
-    });
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (kIsWeb) return;
     if (state == AppLifecycleState.resumed) {
-      _applyBrightness();
-    } else if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      ScreenBrightness.instance.resetApplicationScreenBrightness();
+      if (!kIsWeb) unawaited(_applyBrightness());
+      if (kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.iOS &&
+          _motionPermissionAttempted) {
+        _startWebMotionMonitoring();
+      } else if (!kIsWeb) {
+        _startFaceDownMonitoring();
+      }
+      if (_needsToyTicker) _ensureToyTicker();
+      return;
+    }
+
+    _webMotionTimer?.cancel();
+    _webMotionTimer = null;
+    final subscription = _accelerometerSubscription;
+    _accelerometerSubscription = null;
+    if (subscription != null) unawaited(subscription.cancel());
+    _toyTicker?.cancel();
+    _toyTicker = null;
+    unawaited(_flushPendingSave());
+    if (!kIsWeb) {
+      unawaited(ScreenBrightness.instance.resetApplicationScreenBrightness());
     }
   }
 
@@ -262,7 +238,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     WidgetsBinding.instance.removeObserver(this);
     _faceDownTimer?.cancel();
     _webMotionTimer?.cancel();
-    _webOrientationPollTimer?.cancel();
+    _saveDebounceTimer?.cancel();
+    unawaited(_flushPendingSave());
     _desktopScrollEndTimer?.cancel();
     _historyControlsTimer?.cancel();
     _entropyTimer?.cancel();
@@ -303,14 +280,14 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     }
     if (_accelerometerSubscription != null) return;
     _accelerometerSubscription = accelerometerEventStream(
-      samplingPeriod: const Duration(milliseconds: 140),
+      samplingPeriod: const Duration(milliseconds: 180),
     ).listen(_handleAccelerometer, onError: (_) {});
   }
 
   void _startWebMotionMonitoring() {
     if (!kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
     _webMotionTimer?.cancel();
-    _webMotionTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+    _webMotionTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
       final sample = currentWebMotionSample();
       if (sample != null) {
         _handleAcceleration(sample.x, sample.y, sample.z);
@@ -584,8 +561,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   }
 
   ({double width, double height}) _physicalBoardSize() {
-    final size = _webBoardSize ?? MediaQuery.sizeOf(context);
-    final padding = _webBoardViewPadding ?? MediaQuery.viewPaddingOf(context);
+    final size = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.viewPaddingOf(context);
     return (
       width: math.max(
         1.0,
@@ -976,6 +953,23 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     return 0.04 + pulse * 0.96;
   }
 
+  double _elementBoundingRadiusMm(LightElement element) {
+    final halfBase = _controller.geometry.baseMm(element.size) / 2;
+    if (element.pose == PyramidPose.upright) {
+      return math.sqrt(halfBase * halfBase * 2);
+    }
+    final halfLength = _controller.geometry.flatLengthMm(element.size) / 2;
+    return math.sqrt(halfBase * halfBase + halfLength * halfLength);
+  }
+
+  bool _couldProjectileTouch(
+    LightElement element,
+    PhysicalPoint point,
+    double extraRadiusMm,
+  ) =>
+      element.position.distanceTo(point) <=
+      _elementBoundingRadiusMm(element) + extraRadiusMm;
+
   ({PhysicalPoint contact, PhysicalPoint normal, double distance})
   _nearestBoundary(LightElement element, PhysicalPoint point) {
     final polygon = polygonForElement(element, _controller.geometry);
@@ -1082,6 +1076,13 @@ class _BoardScreenNextState extends State<BoardScreenNext>
 
             if (!escaping) {
               for (final element in _controller.state.elements) {
+                if (!_couldProjectileTouch(
+                  element,
+                  position,
+                  projectile.radiusMm,
+                )) {
+                  continue;
+                }
                 final boundary = _nearestBoundary(element, position);
                 final inside = _containsPoint(element, position);
                 if (!inside && boundary.distance > projectile.radiusMm)
@@ -1107,6 +1108,13 @@ class _BoardScreenNextState extends State<BoardScreenNext>
           }
         } else {
           for (final element in _controller.state.elements) {
+            if (!_couldProjectileTouch(
+              element,
+              position,
+              projectile.radiusMm,
+            )) {
+              continue;
+            }
             if (!_containsPoint(element, position)) continue;
             hitIds.add(element.id);
             impacts.add(ToyImpact(position: position, lifeSeconds: 0.8));
@@ -1218,8 +1226,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     if (targetId == null) return null;
     final target = _controller.state.elementById(targetId);
     if (target == null || !_controller.state.underlay.isVisible) return null;
-    final mediaSize = _webBoardSize ?? MediaQuery.sizeOf(context);
-    final padding = _webBoardViewPadding ?? MediaQuery.viewPaddingOf(context);
+    final mediaSize = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.viewPaddingOf(context);
     final widthPx = mediaSize.width - padding.horizontal;
     final heightPx = mediaSize.height - padding.vertical;
     final snap = _controller.state.underlay.nearestSnapPoint(
@@ -1382,6 +1390,28 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     }
   }
 
+  void _scheduleSave() {
+    _pendingSaveState = _controller.state;
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _saveDebounceTimer = null;
+      unawaited(_flushPendingSave());
+    });
+  }
+
+  Future<void> _flushPendingSave() async {
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = null;
+    final state = _pendingSaveState;
+    if (state == null) return;
+    _pendingSaveState = null;
+    try {
+      await _store.save(state);
+    } on Object {
+      // Persistence must never block interaction. A later state change retries.
+    }
+  }
+
   void _refresh() {
     if (!mounted) return;
     if (_ghostTrailActive) {
@@ -1410,7 +1440,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
           _controller.state.elementById(_selectedId!) == null)
         _selectedId = null;
     });
-    _store.save(_controller.state);
+    _scheduleSave();
   }
 
   PhysicalPoint _toPhysical(Offset point) => PhysicalPoint(
@@ -1506,7 +1536,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
       if (delta.distanceTo(PhysicalPoint.zero) > 0.35) {
         _transformTranslated = true;
       }
-      _controller.transformBy(delta, rotationDelta);
+      _queueTransform(delta, rotationDelta);
       return;
     }
 
@@ -1518,9 +1548,33 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     }
   }
 
+  void _queueTransform(PhysicalPoint delta, double rotationDelta) {
+    _pendingTransformDelta = _pendingTransformDelta + delta;
+    _pendingTransformRotation += rotationDelta;
+    if (_transformFrameScheduled) return;
+    _transformFrameScheduled = true;
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _transformFrameScheduled = false;
+      _flushQueuedTransform();
+    });
+  }
+
+  void _flushQueuedTransform() {
+    final delta = _pendingTransformDelta;
+    final rotation = _pendingTransformRotation;
+    _pendingTransformDelta = PhysicalPoint.zero;
+    _pendingTransformRotation = 0;
+    if (!_transformStarted ||
+        (delta == PhysicalPoint.zero && rotation.abs() < 0.000001)) {
+      return;
+    }
+    _controller.transformBy(delta, rotation);
+  }
+
   void _onScaleEnd(ScaleEndDetails details) {
     if (_mouseTransform || _creditsVisible) return;
     if (_transformStarted) {
+      _flushQueuedTransform();
       _endTransformWithSnaps();
       HapticFeedback.lightImpact();
       _clearGesture();
@@ -1858,6 +1912,8 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     _lastRotation = 0;
     _transformStarted = false;
     _transformTranslated = false;
+    _pendingTransformDelta = PhysicalPoint.zero;
+    _pendingTransformRotation = 0;
   }
 
   Future<String?> _askForTitle(String initial) async {
@@ -2625,7 +2681,7 @@ class _BoardScreenNextState extends State<BoardScreenNext>
   }
 
   Widget _instructionsPane() {
-    final size = _webBoardSize ?? MediaQuery.sizeOf(context);
+    final size = MediaQuery.sizeOf(context);
     final isDesktop =
         kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.macOS ||
@@ -2900,19 +2956,12 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     _faceDownTimer?.cancel();
     _faceDownTimer = null;
     final sign = _lastDominantZSign;
-    final angle = kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
-        ? currentWebOrientationAngle()
-        : null;
     setState(() {
       if (sign != null) _faceUpZSign = sign;
       _faceUpCandidateSign = null;
       _faceUpStableSamples = 0;
       _faceDownLatched = false;
       _creditsVisible = false;
-      if (angle != null) {
-        _webReferenceOrientationAngle = angle;
-        _webObservedOrientationAngle = angle;
-      }
     });
   }
 
@@ -2996,8 +3045,10 @@ class _BoardScreenNextState extends State<BoardScreenNext>
                 projectiles: _projectiles,
                 impacts: _impacts,
                 sideGunsVisible: _activeToys.contains(_ToyKind.sideGuns),
-                sideGunAnglesDegrees: _sideGunAnglesDegrees,
-                sideGunAmmo: _sideGunAmmo,
+                sideGunAnglesDegrees: List<double>.unmodifiable(
+                  _sideGunAnglesDegrees,
+                ),
+                sideGunAmmo: List<int>.unmodifiable(_sideGunAmmo),
                 cornerGunsVisible:
                     _activeToys.contains(_ToyKind.cornerRicochet) ||
                     _projectiles.any((p) => p.ricochet),
@@ -3039,63 +3090,11 @@ class _BoardScreenNextState extends State<BoardScreenNext>
     );
   }
 
-  double _webBoardRotationRadians() {
-    final reference = _webReferenceOrientationAngle;
-    final current = _webObservedOrientationAngle;
-    if (reference == null || current == null) return 0;
-    final raw = current - reference;
-    final signed = ((raw + 540) % 360) - 180;
-    final quarterTurns = (signed / 90).round();
-    return -quarterTurns * math.pi / 2;
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final compensateForSafari =
-        kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.iOS &&
-        _webBoardSize != null;
-
-    if (!compensateForSafari) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: _buildBoardSurface(context),
-      );
-    }
-
-    final frozenSize = _webBoardSize!;
-    final currentMedia = MediaQuery.of(context);
-    final frozenMedia = currentMedia.copyWith(
-      size: frozenSize,
-      padding: _webBoardPadding ?? currentMedia.padding,
-      viewPadding: _webBoardViewPadding ?? currentMedia.viewPadding,
-    );
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.center,
-          minWidth: 0,
-          minHeight: 0,
-          maxWidth: double.infinity,
-          maxHeight: double.infinity,
-          child: Transform.rotate(
-            angle: _webBoardRotationRadians(),
-            transformHitTests: true,
-            child: SizedBox(
-              width: frozenSize.width,
-              height: frozenSize.height,
-              child: MediaQuery(
-                data: frozenMedia,
-                child: Builder(builder: _buildBoardSurface),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    body: _buildBoardSurface(context),
+  );
 }
 
 class _MenuCirclePainter extends CustomPainter {
