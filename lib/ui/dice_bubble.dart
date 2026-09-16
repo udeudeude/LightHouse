@@ -26,8 +26,88 @@ const arcadeDiceChoices = <ArcadeDieChoice>[
   ArcadeDieChoice('color', ArcadeDieKind.color, 'Color die'),
 ];
 
+class DiceBubbleSnapshot {
+  const DiceBubbleSnapshot({
+    required this.revision,
+    required this.rollSerial,
+    required this.selectedIds,
+    required this.faces,
+    required this.xFraction,
+    required this.yFraction,
+  });
+
+  static const initial = DiceBubbleSnapshot(
+    revision: 0,
+    rollSerial: 0,
+    selectedIds: ['standard-1'],
+    faces: {'standard-1': 0},
+    xFraction: 0.20,
+    yFraction: 0.14,
+  );
+
+  final int revision;
+  final int rollSerial;
+  final List<String> selectedIds;
+  final Map<String, int> faces;
+  final double xFraction;
+  final double yFraction;
+
+  Map<String, Object?> toJson() => {
+    'revision': revision,
+    'rollSerial': rollSerial,
+    'selectedIds': selectedIds,
+    'faces': faces,
+    'xFraction': xFraction,
+    'yFraction': yFraction,
+  };
+
+  static DiceBubbleSnapshot? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    try {
+      final map = raw.cast<String, Object?>();
+      final ids =
+          (map['selectedIds'] as List?)
+              ?.whereType<String>()
+              .where((id) => arcadeDiceChoices.any((choice) => choice.id == id))
+              .take(3)
+              .toList() ??
+          const <String>[];
+      final rawFaces = map['faces'];
+      final faces = <String, int>{};
+      if (rawFaces is Map) {
+        for (final entry in rawFaces.entries) {
+          if (entry.key is! String || entry.value is! num) continue;
+          final value = (entry.value as num).toInt();
+          if (value >= 0 && value < 6) faces[entry.key as String] = value;
+        }
+      }
+      return DiceBubbleSnapshot(
+        revision: (map['revision'] as num?)?.toInt() ?? 0,
+        rollSerial: (map['rollSerial'] as num?)?.toInt() ?? 0,
+        selectedIds: List<String>.unmodifiable(ids),
+        faces: Map<String, int>.unmodifiable(faces),
+        xFraction: ((map['xFraction'] as num?)?.toDouble() ?? 0.20)
+            .clamp(0.0, 1.0)
+            .toDouble(),
+        yFraction: ((map['yFraction'] as num?)?.toDouble() ?? 0.14)
+            .clamp(0.0, 1.0)
+            .toDouble(),
+      );
+    } on Object {
+      return null;
+    }
+  }
+}
+
 class DiceBubble extends StatefulWidget {
-  const DiceBubble({super.key});
+  const DiceBubble({
+    super.key,
+    this.snapshot = DiceBubbleSnapshot.initial,
+    this.onChanged,
+  });
+
+  final DiceBubbleSnapshot snapshot;
+  final ValueChanged<DiceBubbleSnapshot>? onChanged;
 
   @override
   State<DiceBubble> createState() => _DiceBubbleState();
@@ -70,12 +150,17 @@ class _DiceBubbleState extends State<DiceBubble>
     with SingleTickerProviderStateMixin {
   static const double _radius = 70;
   final math.Random _random = math.Random();
-  final List<String> _selectedIds = ['standard-1'];
-  final Map<String, int> _faces = {'standard-1': 0};
+  final List<String> _selectedIds = [];
+  final Map<String, int> _faces = {};
   final Map<String, _SpinPlan> _plans = {};
   late final AnimationController _rollController;
 
   Offset _center = const Offset(80, 80);
+  Size _surfaceSize = Size.zero;
+  Offset _pendingCenterFraction = const Offset(0.20, 0.14);
+  int _revision = 0;
+  int _rollSerial = 0;
+  int _appliedRevision = -1;
   bool _pressed = false;
   bool _twoFingerMove = false;
   bool _gestureMoved = false;
@@ -84,6 +169,7 @@ class _DiceBubbleState extends State<DiceBubble>
   @override
   void initState() {
     super.initState();
+    _applySnapshot(widget.snapshot, animateRoll: false);
     _rollController =
         AnimationController(
           vsync: this,
@@ -95,9 +181,94 @@ class _DiceBubbleState extends State<DiceBubble>
   }
 
   @override
+  void didUpdateWidget(covariant DiceBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _applySnapshot(widget.snapshot, animateRoll: true);
+  }
+
+  @override
   void dispose() {
     _rollController.dispose();
     super.dispose();
+  }
+
+  void _applySnapshot(
+    DiceBubbleSnapshot snapshot, {
+    required bool animateRoll,
+  }) {
+    if (snapshot.revision == _appliedRevision) return;
+    final previousFaces = Map<String, int>.from(_faces);
+    final previousRollSerial = _rollSerial;
+    _selectedIds
+      ..clear()
+      ..addAll(snapshot.selectedIds);
+    _faces
+      ..clear()
+      ..addAll(snapshot.faces);
+    for (final id in _selectedIds) {
+      _faces.putIfAbsent(id, () => 0);
+    }
+    _revision = snapshot.revision;
+    _rollSerial = snapshot.rollSerial;
+    _appliedRevision = snapshot.revision;
+    _pendingCenterFraction = Offset(snapshot.xFraction, snapshot.yFraction);
+    if (_surfaceSize != Size.zero) {
+      _center = _clampCenter(
+        Offset(
+          snapshot.xFraction * _surfaceSize.width,
+          snapshot.yFraction * _surfaceSize.height,
+        ),
+        _surfaceSize,
+      );
+    }
+    if (animateRoll && snapshot.rollSerial != previousRollSerial) {
+      _planRemoteRoll(previousFaces);
+    } else if (!animateRoll) {
+      _plans.clear();
+    }
+  }
+
+  void _planRemoteRoll(Map<String, int> previousFaces) {
+    _plans.clear();
+    for (final id in _selectedIds) {
+      final oldFace = previousFaces[id] ?? _faces[id] ?? 0;
+      final face = _faces[id] ?? 0;
+      final start = _targetForFace(oldFace);
+      final target = _targetForFace(face);
+      _plans[id] = _SpinPlan(
+        start: start,
+        end: _Rotation3(
+          _spunEnd(target.x),
+          _spunEnd(target.y),
+          _spunEnd(target.z),
+        ),
+        bounceAngle: _random.nextDouble() * 2 * math.pi,
+        bouncePhase: _random.nextDouble() * 2 * math.pi,
+      );
+    }
+    if (_rollController.isAnimating) _rollController.stop();
+    _rollController.forward(from: 0);
+  }
+
+  void _emitSnapshot() {
+    final callback = widget.onChanged;
+    final size = _surfaceSize;
+    if (callback == null || size == Size.zero) return;
+    _revision += 1;
+    _appliedRevision = _revision;
+    final x = (_center.dx / size.width).clamp(0.0, 1.0).toDouble();
+    final y = (_center.dy / size.height).clamp(0.0, 1.0).toDouble();
+    _pendingCenterFraction = Offset(x, y);
+    callback(
+      DiceBubbleSnapshot(
+        revision: _revision,
+        rollSerial: _rollSerial,
+        selectedIds: List<String>.unmodifiable(_selectedIds),
+        faces: Map<String, int>.unmodifiable(_faces),
+        xFraction: x,
+        yFraction: y,
+      ),
+    );
   }
 
   ArcadeDieChoice _choice(String id) =>
@@ -144,8 +315,10 @@ class _DiceBubbleState extends State<DiceBubble>
         bouncePhase: _random.nextDouble() * 2 * math.pi,
       );
     }
+    _rollSerial += 1;
     HapticFeedback.mediumImpact();
     _rollController.forward(from: 0);
+    _emitSnapshot();
   }
 
   Offset _clampCenter(Offset center, Size size) => Offset(
@@ -277,6 +450,7 @@ class _DiceBubbleState extends State<DiceBubble>
                                       }
                                     });
                                     setSheetState(() {});
+                                    _emitSnapshot();
                                   },
                             child: AnimatedOpacity(
                               duration: const Duration(milliseconds: 100),
@@ -330,7 +504,19 @@ class _DiceBubbleState extends State<DiceBubble>
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final size = Size(constraints.maxWidth, constraints.maxHeight);
-      _center = _clampCenter(_center, size);
+      final firstLayout = _surfaceSize == Size.zero;
+      _surfaceSize = size;
+      if (firstLayout) {
+        _center = _clampCenter(
+          Offset(
+            _pendingCenterFraction.dx * size.width,
+            _pendingCenterFraction.dy * size.height,
+          ),
+          size,
+        );
+      } else {
+        _center = _clampCenter(_center, size);
+      }
       final selected = [for (final id in _selectedIds) _choice(id)];
       return Stack(
         children: [
@@ -365,6 +551,7 @@ class _DiceBubbleState extends State<DiceBubble>
                     size,
                   );
                 });
+                _emitSnapshot();
               },
               onScaleEnd: (_) {
                 final roll = _pressed && !_twoFingerMove && !_gestureMoved;
@@ -373,6 +560,7 @@ class _DiceBubbleState extends State<DiceBubble>
                 _twoFingerMove = false;
                 _gestureMoved = false;
                 _gestureTravel = 0;
+                _emitSnapshot();
               },
               child: Stack(
                 fit: StackFit.expand,

@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Added two-device Remote sessions: either device can be the Board Display or Controller, pairing uses a QR/link, controller coordinates scale to the display board, WebRTC is preferred for direct transport, and encrypted relay messaging provides pairing/fallback.
+- Added two-device Remote sessions: either device can be the Board Display or Controller, pairing uses a QR/link, controller coordinates scale to the display board, transient toy effects plus Dice Bubble and Zendo Stone state are mirrored to the display, WebRTC is preferred for direct transport, and encrypted relay messaging provides pairing/fallback.
 - Added **File → Restore Previous Autosave…** so the automatically retained recovery snapshot can be restored deliberately; restoration is undoable.
 - Made continuous toy timing use actual elapsed time, cached Red Sweep footprint bounds between board changes, and indexed immutable board-state lookups to reduce repeated work.
 - Removed the obsolete alternate board-screen implementation and normalized the active board screen/file naming.

@@ -180,6 +180,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   StreamSubscription<RemoteAppMessage>? _remoteMessageSubscription;
   Timer? _remotePublishTimer;
   BoardState? _remotePendingState;
+  Timer? _remoteRuntimeTimer;
+  String? _lastRemoteRuntimeJson;
+  DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
+  ZendoStonesSnapshot _zendoSnapshot = ZendoStonesSnapshot.initial;
   bool _applyingRemoteState = false;
   bool _remoteSeedReceived = false;
   double? _remoteDisplayWidthMm;
@@ -234,7 +238,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       } else if (!kIsWeb) {
         _startFaceDownMonitoring();
       }
-      if (_needsToyTicker) _ensureToyTicker();
+      if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
       return;
     }
 
@@ -259,6 +263,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _webMotionTimer?.cancel();
     _saveDebounceTimer?.cancel();
     _remotePublishTimer?.cancel();
+    _remoteRuntimeTimer?.cancel();
     _remoteMessageSubscription?.cancel();
     unawaited(_remoteSession?.close());
     unawaited(_flushPendingSave());
@@ -848,7 +853,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   void _ensureToyTicker() {
-    if (_toyTicker != null) return;
+    if (_remoteDisplayMode || _toyTicker != null) return;
     _lastToyTickAt = DateTime.now();
     _toyTicker = Timer.periodic(const Duration(milliseconds: 33), (_) {
       final now = DateTime.now();
@@ -1487,6 +1492,230 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
   }
 
+  Map<String, Object?> _remotePoint(PhysicalPoint point) => {
+    'x': point.xMm,
+    'y': point.yMm,
+  };
+
+  PhysicalPoint? _pointFromRemote(Object? raw) {
+    if (raw is! Map) return null;
+    final x = raw['x'];
+    final y = raw['y'];
+    if (x is! num || y is! num) return null;
+    return PhysicalPoint(x.toDouble(), y.toDouble());
+  }
+
+  Map<String, Object?> _remoteRuntimePayload() => {
+    'activeToys': [for (final toy in _activeToys) toy.name],
+    'toyClock': _toyClock,
+    'effectOpacities': _effectOpacities,
+    'burstCenter': _burstCenter == null ? null : _remotePoint(_burstCenter!),
+    'burstProgress': _burstProgress,
+    'ghostTrailActive': _ghostTrailActive,
+    'ghostTrails': {
+      for (final entry in _ghostTrails.entries)
+        entry.key: [for (final point in entry.value) _remotePoint(point)],
+    },
+    'eventZoneCenter': _eventZoneCenter == null
+        ? null
+        : _remotePoint(_eventZoneCenter!),
+    'eventZoneRadiusMm': _eventZoneRadiusMm,
+    'eventZoneProgress': _eventZoneProgress,
+    'eventZoneDismiss': _eventZoneDismiss,
+    'turnTimerProgress': _turnTimerProgress,
+    'radarAngleDegrees': _radarAngleDegrees,
+    'redSweepY': _redSweepY,
+    'projectiles': [
+      for (final projectile in _projectiles)
+        {
+          'position': _remotePoint(projectile.position),
+          'velocity': _remotePoint(projectile.velocity),
+          'radiusMm': projectile.radiusMm,
+          'ricochet': projectile.ricochet,
+          'edgeHits': projectile.edgeHits,
+          'escaping': projectile.escaping,
+        },
+    ],
+    'impacts': [
+      for (final impact in _impacts)
+        {
+          'position': _remotePoint(impact.position),
+          'lifeSeconds': impact.lifeSeconds,
+        },
+    ],
+    'sideGunAnglesDegrees': _sideGunAnglesDegrees,
+    'sideGunAmmo': _sideGunAmmo,
+    'constellationElementIds': _constellationElementIds,
+    'checkerUnderlays': _checkerUnderlays,
+    'roundedTriangleTips': _roundedTriangleTips,
+    'dice': _diceSnapshot.toJson(),
+    'zendo': _zendoSnapshot.toJson(),
+  };
+
+  void _startRemoteRuntimePublisher() {
+    _remoteRuntimeTimer?.cancel();
+    _remoteRuntimeTimer = null;
+    _lastRemoteRuntimeJson = null;
+    if (_remoteSession?.role != RemoteRole.controller) return;
+    _remoteRuntimeTimer = Timer.periodic(
+      const Duration(milliseconds: 50),
+      (_) => unawaited(_sendRemoteRuntimeIfChanged()),
+    );
+    unawaited(_sendRemoteRuntimeIfChanged(force: true));
+  }
+
+  Future<void> _sendRemoteRuntimeIfChanged({bool force = false}) async {
+    final session = _remoteSession;
+    if (session == null || session.role != RemoteRole.controller) return;
+    if (!_remoteSeedReceived && !session.isCreator) return;
+    final payload = _remoteRuntimePayload();
+    final encoded = jsonEncode(payload);
+    if (!force && encoded == _lastRemoteRuntimeJson) return;
+    _lastRemoteRuntimeJson = encoded;
+    await session.sendApp('runtime', payload);
+  }
+
+  void _handleDiceSnapshot(DiceBubbleSnapshot snapshot) {
+    _diceSnapshot = snapshot;
+    unawaited(_sendRemoteRuntimeIfChanged());
+  }
+
+  void _handleZendoSnapshot(ZendoStonesSnapshot snapshot) {
+    _zendoSnapshot = snapshot;
+    unawaited(_sendRemoteRuntimeIfChanged());
+  }
+
+  Future<void> _applyRemoteRuntime(Map<String, Object?> payload) async {
+    if (_remoteSession?.role != RemoteRole.display || !mounted) return;
+    final activeNames =
+        (payload['activeToys'] as List?)?.whereType<String>() ??
+        const Iterable<String>.empty();
+    final active = <_ToyKind>{};
+    for (final name in activeNames) {
+      for (final toy in _ToyKind.values) {
+        if (toy.name == name) active.add(toy);
+      }
+    }
+
+    final opacities = <String, double>{};
+    final rawOpacities = payload['effectOpacities'];
+    if (rawOpacities is Map) {
+      for (final entry in rawOpacities.entries) {
+        if (entry.key is String && entry.value is num) {
+          opacities[entry.key as String] = (entry.value as num).toDouble();
+        }
+      }
+    }
+
+    final trails = <String, List<PhysicalPoint>>{};
+    final rawTrails = payload['ghostTrails'];
+    if (rawTrails is Map) {
+      for (final entry in rawTrails.entries) {
+        if (entry.key is! String || entry.value is! List) continue;
+        trails[entry.key as String] = [
+          for (final rawPoint in entry.value as List)
+            if (_pointFromRemote(rawPoint) case final point?) point,
+        ];
+      }
+    }
+
+    final projectiles = <ToyProjectile>[];
+    final rawProjectiles = payload['projectiles'];
+    if (rawProjectiles is List) {
+      for (final raw in rawProjectiles) {
+        if (raw is! Map) continue;
+        final position = _pointFromRemote(raw['position']);
+        final velocity = _pointFromRemote(raw['velocity']);
+        final radius = raw['radiusMm'];
+        if (position == null || velocity == null || radius is! num) continue;
+        projectiles.add(
+          ToyProjectile(
+            position: position,
+            velocity: velocity,
+            radiusMm: radius.toDouble(),
+            ricochet: raw['ricochet'] == true,
+            edgeHits: (raw['edgeHits'] as num?)?.toInt() ?? 0,
+            escaping: raw['escaping'] == true,
+          ),
+        );
+      }
+    }
+
+    final impacts = <ToyImpact>[];
+    final rawImpacts = payload['impacts'];
+    if (rawImpacts is List) {
+      for (final raw in rawImpacts) {
+        if (raw is! Map) continue;
+        final position = _pointFromRemote(raw['position']);
+        final life = raw['lifeSeconds'];
+        if (position == null || life is! num) continue;
+        impacts.add(
+          ToyImpact(position: position, lifeSeconds: life.toDouble()),
+        );
+      }
+    }
+
+    final angles = (payload['sideGunAnglesDegrees'] as List?)
+        ?.whereType<num>()
+        .map((value) => value.toDouble())
+        .toList();
+    final ammo = (payload['sideGunAmmo'] as List?)
+        ?.whereType<num>()
+        .map((value) => value.toInt())
+        .toList();
+    final constellation =
+        (payload['constellationElementIds'] as List?)
+            ?.whereType<String>()
+            .toList() ??
+        const <String>[];
+    final dice = DiceBubbleSnapshot.fromJson(payload['dice']);
+    final zendo = ZendoStonesSnapshot.fromJson(payload['zendo']);
+
+    _toyTicker?.cancel();
+    _toyTicker = null;
+    _lastToyTickAt = null;
+    setState(() {
+      _activeToys
+        ..clear()
+        ..addAll(active);
+      _toyClock = (payload['toyClock'] as num?)?.toDouble() ?? _toyClock;
+      _effectOpacities = opacities;
+      _burstCenter = _pointFromRemote(payload['burstCenter']);
+      _burstProgress = (payload['burstProgress'] as num?)?.toDouble();
+      _ghostTrailActive = payload['ghostTrailActive'] == true;
+      _ghostTrails
+        ..clear()
+        ..addAll(trails);
+      _eventZoneCenter = _pointFromRemote(payload['eventZoneCenter']);
+      _eventZoneRadiusMm = (payload['eventZoneRadiusMm'] as num?)?.toDouble();
+      _eventZoneProgress = (payload['eventZoneProgress'] as num?)?.toDouble();
+      _eventZoneDismiss =
+          (payload['eventZoneDismiss'] as num?)?.toDouble() ?? 0;
+      _turnTimerProgress = (payload['turnTimerProgress'] as num?)?.toDouble();
+      _radarAngleDegrees =
+          (payload['radarAngleDegrees'] as num?)?.toDouble() ?? 0;
+      _redSweepY = (payload['redSweepY'] as num?)?.toDouble() ?? 0;
+      _projectiles = projectiles;
+      _impacts = impacts;
+      if (angles != null && angles.length == _sideGunAnglesDegrees.length) {
+        for (var i = 0; i < angles.length; i += 1) {
+          _sideGunAnglesDegrees[i] = angles[i];
+        }
+      }
+      if (ammo != null && ammo.length == _sideGunAmmo.length) {
+        for (var i = 0; i < ammo.length; i += 1) {
+          _sideGunAmmo[i] = ammo[i];
+        }
+      }
+      _constellationElementIds = constellation;
+      _checkerUnderlays = payload['checkerUnderlays'] == true;
+      _roundedTriangleTips = payload['roundedTriangleTips'] == true;
+      if (dice != null) _diceSnapshot = dice;
+      if (zendo != null) _zendoSnapshot = zendo;
+    });
+    _toyRevision.value += 1;
+  }
+
   Future<void> _startRemoteSession(RemoteSession session) async {
     final old = _remoteSession;
     if (old != null && old != session) {
@@ -1505,6 +1734,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _remoteMessageSubscription = session.messages.listen(_handleRemoteMessage);
     await session.connect();
     if (!mounted) return;
+    _startRemoteRuntimePublisher();
     await _sendRemoteHello();
     if (session.isCreator) {
       await _showPairingDialog(session);
@@ -1549,17 +1779,22 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         if (session.isCreator) {
           await _sendRemoteHello();
           await _sendRemoteState('seed');
+          await _sendRemoteRuntimeIfChanged(force: true);
         }
       case 'seed':
         await _applyRemoteState(message.payload, force: true);
         _remoteSeedReceived = true;
         if (session.role == RemoteRole.controller) {
+          _startRemoteRuntimePublisher();
           await _sendRemoteState('state');
+          await _sendRemoteRuntimeIfChanged(force: true);
         }
       case 'state':
         if (session.role == RemoteRole.display) {
           await _applyRemoteState(message.payload);
         }
+      case 'runtime':
+        await _applyRemoteRuntime(message.payload);
       case 'role':
         final peerRoleName = message.payload['role'];
         final peerRole = RemoteRole.values
@@ -1571,9 +1806,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           _remoteDisplayWidthMm = null;
           _remoteDisplayHeightMm = null;
         });
+        _startRemoteRuntimePublisher();
         await _sendRemoteHello();
         if (session.role == RemoteRole.controller) {
           await _sendRemoteState('state');
+          await _sendRemoteRuntimeIfChanged(force: true);
         }
       case 'disconnect':
         if (mounted) {
@@ -1703,6 +1940,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _remoteMessageSubscription = null;
     _remotePublishTimer?.cancel();
     _remotePublishTimer = null;
+    _remoteRuntimeTimer?.cancel();
+    _remoteRuntimeTimer = null;
+    _lastRemoteRuntimeJson = null;
     _remotePendingState = null;
     await session.close();
     if (!mounted) return;
@@ -1722,9 +1962,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _remoteDisplayWidthMm = null;
       _remoteDisplayHeightMm = null;
     });
+    _startRemoteRuntimePublisher();
     await _sendRemoteHello();
     if (session.role == RemoteRole.controller) {
       await _sendRemoteState('state');
+      await _sendRemoteRuntimeIfChanged(force: true);
     }
   }
 
@@ -3512,12 +3754,18 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         if (_activeToys.contains(_ToyKind.wireDie))
           IgnorePointer(
             ignoring: _remoteDisplayMode,
-            child: const DiceBubble(),
+            child: DiceBubble(
+              snapshot: _diceSnapshot,
+              onChanged: _remoteDisplayMode ? null : _handleDiceSnapshot,
+            ),
           ),
         if (_activeToys.contains(_ToyKind.zendoStones))
           IgnorePointer(
             ignoring: _remoteDisplayMode,
-            child: const ZendoStonesWidget(),
+            child: ZendoStonesWidget(
+              snapshot: _zendoSnapshot,
+              onChanged: _remoteDisplayMode ? null : _handleZendoSnapshot,
+            ),
           ),
         if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)
           Padding(padding: safePadding, child: _sideGunAimHandles()),

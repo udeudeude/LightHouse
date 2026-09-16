@@ -1,7 +1,92 @@
 import 'package:flutter/material.dart';
 
+class ZendoStoneSnapshot {
+  const ZendoStoneSnapshot({
+    required this.id,
+    required this.kind,
+    required this.xFraction,
+    required this.yFraction,
+  });
+
+  final int id;
+  final String kind;
+  final double xFraction;
+  final double yFraction;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'kind': kind,
+    'xFraction': xFraction,
+    'yFraction': yFraction,
+  };
+
+  static ZendoStoneSnapshot? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    try {
+      final map = raw.cast<String, Object?>();
+      final id = (map['id'] as num?)?.toInt();
+      final kind = map['kind'];
+      if (id == null || kind is! String) return null;
+      return ZendoStoneSnapshot(
+        id: id,
+        kind: kind,
+        xFraction: ((map['xFraction'] as num?)?.toDouble() ?? 0.5)
+            .clamp(0.0, 1.0)
+            .toDouble(),
+        yFraction: ((map['yFraction'] as num?)?.toDouble() ?? 0.5)
+            .clamp(0.0, 1.0)
+            .toDouble(),
+      );
+    } on Object {
+      return null;
+    }
+  }
+}
+
+class ZendoStonesSnapshot {
+  const ZendoStonesSnapshot({required this.revision, required this.stones});
+
+  static const initial = ZendoStonesSnapshot(revision: 0, stones: []);
+
+  final int revision;
+  final List<ZendoStoneSnapshot> stones;
+
+  Map<String, Object?> toJson() => {
+    'revision': revision,
+    'stones': [for (final stone in stones) stone.toJson()],
+  };
+
+  static ZendoStonesSnapshot? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    try {
+      final map = raw.cast<String, Object?>();
+      final stones = <ZendoStoneSnapshot>[];
+      final rawStones = map['stones'];
+      if (rawStones is List) {
+        for (final item in rawStones) {
+          final stone = ZendoStoneSnapshot.fromJson(item);
+          if (stone != null) stones.add(stone);
+        }
+      }
+      return ZendoStonesSnapshot(
+        revision: (map['revision'] as num?)?.toInt() ?? 0,
+        stones: List<ZendoStoneSnapshot>.unmodifiable(stones),
+      );
+    } on Object {
+      return null;
+    }
+  }
+}
+
 class ZendoStonesWidget extends StatefulWidget {
-  const ZendoStonesWidget({super.key});
+  const ZendoStonesWidget({
+    super.key,
+    this.snapshot = ZendoStonesSnapshot.initial,
+    this.onChanged,
+  });
+
+  final ZendoStonesSnapshot snapshot;
+  final ValueChanged<ZendoStonesSnapshot>? onChanged;
 
   @override
   State<ZendoStonesWidget> createState() => _ZendoStonesWidgetState();
@@ -37,6 +122,81 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
   final List<_ZendoStone> _stones = [];
   int _nextId = 1;
   int? _trayDragStoneId;
+  int _revision = 0;
+  int _appliedRevision = -1;
+  Size _surfaceSize = Size.zero;
+  ZendoStonesSnapshot? _pendingSnapshot;
+
+  @override
+  void initState() {
+    super.initState();
+    _pendingSnapshot = widget.snapshot;
+  }
+
+  @override
+  void didUpdateWidget(covariant ZendoStonesWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.snapshot.revision == _appliedRevision) return;
+    _pendingSnapshot = widget.snapshot;
+    if (_surfaceSize != Size.zero) {
+      _applySnapshot(widget.snapshot, _surfaceSize);
+      if (mounted) setState(() {});
+    }
+  }
+
+  _ZendoStoneKind? _kindFromName(String name) =>
+      _ZendoStoneKind.values.where((kind) => kind.name == name).firstOrNull;
+
+  void _applySnapshot(ZendoStonesSnapshot snapshot, Size size) {
+    if (snapshot.revision == _appliedRevision) return;
+    _stones.clear();
+    var maximumId = 0;
+    for (final item in snapshot.stones) {
+      final kind = _kindFromName(item.kind);
+      if (kind == null) continue;
+      maximumId = item.id > maximumId ? item.id : maximumId;
+      _stones.add(
+        _ZendoStone(
+          id: item.id,
+          kind: kind,
+          center: _clamp(
+            Offset(item.xFraction * size.width, item.yFraction * size.height),
+            size,
+          ),
+          expanded: true,
+        ),
+      );
+    }
+    _nextId = maximumId + 1;
+    _revision = snapshot.revision;
+    _appliedRevision = snapshot.revision;
+    _pendingSnapshot = null;
+  }
+
+  void _emitSnapshot(Size size) {
+    final callback = widget.onChanged;
+    if (callback == null || size == Size.zero) return;
+    _revision += 1;
+    _appliedRevision = _revision;
+    callback(
+      ZendoStonesSnapshot(
+        revision: _revision,
+        stones: List<ZendoStoneSnapshot>.unmodifiable([
+          for (final stone in _stones)
+            ZendoStoneSnapshot(
+              id: stone.id,
+              kind: stone.kind.name,
+              xFraction: (stone.center.dx / size.width)
+                  .clamp(0.0, 1.0)
+                  .toDouble(),
+              yFraction: (stone.center.dy / size.height)
+                  .clamp(0.0, 1.0)
+                  .toDouble(),
+            ),
+        ]),
+      ),
+    );
+  }
 
   Color _fill(_ZendoStoneKind kind) => switch (kind) {
     _ZendoStoneKind.white => Colors.white,
@@ -76,6 +236,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
         ),
       );
     });
+    _emitSnapshot(size);
   }
 
   void _beginTrayDrag(
@@ -95,6 +256,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
         ),
       );
     });
+    _emitSnapshot(size);
   }
 
   void _updateTrayDrag(DragUpdateDetails details, Size size) {
@@ -108,6 +270,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
         expanded: true,
       );
     });
+    _emitSnapshot(size);
   }
 
   void _endTrayDrag() {
@@ -117,6 +280,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     final index = _stones.indexWhere((stone) => stone.id == id);
     if (index < 0) return;
     setState(() => _stones[index] = _stones[index].copyWith(expanded: true));
+    _emitSnapshot(_surfaceSize);
   }
 
   void _move(int id, Offset delta, Size size) {
@@ -128,11 +292,15 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
         expanded: true,
       );
     });
+    _emitSnapshot(size);
   }
 
-  void _remove(int id) => setState(() {
-    _stones.removeWhere((stone) => stone.id == id);
-  });
+  void _remove(int id) {
+    setState(() {
+      _stones.removeWhere((stone) => stone.id == id);
+    });
+    _emitSnapshot(_surfaceSize);
+  }
 
   Widget _trayButton(_ZendoStoneKind kind, Size size) => Tooltip(
     message: _label(kind),
@@ -173,6 +341,9 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final size = Size(constraints.maxWidth, constraints.maxHeight);
+      _surfaceSize = size;
+      final pending = _pendingSnapshot;
+      if (pending != null) _applySnapshot(pending, size);
       return Stack(
         key: _surfaceKey,
         children: [
