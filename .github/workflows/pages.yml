@@ -3,7 +3,7 @@ name: Deploy web test
 on:
   push:
     branches:
-      - lighthouse-2-rewrite
+      - main
   workflow_dispatch:
 
 permissions:
