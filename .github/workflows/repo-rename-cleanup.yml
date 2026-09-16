@@ -42,7 +42,7 @@ jobs:
       - run: flutter test
       - name: Verify old name is migration-only
         run: |
-          matches=$(grep -R -n --exclude-dir=.git 'LightHouse-StashBoard' . || true)
+          matches=$(grep -R -n --exclude-dir=.git --exclude=repo-rename-cleanup.yml 'LightHouse-StashBoard' . || true)
           echo "$matches"
           unexpected=$(printf '%s\n' "$matches" | grep -v '^./web/index.html:' || true)
           if [ -n "$unexpected" ]; then
