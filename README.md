@@ -73,6 +73,10 @@ Board controls:
 
 The user-facing Structure menu was removed. Stack/nest relationships remain an internal board concept so physically grouped footprints still move, push, save, restore, and undo correctly.
 
+## Remote sessions
+
+Any two LightHouse-capable devices can pair as a Board Display and a Controller. Start Remote from either device, choose that device's role, and scan the QR code on the other device. The controller renders the display's full physical board as a scaled control surface. Pairing and fallback relay messages are encrypted; after pairing LightHouse prefers a direct WebRTC data channel.
+
 ## Development
 
 The source is a Flutter app. Flutter 3.47 / Dart 3.13 or newer is the current baseline.

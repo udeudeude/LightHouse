@@ -9,6 +9,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +18,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../application/board_controller.dart';
 import '../application/board_store.dart';
+import '../application/remote_session.dart';
 import '../domain/board_state.dart';
 import '../domain/board_underlay.dart';
 import '../domain/convex_geometry.dart';
@@ -67,12 +69,14 @@ class BoardScreen extends StatefulWidget {
     required this.initialState,
     required this.calibrationLabel,
     required this.onRecalibrate,
+    this.remoteLaunch,
   });
 
   final double logicalPixelsPerMm;
   final BoardState initialState;
   final String calibrationLabel;
   final ValueChanged<BoardState> onRecalibrate;
+  final RemoteLaunch? remoteLaunch;
 
   @override
   State<BoardScreen> createState() => _BoardScreenState();
@@ -172,6 +176,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Timer? _historyControlsTimer;
   Timer? _saveDebounceTimer;
   BoardState? _pendingSaveState;
+  RemoteSession? _remoteSession;
+  StreamSubscription<RemoteAppMessage>? _remoteMessageSubscription;
+  Timer? _remotePublishTimer;
+  BoardState? _remotePendingState;
+  bool _applyingRemoteState = false;
+  bool _remoteSeedReceived = false;
+  double? _remoteDisplayWidthMm;
+  double? _remoteDisplayHeightMm;
   double? _faceUpZSign;
   double? _faceUpCandidateSign;
   int _faceUpStableSamples = 0;
@@ -190,6 +202,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _loadInteractionPreferences();
       if (!kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
         _startFaceDownMonitoring();
+      }
+      final launch = widget.remoteLaunch;
+      if (launch != null) {
+        unawaited(_startRemoteSession(RemoteSession.fromLaunch(launch)));
       }
     });
   }
@@ -242,6 +258,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _faceDownTimer?.cancel();
     _webMotionTimer?.cancel();
     _saveDebounceTimer?.cancel();
+    _remotePublishTimer?.cancel();
+    _remoteMessageSubscription?.cancel();
+    unawaited(_remoteSession?.close());
     unawaited(_flushPendingSave());
     _desktopScrollEndTimer?.cancel();
     _historyControlsTimer?.cancel();
@@ -564,18 +583,62 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     };
   }
 
+  bool get _remoteDisplayMode => _remoteSession?.role == RemoteRole.display;
+
+  bool get _remoteControllerMode =>
+      _remoteSession?.role == RemoteRole.controller;
+
+  double get _pixelsPerMm {
+    final widthMm = _remoteDisplayWidthMm;
+    final heightMm = _remoteDisplayHeightMm;
+    if (!_remoteControllerMode || widthMm == null || heightMm == null) {
+      return widget.logicalPixelsPerMm;
+    }
+    final size = MediaQuery.sizeOf(context);
+    final safe = MediaQuery.viewPaddingOf(context);
+    final availableWidth = math.max(1.0, size.width - safe.horizontal);
+    final availableHeight = math.max(1.0, size.height - safe.vertical);
+    return math.max(
+      0.1,
+      math.min(availableWidth / widthMm, availableHeight / heightMm),
+    );
+  }
+
+  EdgeInsets _boardSurfacePadding(BuildContext surfaceContext) {
+    final safe = MediaQuery.viewPaddingOf(surfaceContext);
+    final widthMm = _remoteDisplayWidthMm;
+    final heightMm = _remoteDisplayHeightMm;
+    if (!_remoteControllerMode || widthMm == null || heightMm == null) {
+      return safe;
+    }
+    final size = MediaQuery.sizeOf(surfaceContext);
+    final availableWidth = math.max(1.0, size.width - safe.horizontal);
+    final availableHeight = math.max(1.0, size.height - safe.vertical);
+    final scale = math.max(
+      0.1,
+      math.min(availableWidth / widthMm, availableHeight / heightMm),
+    );
+    final extraX = math.max(0.0, (availableWidth - widthMm * scale) / 2);
+    final extraY = math.max(0.0, (availableHeight - heightMm * scale) / 2);
+    return EdgeInsets.fromLTRB(
+      safe.left + extraX,
+      safe.top + extraY,
+      safe.right + extraX,
+      safe.bottom + extraY,
+    );
+  }
+
   ({double width, double height}) _physicalBoardSize() {
+    final remoteWidth = _remoteDisplayWidthMm;
+    final remoteHeight = _remoteDisplayHeightMm;
+    if (_remoteControllerMode && remoteWidth != null && remoteHeight != null) {
+      return (width: remoteWidth, height: remoteHeight);
+    }
     final size = MediaQuery.sizeOf(context);
     final padding = MediaQuery.viewPaddingOf(context);
     return (
-      width: math.max(
-        1.0,
-        (size.width - padding.horizontal) / widget.logicalPixelsPerMm,
-      ),
-      height: math.max(
-        1.0,
-        (size.height - padding.vertical) / widget.logicalPixelsPerMm,
-      ),
+      width: math.max(1.0, (size.width - padding.horizontal) / _pixelsPerMm),
+      height: math.max(1.0, (size.height - padding.vertical) / _pixelsPerMm),
     );
   }
 
@@ -705,7 +768,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     final table = _physicalBoardSize();
     const speed = 85.0;
-    final inset = 14 / widget.logicalPixelsPerMm;
+    final inset = 14 / _pixelsPerMm;
     final centerX = table.width / 2;
     final centerY = table.height / 2;
     final position = switch (index) {
@@ -1263,14 +1326,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (targetId == null) return null;
     final target = _controller.state.elementById(targetId);
     if (target == null || !_controller.state.underlay.isVisible) return null;
-    final mediaSize = MediaQuery.sizeOf(context);
-    final padding = MediaQuery.viewPaddingOf(context);
-    final widthPx = mediaSize.width - padding.horizontal;
-    final heightPx = mediaSize.height - padding.vertical;
+    final board = _physicalBoardSize();
     final snap = _controller.state.underlay.nearestSnapPoint(
       target.position,
-      boardWidthMm: widthPx / widget.logicalPixelsPerMm,
-      boardHeightMm: heightPx / widget.logicalPixelsPerMm,
+      boardWidthMm: board.width,
+      boardHeightMm: board.height,
     );
     if (snap == null ||
         _controller.state.underlay != BoardUnderlay.wheel ||
@@ -1427,6 +1487,301 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _startRemoteSession(RemoteSession session) async {
+    final old = _remoteSession;
+    if (old != null && old != session) {
+      await _remoteMessageSubscription?.cancel();
+      _remoteMessageSubscription = null;
+      await old.close();
+    }
+    if (!mounted) return;
+    setState(() {
+      _remoteSession = session;
+      _remoteSeedReceived = false;
+      _remoteDisplayWidthMm = null;
+      _remoteDisplayHeightMm = null;
+    });
+    session.addListener(_remoteSessionChanged);
+    _remoteMessageSubscription = session.messages.listen(_handleRemoteMessage);
+    await session.connect();
+    if (!mounted) return;
+    await _sendRemoteHello();
+    if (session.isCreator) {
+      await _showPairingDialog(session);
+    }
+  }
+
+  void _remoteSessionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _sendRemoteHello() async {
+    final session = _remoteSession;
+    if (session == null) return;
+    final board = _physicalBoardSize();
+    await session.sendApp('hello', {
+      'role': session.role.name,
+      'creator': session.isCreator,
+      if (session.role == RemoteRole.display) 'widthMm': board.width,
+      if (session.role == RemoteRole.display) 'heightMm': board.height,
+    });
+  }
+
+  Future<void> _handleRemoteMessage(RemoteAppMessage message) async {
+    final session = _remoteSession;
+    if (session == null || !mounted) return;
+    switch (message.kind) {
+      case 'hello':
+        final peerRoleName = message.payload['role'];
+        final peerRole = RemoteRole.values
+            .where((value) => value.name == peerRoleName)
+            .firstOrNull;
+        if (peerRole == RemoteRole.display) {
+          final width = (message.payload['widthMm'] as num?)?.toDouble();
+          final height = (message.payload['heightMm'] as num?)?.toDouble();
+          if (width != null && height != null && width > 0 && height > 0) {
+            setState(() {
+              _remoteDisplayWidthMm = width;
+              _remoteDisplayHeightMm = height;
+            });
+          }
+        }
+        if (session.isCreator) {
+          await _sendRemoteHello();
+          await _sendRemoteState('seed');
+        }
+      case 'seed':
+        await _applyRemoteState(message.payload, force: true);
+        _remoteSeedReceived = true;
+        if (session.role == RemoteRole.controller) {
+          await _sendRemoteState('state');
+        }
+      case 'state':
+        if (session.role == RemoteRole.display) {
+          await _applyRemoteState(message.payload);
+        }
+      case 'role':
+        final peerRoleName = message.payload['role'];
+        final peerRole = RemoteRole.values
+            .where((value) => value.name == peerRoleName)
+            .firstOrNull;
+        if (peerRole == null) return;
+        await session.setRole(peerRole.other, announce: false);
+        setState(() {
+          _remoteDisplayWidthMm = null;
+          _remoteDisplayHeightMm = null;
+        });
+        await _sendRemoteHello();
+        if (session.role == RemoteRole.controller) {
+          await _sendRemoteState('state');
+        }
+      case 'disconnect':
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Remote device disconnected.')),
+          );
+        }
+    }
+  }
+
+  Future<void> _applyRemoteState(
+    Map<String, Object?> payload, {
+    bool force = false,
+  }) async {
+    final rawState = payload['state'];
+    if (rawState is! Map) return;
+    if (!force && _remoteSession?.role != RemoteRole.display) return;
+    try {
+      final state = BoardState.fromJson(rawState.cast<String, Object?>());
+      _applyingRemoteState = true;
+      _controller.replaceState(state);
+      final selected = payload['selectedId'];
+      setState(() => _selectedId = selected is String ? selected : null);
+    } on Object {
+      // Ignore malformed or incompatible remote state.
+    } finally {
+      _applyingRemoteState = false;
+    }
+  }
+
+  void _scheduleRemotePublish() {
+    final session = _remoteSession;
+    if (session == null ||
+        session.role != RemoteRole.controller ||
+        _applyingRemoteState ||
+        !_remoteSeedReceived && !session.isCreator) {
+      return;
+    }
+    _remotePendingState = _controller.state;
+    if (_remotePublishTimer != null) return;
+    _remotePublishTimer = Timer(const Duration(milliseconds: 50), () {
+      _remotePublishTimer = null;
+      unawaited(_flushRemotePublish());
+    });
+  }
+
+  Future<void> _flushRemotePublish() async {
+    final state = _remotePendingState;
+    _remotePendingState = null;
+    final session = _remoteSession;
+    if (state == null ||
+        session == null ||
+        session.role != RemoteRole.controller) {
+      return;
+    }
+    await _sendRemoteState('state', state: state);
+  }
+
+  Future<void> _sendRemoteState(String kind, {BoardState? state}) async {
+    final session = _remoteSession;
+    if (session == null) return;
+    final board = _physicalBoardSize();
+    await session.sendApp(kind, {
+      'state': (state ?? _controller.state).toJson(),
+      'selectedId': _selectedId,
+      'widthMm': board.width,
+      'heightMm': board.height,
+    });
+  }
+
+  Future<void> _showPairingDialog(RemoteSession session) async {
+    if (!mounted || _remoteSession != session) return;
+    final join = session.joinUri(Uri.base).toString();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AnimatedBuilder(
+        animation: session,
+        builder: (context, _) => AlertDialog(
+          title: Text('Pair ${session.role.label}'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 340),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                  child: QrImageView(data: join, size: 230),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  session.peerSeen
+                      ? 'Paired · ${session.transportLabel}'
+                      : 'Scan this with the other device. It will open as ${session.role.other.label}.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: join));
+                if (!dialogContext.mounted) return;
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Pairing link copied.')),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('Copy Link'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(session.peerSeen ? 'Done' : 'Hide'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _disconnectRemote() async {
+    final session = _remoteSession;
+    if (session == null) return;
+    session.removeListener(_remoteSessionChanged);
+    await _remoteMessageSubscription?.cancel();
+    _remoteMessageSubscription = null;
+    _remotePublishTimer?.cancel();
+    _remotePublishTimer = null;
+    _remotePendingState = null;
+    await session.close();
+    if (!mounted) return;
+    setState(() {
+      _remoteSession = null;
+      _remoteSeedReceived = false;
+      _remoteDisplayWidthMm = null;
+      _remoteDisplayHeightMm = null;
+    });
+  }
+
+  Future<void> _swapRemoteRoles() async {
+    final session = _remoteSession;
+    if (session == null) return;
+    await session.setRole(session.role.other);
+    setState(() {
+      _remoteDisplayWidthMm = null;
+      _remoteDisplayHeightMm = null;
+    });
+    await _sendRemoteHello();
+    if (session.role == RemoteRole.controller) {
+      await _sendRemoteState('state');
+    }
+  }
+
+  Future<void> _showRemoteMenu() async {
+    final session = _remoteSession;
+    if (session == null) {
+      final choice = await _showCompactMenu([
+        _compactMenuItem(
+          'display',
+          Icons.desktop_windows_outlined,
+          'This Device: Board Display',
+        ),
+        _compactMenuItem('controller', Icons.tune, 'This Device: Controller'),
+      ]);
+      if (!mounted || choice == null) return;
+      final role = choice == 'display'
+          ? RemoteRole.display
+          : RemoteRole.controller;
+      await _startRemoteSession(RemoteSession.create(role));
+      return;
+    }
+
+    final choice = await _showCompactMenu([
+      _compactMenuItem(
+        'status',
+        Icons.link,
+        '${session.role.label} · ${session.transportLabel}',
+        enabled: false,
+      ),
+      _compactMenuItem('pair', Icons.qr_code_2, 'Show Pairing QR'),
+      _compactMenuItem('swap', Icons.swap_horiz, 'Swap Roles'),
+      _compactMenuItem('disconnect', Icons.link_off, 'Disconnect'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'pair':
+        await _showPairingDialog(session);
+      case 'swap':
+        await _swapRemoteRoles();
+      case 'disconnect':
+        await _disconnectRemote();
+    }
+  }
+
+  Widget _remoteStatusButton() {
+    final session = _remoteSession;
+    if (session == null) return const SizedBox.shrink();
+    return IconButton(
+      tooltip: '${session.role.label} · ${session.transportLabel}',
+      onPressed: _showRemoteMenu,
+      icon: Icon(
+        session.peerSeen ? Icons.link : Icons.link_off,
+        color: session.peerSeen ? Colors.white70 : Colors.orangeAccent,
+      ),
+    );
+  }
+
   void _scheduleSave() {
     _pendingSaveState = _controller.state;
     _saveDebounceTimer?.cancel();
@@ -1479,12 +1834,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         _selectedId = null;
     });
     _scheduleSave();
+    _scheduleRemotePublish();
   }
 
-  PhysicalPoint _toPhysical(Offset point) => PhysicalPoint(
-    point.dx / widget.logicalPixelsPerMm,
-    point.dy / widget.logicalPixelsPerMm,
-  );
+  PhysicalPoint _toPhysical(Offset point) =>
+      PhysicalPoint(point.dx / _pixelsPerMm, point.dy / _pixelsPerMm);
 
   LightElement? get _selected =>
       _selectedId == null ? null : _controller.state.elementById(_selectedId!);
@@ -1566,8 +1920,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         return;
       }
       final delta = PhysicalPoint(
-        details.focalPointDelta.dx / widget.logicalPixelsPerMm,
-        details.focalPointDelta.dy / widget.logicalPixelsPerMm,
+        details.focalPointDelta.dx / _pixelsPerMm,
+        details.focalPointDelta.dy / _pixelsPerMm,
       );
       final rotationDelta = details.rotation - _lastRotation;
       _lastRotation = details.rotation;
@@ -1846,8 +2200,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
     if (!_trackpadTransform || !kIsWeb) return;
     final delta = PhysicalPoint(
-      event.panDelta.dx / widget.logicalPixelsPerMm,
-      event.panDelta.dy / widget.logicalPixelsPerMm,
+      event.panDelta.dx / _pixelsPerMm,
+      event.panDelta.dy / _pixelsPerMm,
     );
     final rotationDelta = event.rotation - _trackpadLastRotation;
     _trackpadLastRotation = event.rotation;
@@ -1896,8 +2250,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _controller.transformBy(const PhysicalPoint(0, 0), -scroll * 0.008);
     } else {
       final delta = PhysicalPoint(
-        -event.scrollDelta.dx / widget.logicalPixelsPerMm,
-        -event.scrollDelta.dy / widget.logicalPixelsPerMm,
+        -event.scrollDelta.dx / _pixelsPerMm,
+        -event.scrollDelta.dy / _pixelsPerMm,
       );
       if (delta.distanceTo(PhysicalPoint.zero) > 0.35) {
         _transformTranslated = true;
@@ -2256,7 +2610,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _showCalibrationCheck() async {
-    final pixelsPerMm = widget.logicalPixelsPerMm;
+    final pixelsPerMm = _pixelsPerMm;
     final largeBase = _controller.geometry.baseMm(PyramidSize.large);
     final recalibrate = await showDialog<bool>(
       context: context,
@@ -2386,6 +2740,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _compactMenuItem('boards', Icons.grid_on, 'Boards'),
       _compactMenuItem('toys', Icons.toys_outlined, 'Toys'),
       _compactMenuItem('display', Icons.display_settings, 'Display'),
+      _compactMenuItem('remote', Icons.devices_outlined, 'Remote'),
       _compactMenuItem('instructions', Icons.help_outline, 'Instructions'),
     ]);
     if (!mounted || choice == null) return;
@@ -2400,6 +2755,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         await _showToyMenu();
       case 'display':
         await _showDisplayMenu();
+      case 'remote':
+        await _showRemoteMenu();
       case 'instructions':
         setState(() => _instructionsVisible = true);
     }
@@ -3051,52 +3408,55 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   );
 
   Widget _buildBoardSurface(BuildContext surfaceContext) {
-    final safePadding = MediaQuery.viewPaddingOf(surfaceContext);
+    final safePadding = _boardSurfacePadding(surfaceContext);
 
     return Stack(
       fit: StackFit.expand,
       children: [
         Padding(
           padding: safePadding,
-          child: Listener(
-            onPointerDown: _onPointerDown,
-            onPointerMove: _onPointerMove,
-            onPointerUp: _onPointerUp,
-            onPointerCancel: _onPointerCancel,
-            onPointerSignal: _onPointerSignal,
-            onPointerPanZoomStart: _onPointerPanZoomStart,
-            onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
-            onPointerPanZoomEnd: _onPointerPanZoomEnd,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onDoubleTapDown: _handleDoubleTapDown,
-              onScaleStart: _onScaleStart,
-              onScaleUpdate: _onScaleUpdate,
-              onScaleEnd: _onScaleEnd,
-              child: ValueListenableBuilder<int>(
-                valueListenable: _toyRevision,
-                builder: (context, revision, child) => RepaintBoundary(
-                  child: CustomPaint(
-                    painter: BoardPainter(
-                      state: _controller.state,
-                      logicalPixelsPerMm: widget.logicalPixelsPerMm,
-                      geometry: _controller.geometry,
-                      selectedId: _selectedId,
-                      elementOpacities: _paintElementOpacities,
-                      burstCenter: _burstCenter,
-                      triangleBouncePhase:
-                          _activeToys.contains(_ToyKind.triangleBounce)
-                          ? 0.5 - 0.5 * math.cos(_toyClock * math.pi * 0.9)
-                          : null,
-                      squareChasePhase:
-                          _activeToys.contains(_ToyKind.squareChase)
-                          ? (_toyClock * 0.24) % 1
-                          : null,
-                      roundTriangleTips: _roundedTriangleTips,
-                      checkerUnderlays: _checkerUnderlays,
-                      burstProgress: _burstProgress,
+          child: IgnorePointer(
+            ignoring: _remoteDisplayMode,
+            child: Listener(
+              onPointerDown: _onPointerDown,
+              onPointerMove: _onPointerMove,
+              onPointerUp: _onPointerUp,
+              onPointerCancel: _onPointerCancel,
+              onPointerSignal: _onPointerSignal,
+              onPointerPanZoomStart: _onPointerPanZoomStart,
+              onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
+              onPointerPanZoomEnd: _onPointerPanZoomEnd,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTapDown: _handleDoubleTapDown,
+                onScaleStart: _onScaleStart,
+                onScaleUpdate: _onScaleUpdate,
+                onScaleEnd: _onScaleEnd,
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _toyRevision,
+                  builder: (context, revision, child) => RepaintBoundary(
+                    child: CustomPaint(
+                      painter: BoardPainter(
+                        state: _controller.state,
+                        logicalPixelsPerMm: _pixelsPerMm,
+                        geometry: _controller.geometry,
+                        selectedId: _selectedId,
+                        elementOpacities: _paintElementOpacities,
+                        burstCenter: _burstCenter,
+                        triangleBouncePhase:
+                            _activeToys.contains(_ToyKind.triangleBounce)
+                            ? 0.5 - 0.5 * math.cos(_toyClock * math.pi * 0.9)
+                            : null,
+                        squareChasePhase:
+                            _activeToys.contains(_ToyKind.squareChase)
+                            ? (_toyClock * 0.24) % 1
+                            : null,
+                        roundTriangleTips: _roundedTriangleTips,
+                        checkerUnderlays: _checkerUnderlays,
+                        burstProgress: _burstProgress,
+                      ),
+                      child: const SizedBox.expand(),
                     ),
-                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
@@ -3111,7 +3471,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               builder: (context, revision, child) => RepaintBoundary(
                 child: CustomPaint(
                   painter: ToyOverlayPainter(
-                    logicalPixelsPerMm: widget.logicalPixelsPerMm,
+                    logicalPixelsPerMm: _pixelsPerMm,
                     geometry: _controller.geometry,
                     elements: _controller.state.elements,
                     ghostTrails: _ghostTrails,
@@ -3149,10 +3509,17 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ),
           ),
         ),
-        if (_activeToys.contains(_ToyKind.wireDie)) const DiceBubble(),
+        if (_activeToys.contains(_ToyKind.wireDie))
+          IgnorePointer(
+            ignoring: _remoteDisplayMode,
+            child: const DiceBubble(),
+          ),
         if (_activeToys.contains(_ToyKind.zendoStones))
-          const ZendoStonesWidget(),
-        if (_activeToys.contains(_ToyKind.sideGuns))
+          IgnorePointer(
+            ignoring: _remoteDisplayMode,
+            child: const ZendoStonesWidget(),
+          ),
+        if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)
           Padding(padding: safePadding, child: _sideGunAimHandles()),
         SafeArea(
           child: Align(
@@ -3161,20 +3528,29 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               padding: const EdgeInsets.all(8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [_menu(), _historyControls()],
+                children: [
+                  if (_remoteDisplayMode)
+                    _remoteStatusButton()
+                  else ...[
+                    _menu(),
+                    _historyControls(),
+                    if (_remoteSession != null) _remoteStatusButton(),
+                  ],
+                ],
               ),
             ),
           ),
         ),
-        SafeArea(
-          child: Align(
-            alignment: Alignment.bottomRight,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: _toyControls(),
+        if (!_remoteDisplayMode)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: _toyControls(),
+              ),
             ),
           ),
-        ),
         if (_instructionsVisible) _instructionsPane(),
         if (_creditsVisible) Positioned.fill(child: _credits()),
       ],

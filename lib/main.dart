@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'application/board_store.dart';
 import 'application/display_calibration.dart';
+import 'application/remote_session.dart';
 import 'domain/board_state.dart';
 import 'ui/board_screen.dart';
 import 'ui/calibration_screen.dart';
@@ -20,6 +21,7 @@ class LightHouseApp extends StatefulWidget {
 
 class _LightHouseAppState extends State<LightHouseApp> {
   final BoardStore _store = BoardStore();
+  late final RemoteLaunch? _remoteLaunch = RemoteLaunch.fromUri(Uri.base);
   BoardState? _board;
   CalibrationResult? _calibration;
   bool _resolvingCalibration = false;
@@ -50,7 +52,13 @@ class _LightHouseAppState extends State<LightHouseApp> {
 
   Future<void> _resolveCalibration() async {
     _resolvingCalibration = true;
-    final result = await DisplayCalibrationService.resolve(context);
+    var result = await DisplayCalibrationService.resolve(context);
+    if (result == null && _remoteLaunch?.role == RemoteRole.controller) {
+      result = const CalibrationResult(
+        logicalPixelsPerMm: 4.8,
+        source: 'Remote controller',
+      );
+    }
     if (!mounted) return;
     setState(() {
       _calibration = result;
@@ -124,6 +132,7 @@ class _LightHouseAppState extends State<LightHouseApp> {
       initialState: _board!,
       calibrationLabel: calibration.source,
       onRecalibrate: _recalibrate,
+      remoteLaunch: _remoteLaunch,
     );
   }
 }
