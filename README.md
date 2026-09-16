@@ -36,7 +36,7 @@ The web build requires manual physical calibration because browsers do not relia
 - command-based undo/redo
 - versioned JSON board serialization with migration support
 - debounced local autosave with a user-restorable previous snapshot, named saved boards, and JSON file import/export
-- lower-left hierarchical menu for File, Edit, Boards, Toys, Display, and Instructions
+- lower-left hierarchical menu for File, Edit, Boards, Toys, Display, Remote, and Instructions
 - device-specific instructions shown from the lower left
 - Light Lottery theatrical random chooser
 - optional Entropy Delete mode that fades and removes one random footprint every 30 seconds
@@ -70,12 +70,13 @@ Board controls:
 - Boards: choose an underlay, checker shading, and optional position snapping
 - Edit: undo/redo, 15-degree rotation steps, exact orientation, and persistent rotation snapping
 - Display: size/calibration, brightness, and orientation information
+- Remote: pair two devices as Board Display and Controller, show the pairing QR, swap roles, or disconnect
 
 The user-facing Structure menu was removed. Stack/nest relationships remain an internal board concept so physically grouped footprints still move, push, save, restore, and undo correctly.
 
 ## Remote sessions
 
-Any two LightHouse-capable devices can pair as a Board Display and a Controller. Start Remote from either device, choose that device's role, and scan the QR code on the other device. The controller renders the display's full physical board as a scaled control surface. Pairing and fallback relay messages are encrypted; after pairing LightHouse prefers a direct WebRTC data channel.
+Any two LightHouse-capable devices can pair as a Board Display and a Controller. Start Remote from either device, choose that device's role, and scan the QR code on the other device. The controller renders the display's full physical board as a scaled control surface, and the roles can be swapped without re-pairing. Pairing and fallback relay messages are encrypted; after pairing LightHouse prefers a direct WebRTC data channel. The one-scan pairing flow requires an internet connection to reach the signaling/relay service.
 
 ## Development
 
