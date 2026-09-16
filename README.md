@@ -8,7 +8,7 @@ This branch is the clean-sheet Flutter rewrite of the 2025 React / Google AI Stu
 
 The current web build is deployed automatically from this branch:
 
-https://udeudeude.github.io/LightHouse-StashBoard/
+https://udeudeude.github.io/LightHouse/
 
 The web build requires manual physical calibration because browsers do not reliably expose real-world screen dimensions. Native iOS uses known device geometry where available; native Android uses the device's reported physical DPI when it is plausible, with the same manual fallback.
 
