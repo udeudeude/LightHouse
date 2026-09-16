@@ -3627,7 +3627,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   );
 
   Future<void> _openGithub() async {
-    final uri = Uri.parse('https://github.com/udeudeude/LightHouse-StashBoard');
+    final uri = Uri.parse('https://github.com/udeudeude/LightHouse');
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
