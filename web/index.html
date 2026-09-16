@@ -90,7 +90,9 @@
           const registrations = await navigator.serviceWorker.getRegistrations();
           const lighthouseRegistrations = registrations.filter(function (registration) {
             try {
-              return new URL(registration.scope).pathname.startsWith('/LightHouse-StashBoard/');
+              const scopePath = new URL(registration.scope).pathname;
+              return scopePath.startsWith('/LightHouse/') ||
+                scopePath.startsWith('/LightHouse-StashBoard/');
             } catch (_) {
               return false;
             }
@@ -120,6 +122,6 @@
       }
     })();
   </script>
-  <script src="flutter_bootstrap.js?v=3" async></script>
+  <script src="flutter_bootstrap.js?v=4" async></script>
 </body>
 </html>
