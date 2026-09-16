@@ -56,9 +56,7 @@ class CreditsOverlay extends StatelessWidget {
                     TextButton.icon(
                       onPressed: onOpenGithub,
                       icon: const Icon(Icons.code, size: 18),
-                      label: const Text(
-                        'github.com/udeudeude/LightHouse-StashBoard',
-                      ),
+                      label: const Text('github.com/udeudeude/LightHouse'),
                     ),
                   ],
                 ),
