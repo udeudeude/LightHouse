@@ -30,6 +30,7 @@ import '../platform/motion_permission.dart';
 import 'board_painter.dart';
 import 'credits_overlay.dart';
 import 'dice_bubble.dart';
+import 'remote_board_viewport.dart';
 import 'toy_overlay.dart';
 import 'zendo_stones.dart';
 
@@ -593,43 +594,37 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   bool get _remoteControllerMode =>
       _remoteSession?.role == RemoteRole.controller;
 
-  double get _pixelsPerMm {
+  Rect? _remoteBoardRect(BuildContext surfaceContext) {
     final widthMm = _remoteDisplayWidthMm;
     final heightMm = _remoteDisplayHeightMm;
     if (!_remoteControllerMode || widthMm == null || heightMm == null) {
-      return widget.logicalPixelsPerMm;
+      return null;
     }
-    final size = MediaQuery.sizeOf(context);
-    final safe = MediaQuery.viewPaddingOf(context);
-    final availableWidth = math.max(1.0, size.width - safe.horizontal);
-    final availableHeight = math.max(1.0, size.height - safe.vertical);
-    return math.max(
-      0.1,
-      math.min(availableWidth / widthMm, availableHeight / heightMm),
+    return fitRemoteBoardRect(
+      hostSize: MediaQuery.sizeOf(surfaceContext),
+      safePadding: MediaQuery.viewPaddingOf(surfaceContext),
+      remoteSize: Size(widthMm, heightMm),
     );
   }
 
-  EdgeInsets _boardSurfacePadding(BuildContext surfaceContext) {
-    final safe = MediaQuery.viewPaddingOf(surfaceContext);
+  double get _pixelsPerMm {
     final widthMm = _remoteDisplayWidthMm;
-    final heightMm = _remoteDisplayHeightMm;
-    if (!_remoteControllerMode || widthMm == null || heightMm == null) {
-      return safe;
+    final rect = _remoteBoardRect(context);
+    if (!_remoteControllerMode || widthMm == null || rect == null) {
+      return widget.logicalPixelsPerMm;
     }
+    return math.max(0.1, rect.width / widthMm);
+  }
+
+  EdgeInsets _boardSurfacePadding(BuildContext surfaceContext) {
+    final remoteRect = _remoteBoardRect(surfaceContext);
+    if (remoteRect == null) return MediaQuery.viewPaddingOf(surfaceContext);
     final size = MediaQuery.sizeOf(surfaceContext);
-    final availableWidth = math.max(1.0, size.width - safe.horizontal);
-    final availableHeight = math.max(1.0, size.height - safe.vertical);
-    final scale = math.max(
-      0.1,
-      math.min(availableWidth / widthMm, availableHeight / heightMm),
-    );
-    final extraX = math.max(0.0, (availableWidth - widthMm * scale) / 2);
-    final extraY = math.max(0.0, (availableHeight - heightMm * scale) / 2);
     return EdgeInsets.fromLTRB(
-      safe.left + extraX,
-      safe.top + extraY,
-      safe.right + extraX,
-      safe.bottom + extraY,
+      remoteRect.left,
+      remoteRect.top,
+      math.max(0.0, size.width - remoteRect.right),
+      math.max(0.0, size.height - remoteRect.bottom),
     );
   }
 
@@ -1745,6 +1740,31 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
+  void _captureRemoteDisplayMetrics(
+    Map<String, Object?> payload, {
+    RemoteRole? senderRole,
+  }) {
+    if (!_remoteControllerMode) return;
+    final payloadRoleName = payload['role'];
+    final payloadRole = RemoteRole.values
+        .where((value) => value.name == payloadRoleName)
+        .firstOrNull;
+    final effectiveRole = payloadRole ?? senderRole;
+    if (effectiveRole != RemoteRole.display) return;
+    final width = (payload['widthMm'] as num?)?.toDouble();
+    final height = (payload['heightMm'] as num?)?.toDouble();
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return;
+    }
+    if (_remoteDisplayWidthMm == width && _remoteDisplayHeightMm == height) {
+      return;
+    }
+    setState(() {
+      _remoteDisplayWidthMm = width;
+      _remoteDisplayHeightMm = height;
+    });
+  }
+
   Future<void> _sendRemoteHello() async {
     final session = _remoteSession;
     if (session == null) return;
@@ -1766,22 +1786,17 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         final peerRole = RemoteRole.values
             .where((value) => value.name == peerRoleName)
             .firstOrNull;
-        if (peerRole == RemoteRole.display) {
-          final width = (message.payload['widthMm'] as num?)?.toDouble();
-          final height = (message.payload['heightMm'] as num?)?.toDouble();
-          if (width != null && height != null && width > 0 && height > 0) {
-            setState(() {
-              _remoteDisplayWidthMm = width;
-              _remoteDisplayHeightMm = height;
-            });
-          }
-        }
+        _captureRemoteDisplayMetrics(message.payload, senderRole: peerRole);
         if (session.isCreator) {
           await _sendRemoteHello();
           await _sendRemoteState('seed');
           await _sendRemoteRuntimeIfChanged(force: true);
         }
       case 'seed':
+        _captureRemoteDisplayMetrics(
+          message.payload,
+          senderRole: session.role.other,
+        );
         await _applyRemoteState(message.payload, force: true);
         _remoteSeedReceived = true;
         if (session.role == RemoteRole.controller) {
@@ -1790,6 +1805,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           await _sendRemoteRuntimeIfChanged(force: true);
         }
       case 'state':
+        _captureRemoteDisplayMetrics(
+          message.payload,
+          senderRole: session.role.other,
+        );
         if (session.role == RemoteRole.display) {
           await _applyRemoteState(message.payload);
         }
@@ -1874,6 +1893,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (session == null) return;
     final board = _physicalBoardSize();
     await session.sendApp(kind, {
+      'role': session.role.name,
       'state': (state ?? _controller.state).toJson(),
       'selectedId': _selectedId,
       'widthMm': board.width,
@@ -3655,6 +3675,19 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     return Stack(
       fit: StackFit.expand,
       children: [
+        if (_remoteControllerMode &&
+            _remoteDisplayWidthMm != null &&
+            _remoteDisplayHeightMm != null)
+          Padding(
+            padding: safePadding,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white38, width: 1),
+                ),
+              ),
+            ),
+          ),
         Padding(
           padding: safePadding,
           child: IgnorePointer(
@@ -3752,19 +3785,25 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
         ),
         if (_activeToys.contains(_ToyKind.wireDie))
-          IgnorePointer(
-            ignoring: _remoteDisplayMode,
-            child: DiceBubble(
-              snapshot: _diceSnapshot,
-              onChanged: _remoteDisplayMode ? null : _handleDiceSnapshot,
+          Padding(
+            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
+            child: IgnorePointer(
+              ignoring: _remoteDisplayMode,
+              child: DiceBubble(
+                snapshot: _diceSnapshot,
+                onChanged: _remoteDisplayMode ? null : _handleDiceSnapshot,
+              ),
             ),
           ),
         if (_activeToys.contains(_ToyKind.zendoStones))
-          IgnorePointer(
-            ignoring: _remoteDisplayMode,
-            child: ZendoStonesWidget(
-              snapshot: _zendoSnapshot,
-              onChanged: _remoteDisplayMode ? null : _handleZendoSnapshot,
+          Padding(
+            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
+            child: IgnorePointer(
+              ignoring: _remoteDisplayMode,
+              child: ZendoStonesWidget(
+                snapshot: _zendoSnapshot,
+                onChanged: _remoteDisplayMode ? null : _handleZendoSnapshot,
+              ),
             ),
           ),
         if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)

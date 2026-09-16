@@ -1,7 +1,7 @@
 {{flutter_js}}
 {{flutter_build_config}}
 
-const lighthouseBuildVersion = '4';
+const lighthouseBuildVersion = '5';
 
 for (const build of (_flutter.buildConfig?.builds ?? [])) {
   if (build.mainJsPath) {
