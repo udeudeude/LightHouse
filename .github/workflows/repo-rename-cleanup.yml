@@ -1,0 +1,59 @@
+name: Repository rename cleanup
+
+on:
+  push:
+    branches:
+      - lighthouse-2-rewrite
+    paths:
+      - .github/workflows/repo-rename-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lighthouse-2-rewrite
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Replace remaining repository URL
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/ui/board_screen.dart')
+          text = path.read_text()
+          old = 'https://github.com/udeudeude/LightHouse-StashBoard'
+          new = 'https://github.com/udeudeude/LightHouse'
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected one old GitHub URL in board_screen.dart, found {count}')
+          path.write_text(text.replace(old, new))
+          PY
+      - run: dart format lib test
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - name: Verify old name is migration-only
+        run: |
+          matches=$(grep -R -n --exclude-dir=.git 'LightHouse-StashBoard' . || true)
+          echo "$matches"
+          unexpected=$(printf '%s\n' "$matches" | grep -v '^./web/index.html:' || true)
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected old-name references remain"
+            exit 1
+          fi
+      - name: Commit validated cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/repo-rename-cleanup.yml
+          git add -A
+          git commit -m "fix: finish repository rename migration"
+          git push origin HEAD:lighthouse-2-rewrite
