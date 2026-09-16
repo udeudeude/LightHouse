@@ -23,7 +23,9 @@ jobs:
           channel: stable
           cache: true
       - name: Apply runtime synchronization
-        run: python3 .github/scripts/apply_remote_runtime_sync.py
+        run: |
+          mkdir -p test/ui
+          python3 .github/scripts/apply_remote_runtime_sync.py
       - name: Get packages
         run: flutter pub get
       - name: Format
