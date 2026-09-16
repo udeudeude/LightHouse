@@ -5,10 +5,10 @@ void main() {
   test('pairing link round-trips session and complementary role', () {
     final session = RemoteSession.create(RemoteRole.display);
     final uri = session.joinUri(
-      Uri.parse('https://example.test/LightHouse-StashBoard/?v=2'),
+      Uri.parse('https://example.test/LightHouse/?v=4'),
     );
 
-    expect(uri.queryParameters['v'], '2');
+    expect(uri.queryParameters['v'], '4');
     final launch = RemoteLaunch.fromUri(uri);
     expect(launch, isNotNull);
     expect(launch!.roomId, session.roomId);
