@@ -2,42 +2,100 @@
 
 LightHouse is an interactive illuminated physical play surface for Looney Pyramids. The screen and the physical plastic pieces together form the interface.
 
-## Try LightHouse 2
+This branch is the clean-sheet Flutter rewrite of the 2025 React / Google AI Studio prototype.
 
-The current Flutter rewrite is continuously deployed for browser testing:
+## Try it
 
-https://udeudeude.github.io/LightHouse-StashBoard/
+The current web build is deployed automatically from this branch:
 
-The browser build requires manual physical calibration. Native iOS can automatically calibrate recognized iPhone models; Android can use reported physical display DPI when trustworthy.
+https://udeudeude.github.io/LightHouse/
 
-## Current development
+The web build requires manual physical calibration because browsers do not reliably expose real-world screen dimensions. Native iOS uses known device geometry where available; native Android uses the device's reported physical DPI when it is plausible, with the same manual fallback.
 
-A clean-sheet Flutter rewrite is under active development on the [`lighthouse-2-rewrite`](../../tree/lighthouse-2-rewrite) branch and in draft pull request #1.
+## Current implementation
 
-The application code remaining on `main` is the original 2025 React / Google AI Studio prototype, preserved as development history. **LightHouse does not require Gemini or any other AI service.** The old AI Studio instructions previously shown here were generated scaffolding and were not part of the actual application.
-
-## LightHouse 2
-
-The rewrite is designed around physical dimensions rather than screen pixels. It currently includes:
-
-- board geometry and gesture tolerances stored in millimeters
-- automatic and manual physical-size calibration
-- Small, Medium, and Large light footprints
-- upright/flat pose and full/wall-only upright illumination
-- create, resize/delete, tip/stand, scribble, translate, and rotate interactions
-- desktop mouse interaction for browser testing
-- stack/nest structures with independently illuminated members
-- deterministic polygon collision/pushing
+- canonical board coordinates stored in physical millimeters
+- automatic physical-size calibration for recognized iPhone models
+- automatic Android calibration from reported physical DPI when trustworthy
+- manual ruler and real-Large-pyramid calibration, plus quick size verification
+- upright Small, Medium, and Large light footprints with full or wall-only illumination
+- flat pyramid footprints
+- double-tap empty board to create a Small footprint
+- double-tap a footprint to cycle Small -> Medium -> Large -> delete
+- loose encirclement gesture around an upright footprint to toggle full/wall illumination
+- exact-footprint one-finger directional drag to tip or stand, without an interaction halo
+- two-finger translate and rotate on touch devices
+- mouse/trackpad interaction on desktop with device-specific instructions
+- direct orientation controls at 45-degree intervals
+- persistent optional rotation snapping at 15, 30, 45, or 90 degrees, shown by degree ticks inside the menu control
+- optional position snapping to the active underlay
+- underlays for common rectangular grids, Martian Chess, Launchpad 23, a four-board Looney Ludo start, and The Wheel used by Petri Dish / Color Wheel
+- automatic different-size wall-only nesting on overlap
+- internal stack/nest structure records with independently illuminated member footprints and coherent grouped movement
+- deterministic convex-polygon collision pushing across pyramid sizes
 - command-based undo/redo
-- autosave with recovery backup
-- named saved boards and JSON import/export
-- native screen-awake, brightness, haptic, orientation, and safe-display behavior
-- installable PWA behavior
-- iOS, Android, and web targets
-- automated formatting, analysis, tests, and platform build validation
+- versioned JSON board serialization with migration support
+- debounced local autosave with a user-restorable previous snapshot, named saved boards, and JSON file import/export
+- lower-left hierarchical menu for File, Edit, Boards, Toys, Display, Remote, and Instructions
+- device-specific instructions shown from the lower left
+- Light Lottery theatrical random chooser
+- optional Entropy Delete mode that fades and removes one random footprint every 30 seconds
+- deliberately hidden face-down-only credits on supported motion-enabled devices; they vanish the instant the device is face-up
+- native mobile orientation lock; web uses ordinary browser viewport/orientation behavior without a counter-rotation workaround
+- screen-awake behavior, native application-brightness control, haptics, and safe-board insets
+- installable PWA metadata and iOS Add-to-Home-Screen guidance
+- generated iOS, Android, and web platform runners
+- automated formatting, static analysis, tests, unsigned iOS build validation, Android build validation, and GitHub Pages deployment
 
-See the rewrite branch for the current source, architecture documentation, and changelog.
+## Interaction notes
+
+Touch:
+
+- Double tap empty space: create Small
+- Double tap a footprint: Small -> Medium -> Large -> delete
+- One-finger directional drag across the exact footprint boundary: tip / stand
+- Draw a loose loop around an upright footprint: full <-> wall-only illumination
+- Two-finger drag/twist: translate and rotate
+- Tap: select a footprint for direct orientation commands
+
+Desktop:
+
+- Double click mirrors double tap
+- Click selects
+- Mouse/trackpad controls are summarized in the in-app Instructions panel for the current device
+
+Board controls:
+
+- File: New, Open, Restore Previous Autosave, Save, Save a Copy, Rename, JSON import/export
+- Boards: choose an underlay, checker shading, and optional position snapping
+- Edit: undo/redo, 15-degree rotation steps, exact orientation, and persistent rotation snapping
+- Display: size/calibration, brightness, and orientation information
+- Remote: pair two devices as Board Display and Controller, show the pairing QR, swap roles, or disconnect
+
+The user-facing Structure menu was removed. Stack/nest relationships remain an internal board concept so physically grouped footprints still move, push, save, restore, and undo correctly.
+
+## Remote sessions
+
+Any two LightHouse-capable devices can pair as a Board Display and a Controller. Start Remote from either device, choose that device's role, and scan the QR code on the other device. The controller renders the display's full physical board as a scaled control surface, and the roles can be swapped without re-pairing. Pairing and fallback relay messages are encrypted; after pairing LightHouse prefers a direct WebRTC data channel. The one-scan pairing flow requires an internet connection to reach the signaling/relay service.
+
+## Development
+
+The source is a Flutter app. Flutter 3.47 / Dart 3.13 or newer is the current baseline.
+
+```sh
+flutter pub get
+flutter test
+flutter run
+```
+
+For iPhone testing, open `ios/Runner.xcworkspace` in Xcode, choose your Apple development team under Signing & Capabilities, select the connected iPhone, and Run.
+
+## Design rule
+
+Canonical board state is expressed in physical millimeters. Screen pixels or Flutter logical pixels belong only at the calibration/rendering boundary.
+
+See `docs/architecture.md` for design rationale and physical invariants.
 
 ## License
 
-MIT.
+MIT. See `LICENSE`.
