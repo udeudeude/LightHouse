@@ -187,7 +187,10 @@ class RemoteSession extends ChangeNotifier {
         RemoteLaunch.roleParameter: role.other.name,
       },
     ).query;
-    return current.replace(queryParameters: cleanParameters, fragment: fragment);
+    return current.replace(
+      queryParameters: cleanParameters,
+      fragment: fragment,
+    );
   }
 
   Future<void> connect() {

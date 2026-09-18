@@ -11,9 +11,15 @@ void main() {
     );
 
     expect(uri.queryParameters['v'], '5');
-    expect(uri.queryParameters.containsKey(RemoteLaunch.roomParameter), isFalse);
+    expect(
+      uri.queryParameters.containsKey(RemoteLaunch.roomParameter),
+      isFalse,
+    );
     expect(uri.queryParameters.containsKey(RemoteLaunch.keyParameter), isFalse);
-    expect(uri.queryParameters.containsKey(RemoteLaunch.roleParameter), isFalse);
+    expect(
+      uri.queryParameters.containsKey(RemoteLaunch.roleParameter),
+      isFalse,
+    );
     expect(uri.fragment, isNotEmpty);
 
     final fragment = Uri.splitQueryString(uri.fragment);

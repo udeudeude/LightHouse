@@ -16,8 +16,9 @@ abstract interface class RemoteAppTransport {
 }
 
 typedef RemoteTransportAvailability = bool Function();
-typedef RemoteTransportSender =
-    Future<void> Function(RemoteTransportMessage message);
+typedef RemoteTransportSender = Future<void> Function(
+  RemoteTransportMessage message,
+);
 
 class CallbackRemoteAppTransport implements RemoteAppTransport {
   const CallbackRemoteAppTransport({

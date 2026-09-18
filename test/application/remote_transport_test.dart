@@ -23,7 +23,10 @@ void main() {
     final router = RemoteTransportRouter([direct, relay]);
 
     final used = await router.send(
-      const RemoteTransportMessage('state', {'xMm': 12.5, 'role': 'controller'}),
+      const RemoteTransportMessage('state', {
+        'xMm': 12.5,
+        'role': 'controller',
+      }),
     );
 
     expect(used, RemoteTransportKind.direct);
