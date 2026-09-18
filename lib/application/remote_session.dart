@@ -8,6 +8,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 
 import '../platform/remote_mqtt.dart';
+import 'remote_transport.dart';
 
 enum RemoteRole {
   display,
@@ -36,9 +37,13 @@ class RemoteLaunch {
   final RemoteRole role;
 
   static RemoteLaunch? fromUri(Uri uri) {
-    final room = uri.queryParameters[roomParameter];
-    final encodedKey = uri.queryParameters[keyParameter];
-    final roleName = uri.queryParameters[roleParameter];
+    final fragmentParameters = _fragmentParameters(uri);
+    final room =
+        fragmentParameters[roomParameter] ?? uri.queryParameters[roomParameter];
+    final encodedKey =
+        fragmentParameters[keyParameter] ?? uri.queryParameters[keyParameter];
+    final roleName =
+        fragmentParameters[roleParameter] ?? uri.queryParameters[roleParameter];
     if (room == null || encodedKey == null || roleName == null) return null;
     final role = RemoteRole.values
         .where((value) => value.name == roleName)
@@ -50,6 +55,15 @@ class RemoteLaunch {
       return RemoteLaunch(roomId: room, keyBytes: key, role: role);
     } on FormatException {
       return null;
+    }
+  }
+
+  static Map<String, String> _fragmentParameters(Uri uri) {
+    if (uri.fragment.isEmpty) return const {};
+    try {
+      return Uri.splitQueryString(uri.fragment);
+    } on FormatException {
+      return const {};
     }
   }
 
@@ -82,7 +96,22 @@ class RemoteSession extends ChangeNotifier {
     required this.role,
     required this.isCreator,
   }) : _keyBytes = List<int>.unmodifiable(keyBytes),
-       _clientId = _newToken(9);
+       _clientId = _newToken(9) {
+    _transportRouter = RemoteTransportRouter([
+      CallbackRemoteAppTransport(
+        kind: RemoteTransportKind.direct,
+        label: 'Direct',
+        isAvailable: () => directConnected && _dataChannel != null,
+        sender: _sendDirectTransport,
+      ),
+      CallbackRemoteAppTransport(
+        kind: RemoteTransportKind.encryptedRelay,
+        label: 'Encrypted relay',
+        isAvailable: () => _mqttConnected,
+        sender: _sendRelayTransport,
+      ),
+    ]);
+  }
 
   factory RemoteSession.create(RemoteRole role) => RemoteSession._(
     roomId: _newToken(12),
@@ -107,6 +136,7 @@ class RemoteSession extends ChangeNotifier {
   final bool isCreator;
   final StreamController<RemoteAppMessage> _messages =
       StreamController<RemoteAppMessage>.broadcast();
+  late final RemoteTransportRouter _transportRouter;
 
   RemoteRole role;
   RemoteConnectionPhase phase = RemoteConnectionPhase.disconnected;
@@ -123,12 +153,16 @@ class RemoteSession extends ChangeNotifier {
   final List<RTCIceCandidate> _pendingCandidates = [];
   bool _closed = false;
   int _signalSequence = 0;
+  Future<void>? _relayConnectFuture;
 
   Stream<RemoteAppMessage> get messages => _messages.stream;
 
   String get transportLabel {
-    if (directConnected) return 'Direct';
-    if (peerSeen && _mqttConnected) return 'Encrypted relay';
+    final preferred = _transportRouter.preferredAvailable;
+    if (preferred?.kind == RemoteTransportKind.direct) return preferred!.label;
+    if (peerSeen && preferred?.kind == RemoteTransportKind.encryptedRelay) {
+      return preferred!.label;
+    }
     if (_mqttConnected) return 'Waiting for peer';
     if (phase == RemoteConnectionPhase.connecting) return 'Connecting';
     return 'Offline';
@@ -146,20 +180,33 @@ class RemoteSession extends ChangeNotifier {
       ..remove(RemoteLaunch.roomParameter)
       ..remove(RemoteLaunch.keyParameter)
       ..remove(RemoteLaunch.roleParameter);
-    cleanParameters.addAll({
-      RemoteLaunch.roomParameter: roomId,
-      RemoteLaunch.keyParameter: _encodedKey,
-      RemoteLaunch.roleParameter: role.other.name,
-    });
-    return current.replace(queryParameters: cleanParameters, fragment: '');
+    final fragment = Uri(
+      queryParameters: {
+        RemoteLaunch.roomParameter: roomId,
+        RemoteLaunch.keyParameter: _encodedKey,
+        RemoteLaunch.roleParameter: role.other.name,
+      },
+    ).query;
+    return current.replace(queryParameters: cleanParameters, fragment: fragment);
   }
 
-  Future<void> connect() async {
-    if (_closed ||
-        phase == RemoteConnectionPhase.connecting ||
-        _mqttConnected) {
-      return;
+  Future<void> connect() {
+    if (_closed || directConnected || _mqttConnected) {
+      return Future<void>.value();
     }
+    final pending = _relayConnectFuture;
+    if (pending != null) return pending;
+    final future = _connectRelay();
+    _relayConnectFuture = future;
+    return future.whenComplete(() {
+      if (identical(_relayConnectFuture, future)) {
+        _relayConnectFuture = null;
+      }
+    });
+  }
+
+  Future<void> _connectRelay() async {
+    if (_closed || directConnected || _mqttConnected) return;
     phase = RemoteConnectionPhase.connecting;
     errorMessage = null;
     notifyListeners();
@@ -234,6 +281,31 @@ class RemoteSession extends ChangeNotifier {
       phase = RemoteConnectionPhase.disconnected;
     }
     notifyListeners();
+  }
+
+  Future<void> _suspendRelayForDirect() async {
+    if (_closed || !directConnected) return;
+    final subscription = _mqttSubscription;
+    _mqttSubscription = null;
+    if (subscription != null) await subscription.cancel();
+
+    final client = _mqtt;
+    _mqtt = null;
+    if (client != null) {
+      client.autoReconnect = false;
+      try {
+        client.disconnect();
+      } on Object {
+        // Direct transport is already active; relay cleanup is best-effort.
+      }
+    }
+  }
+
+  void _handleDirectUnavailable() {
+    if (!directConnected) return;
+    directConnected = false;
+    notifyListeners();
+    if (!_closed) unawaited(connect());
   }
 
   Future<void> _handleEncryptedSignal(String encoded) async {
@@ -365,9 +437,7 @@ class RemoteSession extends ChangeNotifier {
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-        directConnected = false;
-        if (_mqttConnected && peerSeen) phase = RemoteConnectionPhase.connected;
-        notifyListeners();
+        _handleDirectUnavailable();
       }
     };
     return pc;
@@ -379,12 +449,15 @@ class RemoteSession extends ChangeNotifier {
       if (_closed) return;
       final open = state == RTCDataChannelState.RTCDataChannelOpen;
       if (directConnected == open) return;
-      directConnected = open;
       if (open) {
+        directConnected = true;
         peerSeen = true;
         phase = RemoteConnectionPhase.connected;
+        notifyListeners();
+        unawaited(_suspendRelayForDirect());
+      } else {
+        _handleDirectUnavailable();
       }
-      notifyListeners();
     };
     channel.onMessage = (message) {
       if (_closed || message.isBinary) return;
@@ -415,21 +488,41 @@ class RemoteSession extends ChangeNotifier {
     }
   }
 
+  Future<void> _sendDirectTransport(RemoteTransportMessage message) async {
+    final direct = _dataChannel;
+    if (!directConnected || direct == null) {
+      throw StateError('Direct transport is unavailable.');
+    }
+    try {
+      await direct.send(
+        RTCDataChannelMessage(
+          jsonEncode({'kind': message.kind, 'payload': message.payload}),
+        ),
+      );
+    } on Object {
+      _handleDirectUnavailable();
+      rethrow;
+    }
+  }
+
+  Future<void> _sendRelayTransport(RemoteTransportMessage message) async {
+    if (!_mqttConnected) {
+      throw StateError('Relay transport is unavailable.');
+    }
+    await _publishSignal('app', {
+      'kind': message.kind,
+      'payload': message.payload,
+    });
+  }
+
   Future<void> sendApp(String kind, Map<String, Object?> payload) async {
     if (_closed) return;
-    final direct = _dataChannel;
-    if (directConnected && direct != null) {
-      try {
-        await direct.send(
-          RTCDataChannelMessage(jsonEncode({'kind': kind, 'payload': payload})),
-        );
-        return;
-      } on Object {
-        directConnected = false;
-        notifyListeners();
-      }
-    }
-    await _publishSignal('app', {'kind': kind, 'payload': payload});
+    final message = RemoteTransportMessage(kind, payload);
+    final sent = await _transportRouter.send(message);
+    if (sent != null || _closed || directConnected) return;
+
+    await connect();
+    await _transportRouter.send(message);
   }
 
   Future<void> _publishSignal(String kind, Map<String, Object?> payload) async {
