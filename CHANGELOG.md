@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Refactored Remote application messaging behind a transport boundary, moved pairing secrets from URL query parameters into the URL fragment while retaining legacy-link compatibility, and made the internet relay disconnect after a direct WebRTC link is established and reconnect automatically if that direct link fails.
 - Fixed Remote controller geometry so display dimensions are recovered from hello/state traffic, the controlled screen appears as a visible letterboxed rectangle, and Dice Bubble/Zendo overlays stay inside that same remote frame.
 - Added two-device Remote sessions: either device can be the Board Display or Controller, pairing uses a QR/link, controller coordinates scale to the display board, transient toy effects plus Dice Bubble and Zendo Stone state are mirrored to the display, roles can be swapped without re-pairing, WebRTC is preferred for direct transport, and encrypted relay messaging provides pairing/fallback.
 - Added **File → Restore Previous Autosave…** so the automatically retained recovery snapshot can be restored deliberately; restoration is undoable.
