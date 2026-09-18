@@ -76,7 +76,7 @@ The user-facing Structure menu was removed. Stack/nest relationships remain an i
 
 ## Remote sessions
 
-Any two LightHouse-capable devices can pair as a Board Display and a Controller. Start Remote from either device, choose that device's role, and scan the QR code on the other device. The controller renders the display's full physical board as a scaled control surface, and the roles can be swapped without re-pairing. Pairing and fallback relay messages are encrypted; after pairing LightHouse prefers a direct WebRTC data channel. The one-scan pairing flow requires an internet connection to reach the signaling/relay service.
+Any two LightHouse-capable devices can pair as a Board Display and a Controller. Start Remote from either device, choose that device's role, and scan the QR code on the other device. The controller renders the display's full physical board as a scaled control surface, and the roles can be swapped without re-pairing. Pairing and fallback relay messages are encrypted; the pairing secret is carried in the URL fragment so it is not sent to the web host. LightHouse prefers a direct WebRTC data channel and disconnects the internet relay once that direct link is established. If the direct link fails, the relay reconnects automatically for recovery. The one-scan pairing flow still requires an internet connection for the initial introduction. Remote application messages use a transport boundary so local-network and Bluetooth transports can be added without changing board synchronization.
 
 ## Development
 
