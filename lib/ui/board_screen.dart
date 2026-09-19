@@ -185,8 +185,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   BoardState? _remotePendingState;
   Timer? _remoteRuntimeTimer;
   String? _lastRemoteRuntimeJson;
-  RemoteBoardControlState _remoteControlState =
-      const RemoteBoardControlState();
+  RemoteBoardControlState _remoteControlState = const RemoteBoardControlState();
   bool _rippleTapEnabled = false;
   Timer? _rippleTimer;
   DateTime? _lastRippleTickAt;
@@ -1556,7 +1555,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   void _setRemoteControlState(RemoteBoardControlState next) {
-    final liveIds = _controller.state.elements.map((element) => element.id).toSet();
+    final liveIds = _controller.state.elements
+        .map((element) => element.id)
+        .toSet();
     final retained = next.retainElementIds(liveIds);
     setState(() => _remoteControlState = retained);
     _syncRippleTicker();
@@ -1577,10 +1578,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }) async {
     final session = _remoteSession;
     if (session == null || session.role != RemoteRole.controller) return;
-    await session.sendApp('controlCommand', {
-      'command': command,
-      ...payload,
-    });
+    await session.sendApp('controlCommand', {'command': command, ...payload});
   }
 
   Future<void> _setBoardUnitInteractions(bool enabled) async {
@@ -1609,10 +1607,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final level = next.rippleLevels[elementId];
     await _sendRemoteControlCommand(
       'setRipple',
-      payload: {
-        'elementId': elementId,
-        'level': level?.wireValue ?? 0,
-      },
+      payload: {'elementId': elementId, 'level': level?.wireValue ?? 0},
     );
     HapticFeedback.selectionClick();
   }
@@ -1632,9 +1627,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           displayInteractionsEnabled: payload['enabled'] == true,
         );
       case 'setDisplayShapesVisible':
-        next = next.copyWith(
-          displayShapesVisible: payload['visible'] != false,
-        );
+        next = next.copyWith(displayShapesVisible: payload['visible'] != false);
       case 'setRipple':
         final elementId = payload['elementId'];
         if (elementId is! String ||
@@ -3909,13 +3902,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       child: SizedBox(
         width: size,
         height: size,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onPanDown: (details) => _aimGunFromLocal(index, details.localPosition),
-        onPanUpdate: (details) =>
-            _aimGunFromLocal(index, details.localPosition),
-        onPanEnd: (_) => _fireSideGun(index),
-        onTapUp: (_) => _fireSideGun(index),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanDown: (details) =>
+              _aimGunFromLocal(index, details.localPosition),
+          onPanUpdate: (details) =>
+              _aimGunFromLocal(index, details.localPosition),
+          onPanEnd: (_) => _fireSideGun(index),
+          onTapUp: (_) => _fireSideGun(index),
         ),
       ),
     );

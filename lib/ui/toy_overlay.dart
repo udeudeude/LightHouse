@@ -500,7 +500,10 @@ class ToyOverlayPainter extends CustomPainter {
     final direction = Offset(math.cos(radians), math.sin(radians));
     final normal = Offset(-direction.dy, direction.dx);
     final body = Path()
-      ..moveTo(center.dx + normal.dx * 6.4 * scale * scale, center.dy + normal.dy * 6.4 * scale * scale)
+      ..moveTo(
+        center.dx + normal.dx * 6.4 * scale * scale,
+        center.dy + normal.dy * 6.4 * scale * scale,
+      )
       ..lineTo(center.dx - normal.dx * 6.4, center.dy - normal.dy * 6.4)
       ..lineTo(
         center.dx + direction.dx * 14 * scale - normal.dx * 4.2 * scale,

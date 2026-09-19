@@ -29,9 +29,8 @@ String arcadeDieBaseId(String instanceId) {
   return instanceId;
 }
 
-bool isKnownArcadeDieInstance(String instanceId) => arcadeDiceChoices.any(
-  (choice) => choice.id == arcadeDieBaseId(instanceId),
-);
+bool isKnownArcadeDieInstance(String instanceId) =>
+    arcadeDiceChoices.any((choice) => choice.id == arcadeDieBaseId(instanceId));
 
 class DiceBubbleSnapshot {
   const DiceBubbleSnapshot({

@@ -577,19 +577,12 @@ class RemoteSession extends ChangeNotifier {
     }
   }
 
-  void _deliverAppPayload(
-    Map<String, Object?> payload, {
-    String? senderId,
-  }) {
+  void _deliverAppPayload(Map<String, Object?> payload, {String? senderId}) {
     final kind = payload['kind'];
     final raw = payload['payload'];
     if (kind is String && raw is Map) {
       _messages.add(
-        RemoteAppMessage(
-          kind,
-          raw.cast<String, Object?>(),
-          senderId: senderId,
-        ),
+        RemoteAppMessage(kind, raw.cast<String, Object?>(), senderId: senderId),
       );
     }
   }
