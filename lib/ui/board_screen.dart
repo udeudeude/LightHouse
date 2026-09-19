@@ -788,7 +788,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     final table = _physicalBoardSize();
     const speed = 85.0;
-    final inset = 14 / _pixelsPerMm;
+    final inset = 14 * _remoteUiScale / _pixelsPerMm;
     final centerX = table.width / 2;
     final centerY = table.height / 2;
     final position = switch (index) {
@@ -812,12 +812,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   void _aimGunFromLocal(int gunIndex, Offset localPosition) {
-    const box = 48.0;
+    final scale = _remoteUiScale;
+    final box = 48.0 * scale;
+    final inset = 14.0 * scale;
     final center = switch (gunIndex) {
-      0 => const Offset(14, box / 2),
-      1 => const Offset(box - 14, box / 2),
-      2 => const Offset(box / 2, 14),
-      _ => const Offset(box / 2, box - 14),
+      0 => Offset(inset, box / 2),
+      1 => Offset(box - inset, box / 2),
+      2 => Offset(box / 2, inset),
+      _ => Offset(box / 2, box - inset),
     };
     final base = <double>[0, 180, 90, 270][gunIndex];
     final raw = normalizeDegrees(
@@ -3888,11 +3890,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       ],
     ),
   );
-  Widget _gunAimHandle(int index, Alignment alignment) => Align(
-    alignment: alignment,
-    child: SizedBox(
-      width: 48,
-      height: 48,
+  Widget _gunAimHandle(int index, Alignment alignment) {
+    final size = 48.0 * _remoteUiScale;
+    return Align(
+      alignment: alignment,
+      child: SizedBox(
+        width: size,
+        height: size,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onPanDown: (details) => _aimGunFromLocal(index, details.localPosition),
@@ -3900,9 +3904,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             _aimGunFromLocal(index, details.localPosition),
         onPanEnd: (_) => _fireSideGun(index),
         onTapUp: (_) => _fireSideGun(index),
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _sideGunAimHandles() => Stack(
     children: [
