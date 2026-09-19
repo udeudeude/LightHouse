@@ -158,6 +158,7 @@ class RemoteSession extends ChangeNotifier {
   int _signalSequence = 0;
   Future<void>? _relayConnectFuture;
   final Set<String> _knownControllerIds = <String>{};
+  String? _directPeerId;
 
   Stream<RemoteAppMessage> get messages => _messages.stream;
   String get clientId => _clientId;
@@ -330,7 +331,15 @@ class RemoteSession extends ChangeNotifier {
   void _handleDirectUnavailable() {
     if (!directConnected) return;
     directConnected = false;
-    notifyListeners();
+    final peerId = _directPeerId;
+    _directPeerId = null;
+    if (role == RemoteRole.display &&
+        peerId != null &&
+        _knownControllerIds.remove(peerId)) {
+      notifyListeners();
+    } else {
+      notifyListeners();
+    }
     if (!_closed) unawaited(connect());
   }
 
@@ -400,7 +409,7 @@ class RemoteSession extends ChangeNotifier {
     switch (kind) {
       case 'presence':
         if (!isCreator && !directConnected) {
-          await _publishSignal('join', const {});
+          await _publishSignal('join', {'role': role.name});
         }
       case 'join':
         if (isCreator && !directConnected && !multipleControllers) {
@@ -559,6 +568,14 @@ class RemoteSession extends ChangeNotifier {
       final kind = map['kind'];
       final payload = map['payload'];
       final sender = map['sender'];
+      if (sender is String) {
+        _directPeerId = sender;
+        if (payload is Map) {
+          unawaited(
+            _rememberRelayPeer(sender, payload.cast<String, Object?>()),
+          );
+        }
+      }
       if (kind == '__transport_multi__') {
         unawaited(_enterMultipleControllerMode(announce: false));
         return;
@@ -581,8 +598,17 @@ class RemoteSession extends ChangeNotifier {
     final kind = payload['kind'];
     final raw = payload['payload'];
     if (kind is String && raw is Map) {
+      final appPayload = raw.cast<String, Object?>();
+      if (senderId != null && kind == 'hello') {
+        unawaited(_rememberRelayPeer(senderId, appPayload));
+      }
+      if (senderId != null &&
+          kind == 'disconnect' &&
+          _knownControllerIds.remove(senderId)) {
+        notifyListeners();
+      }
       _messages.add(
-        RemoteAppMessage(kind, raw.cast<String, Object?>(), senderId: senderId),
+        RemoteAppMessage(kind, appPayload, senderId: senderId),
       );
     }
   }
@@ -696,6 +722,7 @@ class RemoteSession extends ChangeNotifier {
 
   Future<void> _resetPeerConnection() async {
     directConnected = false;
+    _directPeerId = null;
     _remoteDescriptionSet = false;
     _pendingCandidates.clear();
     final channel = _dataChannel;
