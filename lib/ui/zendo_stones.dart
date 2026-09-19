@@ -83,10 +83,12 @@ class ZendoStonesWidget extends StatefulWidget {
     super.key,
     this.snapshot = ZendoStonesSnapshot.initial,
     this.onChanged,
+    this.scale = 1,
   });
 
   final ZendoStonesSnapshot snapshot;
   final ValueChanged<ZendoStonesSnapshot>? onChanged;
+  final double scale;
 
   @override
   State<ZendoStonesWidget> createState() => _ZendoStonesWidgetState();
@@ -116,8 +118,9 @@ class _ZendoStone {
 }
 
 class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
-  static const double _smallRadius = 10.5;
-  static const double _largeRadius = 21;
+  double get _scale => widget.scale.clamp(0.25, 4.0);
+  double get _smallRadius => 10.5 * _scale;
+  double get _largeRadius => 21 * _scale;
   final GlobalKey _surfaceKey = GlobalKey();
   final List<_ZendoStone> _stones = [];
   int _nextId = 1;
@@ -315,10 +318,10 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
         onPanEnd: (_) => _endTrayDrag(),
         onPanCancel: _endTrayDrag,
         child: Padding(
-          padding: const EdgeInsets.all(5),
+          padding: EdgeInsets.all(5 * _scale),
           child: Container(
-            width: 18,
-            height: 18,
+            width: 18 * _scale,
+            height: 18 * _scale,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: _fill(kind),
@@ -348,13 +351,13 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
         key: _surfaceKey,
         children: [
           Positioned(
-            top: 8,
-            right: 8,
+            top: 8 * _scale,
+            right: 8 * _scale,
             child: Material(
               color: const Color(0xCC171717),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(18 * _scale),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
+                padding: EdgeInsets.symmetric(horizontal: 3 * _scale),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -368,10 +371,10 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
           ),
           for (final stone in _stones)
             Positioned(
-              left: stone.center.dx - _largeRadius - 5,
-              top: stone.center.dy - _largeRadius - 5,
-              width: (_largeRadius + 5) * 2,
-              height: (_largeRadius + 5) * 2,
+              left: stone.center.dx - _largeRadius - 5 * _scale,
+              top: stone.center.dy - _largeRadius - 5 * _scale,
+              width: (_largeRadius + 5 * _scale) * 2,
+              height: (_largeRadius + 5 * _scale) * 2,
               child: Tooltip(
                 message: '${_label(stone.kind)} · drag · double-tap to remove',
                 child: GestureDetector(
