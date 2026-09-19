@@ -35,13 +35,13 @@ class RemoteBoardControlState {
 
   RemoteBoardControlState cycleRipple(String elementId) {
     final next = Map<String, RemoteRippleLevel>.from(rippleLevels);
-    switch (next[elementId]) {
-      case null:
-        next[elementId] = RemoteRippleLevel.normal;
-      case RemoteRippleLevel.normal:
-        next[elementId] = RemoteRippleLevel.dim;
-      case RemoteRippleLevel.dim:
-        next.remove(elementId);
+    final current = next[elementId];
+    if (current == null) {
+      next[elementId] = RemoteRippleLevel.normal;
+    } else if (current == RemoteRippleLevel.normal) {
+      next[elementId] = RemoteRippleLevel.dim;
+    } else {
+      next.remove(elementId);
     }
     return copyWith(rippleLevels: Map.unmodifiable(next));
   }
