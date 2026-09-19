@@ -1958,6 +1958,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             .where((value) => value.name == peerRoleName)
             .firstOrNull;
         _captureRemoteDisplayMetrics(message.payload, senderRole: peerRole);
+        if (session.role == RemoteRole.controller &&
+            peerRole == RemoteRole.display) {
+          await _sendRemoteHello();
+        }
         if (session.role == RemoteRole.display &&
             peerRole == RemoteRole.controller) {
           await _sendRemoteState('seed');
