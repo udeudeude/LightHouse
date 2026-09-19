@@ -1520,6 +1520,136 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     return PhysicalPoint(x.toDouble(), y.toDouble());
   }
 
+  void _syncRippleTicker() {
+    if (_remoteControlState.rippleLevels.isEmpty) {
+      _rippleTimer?.cancel();
+      _rippleTimer = null;
+      _lastRippleTickAt = null;
+      return;
+    }
+    if (_rippleTimer != null) return;
+    _lastRippleTickAt = DateTime.now();
+    _rippleTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
+      final now = DateTime.now();
+      final previous = _lastRippleTickAt;
+      _lastRippleTickAt = now;
+      final dt = previous == null
+          ? 0.033
+          : now.difference(previous).inMicroseconds / 1000000;
+      _rippleClock += dt.clamp(0.0, 0.1).toDouble();
+      _toyRevision.value += 1;
+    });
+  }
+
+  void _setRemoteControlState(RemoteBoardControlState next) {
+    final liveIds = _controller.state.elements.map((element) => element.id).toSet();
+    final retained = next.retainElementIds(liveIds);
+    setState(() => _remoteControlState = retained);
+    _syncRippleTicker();
+  }
+
+  Future<void> _broadcastRemoteControlState() async {
+    final session = _remoteSession;
+    if (session == null || session.role != RemoteRole.display) return;
+    await session.sendApp('controlState', {
+      'role': session.role.name,
+      'control': _remoteControlState.toJson(),
+    });
+  }
+
+  Future<void> _sendRemoteControlCommand(
+    String command, {
+    Map<String, Object?> payload = const {},
+  }) async {
+    final session = _remoteSession;
+    if (session == null || session.role != RemoteRole.controller) return;
+    await session.sendApp('controlCommand', {
+      'command': command,
+      ...payload,
+    });
+  }
+
+  Future<void> _setBoardUnitInteractions(bool enabled) async {
+    _setRemoteControlState(
+      _remoteControlState.copyWith(displayInteractionsEnabled: enabled),
+    );
+    await _sendRemoteControlCommand(
+      'setDisplayInteractions',
+      payload: {'enabled': enabled},
+    );
+  }
+
+  Future<void> _setBoardUnitShapesVisible(bool visible) async {
+    _setRemoteControlState(
+      _remoteControlState.copyWith(displayShapesVisible: visible),
+    );
+    await _sendRemoteControlCommand(
+      'setDisplayShapesVisible',
+      payload: {'visible': visible},
+    );
+  }
+
+  Future<void> _cycleRipple(String elementId) async {
+    final next = _remoteControlState.cycleRipple(elementId);
+    _setRemoteControlState(next);
+    final level = next.rippleLevels[elementId];
+    await _sendRemoteControlCommand(
+      'setRipple',
+      payload: {
+        'elementId': elementId,
+        'level': level?.wireValue ?? 0,
+      },
+    );
+    HapticFeedback.selectionClick();
+  }
+
+  Future<void> _clearAllRipples() async {
+    _setRemoteControlState(_remoteControlState.clearRipples());
+    await _sendRemoteControlCommand('clearRipples');
+  }
+
+  Future<void> _applyRemoteControlCommand(Map<String, Object?> payload) async {
+    if (!_remoteDisplayMode) return;
+    final command = payload['command'];
+    var next = _remoteControlState;
+    switch (command) {
+      case 'setDisplayInteractions':
+        next = next.copyWith(
+          displayInteractionsEnabled: payload['enabled'] == true,
+        );
+      case 'setDisplayShapesVisible':
+        next = next.copyWith(
+          displayShapesVisible: payload['visible'] != false,
+        );
+      case 'setRipple':
+        final elementId = payload['elementId'];
+        if (elementId is! String ||
+            _controller.state.elementById(elementId) == null) {
+          return;
+        }
+        final level = RemoteRippleLevel.fromWireValue(payload['level']);
+        final ripples = Map<String, RemoteRippleLevel>.from(next.rippleLevels);
+        if (level == null) {
+          ripples.remove(elementId);
+        } else {
+          ripples[elementId] = level;
+        }
+        next = next.copyWith(rippleLevels: Map.unmodifiable(ripples));
+      case 'clearRipples':
+        next = next.clearRipples();
+      default:
+        return;
+    }
+    _setRemoteControlState(next);
+    await _broadcastRemoteControlState();
+  }
+
+  void _applyRemoteControlState(Map<String, Object?> payload) {
+    final raw = payload['control'];
+    if (raw == null) return;
+    _setRemoteControlState(RemoteBoardControlState.fromJson(raw));
+  }
+
   Map<String, Object?> _remoteRuntimePayload() => {
     'activeToys': [for (final toy in _activeToys) toy.name],
     'toyClock': _toyClock,
