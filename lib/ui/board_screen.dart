@@ -771,6 +771,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     HapticFeedback.selectionClick();
     setState(() {});
+    unawaited(_sendRemoteRuntimeIfChanged(force: true));
   }
 
   PhysicalPoint _velocityForDegrees(double degrees, double speed) {
@@ -809,6 +810,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     HapticFeedback.lightImpact();
     _ensureToyTicker();
     setState(() {});
+    unawaited(_sendRemoteRuntimeIfChanged(force: true));
   }
 
   void _aimGunFromLocal(int gunIndex, Offset localPosition) {
@@ -833,6 +835,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         base + offset.clamp(-72, 72).toDouble(),
       );
     });
+    unawaited(_sendRemoteRuntimeIfChanged());
   }
 
   void _launchCornerRicochets() {
@@ -867,6 +870,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     ];
     _ensureToyTicker();
     setState(() {});
+    unawaited(_sendRemoteRuntimeIfChanged(force: true));
   }
 
   void _ensureToyTicker() {
@@ -2372,11 +2376,19 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       for (final id in _constellationElementIds)
         if (liveIds.contains(id)) id,
     ];
+    final retainedControls = _remoteControlState.retainElementIds(liveIds);
+    final ripplesChanged = !identical(retainedControls, _remoteControlState);
     setState(() {
       if (_selectedId != null &&
-          _controller.state.elementById(_selectedId!) == null)
+          _controller.state.elementById(_selectedId!) == null) {
         _selectedId = null;
+      }
+      if (ripplesChanged) _remoteControlState = retainedControls;
     });
+    if (ripplesChanged) {
+      _syncRippleTicker();
+      if (_remoteDisplayMode) unawaited(_broadcastRemoteControlState());
+    }
     _scheduleSave();
     _scheduleRemotePublish();
   }
