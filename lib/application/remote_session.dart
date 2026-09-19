@@ -611,9 +611,7 @@ class RemoteSession extends ChangeNotifier {
           _knownControllerIds.remove(senderId)) {
         notifyListeners();
       }
-      _messages.add(
-        RemoteAppMessage(kind, appPayload, senderId: senderId),
-      );
+      _messages.add(RemoteAppMessage(kind, appPayload, senderId: senderId));
     }
   }
 
