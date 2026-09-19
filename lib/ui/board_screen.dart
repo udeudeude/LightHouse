@@ -1904,15 +1904,21 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (effectiveRole != RemoteRole.display) return;
     final width = (payload['widthMm'] as num?)?.toDouble();
     final height = (payload['heightMm'] as num?)?.toDouble();
+    final pixelsPerMm = (payload['pixelsPerMm'] as num?)?.toDouble();
     if (width == null || height == null || width <= 0 || height <= 0) {
       return;
     }
-    if (_remoteDisplayWidthMm == width && _remoteDisplayHeightMm == height) {
+    if (_remoteDisplayWidthMm == width &&
+        _remoteDisplayHeightMm == height &&
+        _remoteDisplayPixelsPerMm == pixelsPerMm) {
       return;
     }
     setState(() {
       _remoteDisplayWidthMm = width;
       _remoteDisplayHeightMm = height;
+      if (pixelsPerMm != null && pixelsPerMm > 0) {
+        _remoteDisplayPixelsPerMm = pixelsPerMm;
+      }
     });
   }
 
@@ -1925,6 +1931,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       'creator': session.isCreator,
       if (session.role == RemoteRole.display) 'widthMm': board.width,
       if (session.role == RemoteRole.display) 'heightMm': board.height,
+      if (session.role == RemoteRole.display)
+        'pixelsPerMm': widget.logicalPixelsPerMm,
     });
   }
 
