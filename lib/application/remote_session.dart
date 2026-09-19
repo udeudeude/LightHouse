@@ -352,9 +352,13 @@ class RemoteSession extends ChangeNotifier {
         .where((value) => value.name == roleName)
         .firstOrNull;
     if (role != RemoteRole.display || peerRole != RemoteRole.controller) return;
-    if (!_knownControllerIds.add(sender)) return;
-    notifyListeners();
-    if (_knownControllerIds.length > 1 && !multipleControllers) {
+    final added = _knownControllerIds.add(sender);
+    if (added) notifyListeners();
+    if (multipleControllers) {
+      await _publishSignal('multi', {'role': role.name});
+      return;
+    }
+    if (added && _knownControllerIds.length > 1) {
       await _enterMultipleControllerMode();
     }
   }
