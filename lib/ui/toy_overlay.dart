@@ -85,9 +85,11 @@ class ToyOverlayPainter extends CustomPainter {
     required this.sideGunAmmo,
     required this.cornerGunsVisible,
     required this.constellation,
+    this.uiScale = 1,
   });
 
   final double logicalPixelsPerMm;
+  final double uiScale;
   final PyramidGeometryProfile geometry;
   final List<LightElement> elements;
   final Map<String, List<PhysicalPoint>> ghostTrails;
@@ -493,19 +495,26 @@ class ToyOverlayPainter extends CustomPainter {
   }
 
   void _paintGun(Canvas canvas, Offset center, double angleDegrees) {
+    final scale = uiScale.clamp(0.25, 4.0);
     final radians = angleDegrees * math.pi / 180;
     final direction = Offset(math.cos(radians), math.sin(radians));
     final normal = Offset(-direction.dy, direction.dx);
     final body = Path()
-      ..moveTo(center.dx + normal.dx * 6.4, center.dy + normal.dy * 6.4)
-      ..lineTo(center.dx - normal.dx * 6.4, center.dy - normal.dy * 6.4)
-      ..lineTo(
-        center.dx + direction.dx * 14 - normal.dx * 4.2,
-        center.dy + direction.dy * 14 - normal.dy * 4.2,
+      ..moveTo(
+        center.dx + normal.dx * 6.4 * scale,
+        center.dy + normal.dy * 6.4 * scale,
       )
       ..lineTo(
-        center.dx + direction.dx * 14 + normal.dx * 4.2,
-        center.dy + direction.dy * 14 + normal.dy * 4.2,
+        center.dx - normal.dx * 6.4 * scale,
+        center.dy - normal.dy * 6.4 * scale,
+      )
+      ..lineTo(
+        center.dx + direction.dx * 14 * scale - normal.dx * 4.2 * scale,
+        center.dy + direction.dy * 14 * scale - normal.dy * 4.2 * scale,
+      )
+      ..lineTo(
+        center.dx + direction.dx * 14 * scale + normal.dx * 4.2 * scale,
+        center.dy + direction.dy * 14 * scale + normal.dy * 4.2 * scale,
       )
       ..close();
     canvas.drawPath(
@@ -513,37 +522,40 @@ class ToyOverlayPainter extends CustomPainter {
       Paint()..color = Colors.white.withValues(alpha: 0.34),
     );
     canvas.drawLine(
-      center + direction * 10,
-      center + direction * 26,
+      center + direction * (10 * scale),
+      center + direction * (26 * scale),
       Paint()
         ..color = Colors.white.withValues(alpha: 0.60)
-        ..strokeWidth = 4,
+        ..strokeWidth = 4 * scale,
     );
   }
 
   void _paintRounds(Canvas canvas, Offset gunCenter, int gunIndex, int count) {
     if (count <= 0) return;
+    final scale = uiScale.clamp(0.25, 4.0);
     final visible = math.min(5, count);
     final paint = Paint()..color = Colors.white.withValues(alpha: 0.68);
     for (var i = 0; i < visible; i += 1) {
-      final delta = (i - (visible - 1) / 2) * 6.2;
+      final delta = (i - (visible - 1) / 2) * 6.2 * scale;
       final point = switch (gunIndex) {
-        0 => gunCenter + Offset(18, 26 + delta),
-        1 => gunCenter + Offset(-18, 26 + delta),
-        2 => gunCenter + Offset(26 + delta, 18),
-        _ => gunCenter + Offset(26 + delta, -18),
+        0 => gunCenter + Offset(18 * scale, 26 * scale + delta),
+        1 => gunCenter + Offset(-18 * scale, 26 * scale + delta),
+        2 => gunCenter + Offset(26 * scale + delta, 18 * scale),
+        _ => gunCenter + Offset(26 * scale + delta, -18 * scale),
       };
-      canvas.drawCircle(point, 2.15, paint);
+      canvas.drawCircle(point, 2.15 * scale, paint);
     }
   }
 
   void _paintGuns(Canvas canvas, Size size) {
+    final scale = uiScale.clamp(0.25, 4.0);
     if (sideGunsVisible && sideGunAnglesDegrees.length >= 4) {
+      final inset = 14 * scale;
       final centers = <Offset>[
-        Offset(14, size.height / 2),
-        Offset(size.width - 14, size.height / 2),
-        Offset(size.width / 2, 14),
-        Offset(size.width / 2, size.height - 14),
+        Offset(inset, size.height / 2),
+        Offset(size.width - inset, size.height / 2),
+        Offset(size.width / 2, inset),
+        Offset(size.width / 2, size.height - inset),
       ];
       for (var i = 0; i < 4; i += 1) {
         _paintGun(canvas, centers[i], sideGunAnglesDegrees[i]);
@@ -553,15 +565,15 @@ class ToyOverlayPainter extends CustomPainter {
       }
     }
     if (cornerGunsVisible) {
-      const d = 7.0;
+      final d = 7.0 * scale;
       final paint = Paint()..color = Colors.white.withValues(alpha: 0.22);
       for (final p in [
-        const Offset(d, d),
+        Offset(d, d),
         Offset(size.width - d, d),
         Offset(d, size.height - d),
         Offset(size.width - d, size.height - d),
       ]) {
-        canvas.drawCircle(p, 3.2, paint);
+        canvas.drawCircle(p, 3.2 * scale, paint);
       }
     }
   }
@@ -615,6 +627,7 @@ class ToyOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant ToyOverlayPainter oldDelegate) =>
       oldDelegate.logicalPixelsPerMm != logicalPixelsPerMm ||
+      oldDelegate.uiScale != uiScale ||
       oldDelegate.geometry != geometry ||
       !listEquals(oldDelegate.elements, elements) ||
       oldDelegate.ghostTrailsVisible != ghostTrailsVisible ||

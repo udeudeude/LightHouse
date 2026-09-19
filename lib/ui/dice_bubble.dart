@@ -15,16 +15,22 @@ class ArcadeDieChoice {
 }
 
 const arcadeDiceChoices = <ArcadeDieChoice>[
-  ArcadeDieChoice('standard-1', ArcadeDieKind.standard, 'Regular D6 1'),
-  ArcadeDieChoice('standard-2', ArcadeDieKind.standard, 'Regular D6 2'),
-  ArcadeDieChoice('standard-3', ArcadeDieKind.standard, 'Regular D6 3'),
-  ArcadeDieChoice('lightning-1', ArcadeDieKind.lightning, 'Lightning 1'),
-  ArcadeDieChoice('lightning-2', ArcadeDieKind.lightning, 'Lightning 2'),
-  ArcadeDieChoice('lightning-3', ArcadeDieKind.lightning, 'Lightning 3'),
+  ArcadeDieChoice('standard', ArcadeDieKind.standard, 'Regular D6'),
+  ArcadeDieChoice('lightning', ArcadeDieKind.lightning, 'Lightning die'),
   ArcadeDieChoice('pyramid', ArcadeDieKind.pyramid, 'Pyramid die'),
   ArcadeDieChoice('treehouse', ArcadeDieKind.treehouse, 'Treehouse die'),
   ArcadeDieChoice('color', ArcadeDieKind.color, 'Color die'),
 ];
+
+String arcadeDieBaseId(String instanceId) {
+  if (instanceId.contains('#')) return instanceId.split('#').first;
+  if (instanceId.startsWith('standard-')) return 'standard';
+  if (instanceId.startsWith('lightning-')) return 'lightning';
+  return instanceId;
+}
+
+bool isKnownArcadeDieInstance(String instanceId) =>
+    arcadeDiceChoices.any((choice) => choice.id == arcadeDieBaseId(instanceId));
 
 class DiceBubbleSnapshot {
   const DiceBubbleSnapshot({
@@ -39,8 +45,8 @@ class DiceBubbleSnapshot {
   static const initial = DiceBubbleSnapshot(
     revision: 0,
     rollSerial: 0,
-    selectedIds: ['standard-1'],
-    faces: {'standard-1': 0},
+    selectedIds: ['standard#1'],
+    faces: {'standard#1': 0},
     xFraction: 0.20,
     yFraction: 0.14,
   );
@@ -68,7 +74,7 @@ class DiceBubbleSnapshot {
       final ids =
           (map['selectedIds'] as List?)
               ?.whereType<String>()
-              .where((id) => arcadeDiceChoices.any((choice) => choice.id == id))
+              .where(isKnownArcadeDieInstance)
               .take(3)
               .toList() ??
           const <String>[];
@@ -104,10 +110,12 @@ class DiceBubble extends StatefulWidget {
     super.key,
     this.snapshot = DiceBubbleSnapshot.initial,
     this.onChanged,
+    this.scale = 1,
   });
 
   final DiceBubbleSnapshot snapshot;
   final ValueChanged<DiceBubbleSnapshot>? onChanged;
+  final double scale;
 
   @override
   State<DiceBubble> createState() => _DiceBubbleState();
@@ -148,7 +156,7 @@ class _SpinPlan {
 
 class _DiceBubbleState extends State<DiceBubble>
     with SingleTickerProviderStateMixin {
-  static const double _radius = 70;
+  double get _radius => 70 * widget.scale.clamp(0.25, 4.0);
   final math.Random _random = math.Random();
   final List<String> _selectedIds = [];
   final Map<String, int> _faces = {};
@@ -161,6 +169,7 @@ class _DiceBubbleState extends State<DiceBubble>
   int _revision = 0;
   int _rollSerial = 0;
   int _appliedRevision = -1;
+  int _nextInstanceSerial = 2;
   bool _pressed = false;
   bool _twoFingerMove = false;
   bool _gestureMoved = false;
@@ -202,6 +211,14 @@ class _DiceBubbleState extends State<DiceBubble>
     _selectedIds
       ..clear()
       ..addAll(snapshot.selectedIds);
+    for (final id in _selectedIds) {
+      final marker = id.lastIndexOf('#');
+      if (marker < 0) continue;
+      final serial = int.tryParse(id.substring(marker + 1));
+      if (serial != null && serial >= _nextInstanceSerial) {
+        _nextInstanceSerial = serial + 1;
+      }
+    }
     _faces
       ..clear()
       ..addAll(snapshot.faces);
@@ -271,8 +288,37 @@ class _DiceBubbleState extends State<DiceBubble>
     );
   }
 
-  ArcadeDieChoice _choice(String id) =>
-      arcadeDiceChoices.firstWhere((choice) => choice.id == id);
+  ArcadeDieChoice _choice(String id) {
+    final baseId = arcadeDieBaseId(id);
+    return arcadeDiceChoices.firstWhere((choice) => choice.id == baseId);
+  }
+
+  int _choiceCount(String baseId) =>
+      _selectedIds.where((id) => arcadeDieBaseId(id) == baseId).length;
+
+  void _addChoice(ArcadeDieChoice choice) {
+    if (_selectedIds.length >= 3 || _choiceCount(choice.id) >= 3) return;
+    final id = '${choice.id}#${_nextInstanceSerial++}';
+    setState(() {
+      _selectedIds.add(id);
+      _faces[id] = _random.nextInt(6);
+    });
+    _emitSnapshot();
+  }
+
+  void _removeChoice(ArcadeDieChoice choice) {
+    final index = _selectedIds.lastIndexWhere(
+      (id) => arcadeDieBaseId(id) == choice.id,
+    );
+    if (index < 0) return;
+    final id = _selectedIds[index];
+    setState(() {
+      _selectedIds.removeAt(index);
+      _faces.remove(id);
+      _plans.remove(id);
+    });
+    _emitSnapshot();
+  }
 
   double _normalize(double radians) =>
       ((radians + math.pi) % (2 * math.pi)) - math.pi;
@@ -426,66 +472,89 @@ class _DiceBubbleState extends State<DiceBubble>
                     itemCount: arcadeDiceChoices.length,
                     itemBuilder: (context, index) {
                       final choice = arcadeDiceChoices[index];
-                      final selected = _selectedIds.contains(choice.id);
-                      final disabled = !selected && atLimit;
+                      final count = _choiceCount(choice.id);
+                      final canAdd = !atLimit && count < 3;
                       return Tooltip(
                         message: choice.label,
-                        child: Semantics(
-                          button: true,
-                          selected: selected,
-                          label: choice.label,
-                          child: InkWell(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: count > 0
+                                ? Colors.white.withValues(alpha: 0.10)
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
-                            onTap: disabled
-                                ? null
-                                : () {
-                                    setState(() {
-                                      if (selected) {
-                                        _selectedIds.remove(choice.id);
-                                        _faces.remove(choice.id);
-                                        _plans.remove(choice.id);
-                                      } else {
-                                        _selectedIds.add(choice.id);
-                                        _faces[choice.id] = _random.nextInt(6);
-                                      }
-                                    });
-                                    setSheetState(() {});
-                                    _emitSnapshot();
-                                  },
-                            child: AnimatedOpacity(
-                              duration: const Duration(milliseconds: 100),
-                              opacity: disabled ? 0.30 : 1,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: selected
-                                      ? Colors.white.withValues(alpha: 0.12)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: selected
-                                        ? Colors.white
-                                        : Colors.white24,
-                                    width: selected ? 2 : 1,
+                            border: Border.all(
+                              color: count > 0 ? Colors.white : Colors.white24,
+                              width: count > 0 ? 2 : 1,
+                            ),
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              _selectorImage(choice),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minWidth: 20,
+                                    minHeight: 20,
+                                  ),
+                                  alignment: Alignment.center,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '$count',
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    _selectorImage(choice),
-                                    if (selected)
-                                      const Positioned(
-                                        top: 4,
-                                        right: 4,
-                                        child: Icon(
-                                          Icons.check_circle,
-                                          color: Colors.white,
-                                          size: 18,
-                                        ),
-                                      ),
-                                  ],
+                              ),
+                              Positioned(
+                                left: 2,
+                                bottom: 2,
+                                child: IconButton(
+                                  tooltip: 'Remove one ${choice.label}',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 30,
+                                    minHeight: 30,
+                                  ),
+                                  onPressed: count == 0
+                                      ? null
+                                      : () {
+                                          _removeChoice(choice);
+                                          setSheetState(() {});
+                                        },
+                                  icon: const Icon(Icons.remove, size: 18),
                                 ),
                               ),
-                            ),
+                              Positioned(
+                                right: 2,
+                                bottom: 2,
+                                child: IconButton(
+                                  tooltip: 'Add one ${choice.label}',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 30,
+                                    minHeight: 30,
+                                  ),
+                                  onPressed: canAdd
+                                      ? () {
+                                          _addChoice(choice);
+                                          setSheetState(() {});
+                                        }
+                                      : null,
+                                  icon: const Icon(Icons.add, size: 18),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -567,6 +636,7 @@ class _DiceBubbleState extends State<DiceBubble>
                 children: [
                   CustomPaint(
                     painter: _DiceBubblePainter(
+                      instanceIds: List<String>.unmodifiable(_selectedIds),
                       choices: List<ArcadeDieChoice>.unmodifiable(selected),
                       faces: Map<String, int>.unmodifiable(_faces),
                       plans: Map<String, _SpinPlan>.unmodifiable(_plans),
@@ -580,11 +650,10 @@ class _DiceBubbleState extends State<DiceBubble>
                       behavior: HitTestBehavior.opaque,
                       onTap: _showPicker,
                       child: Container(
-                        width: 12,
-                        height: 38,
+                        width: 12 * widget.scale.clamp(0.25, 4.0),
+                        height: 38 * widget.scale.clamp(0.25, 4.0),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.10),
-                          border: Border.all(color: Colors.white70, width: 1.2),
+                          color: const Color(0xFFBDBDBD),
                           borderRadius: const BorderRadius.horizontal(
                             left: Radius.circular(2),
                           ),
@@ -645,6 +714,7 @@ class _Face {
 
 class _DiceBubblePainter extends CustomPainter {
   const _DiceBubblePainter({
+    required this.instanceIds,
     required this.choices,
     required this.faces,
     required this.plans,
@@ -652,6 +722,7 @@ class _DiceBubblePainter extends CustomPainter {
     required this.pressed,
   });
 
+  final List<String> instanceIds;
   final List<ArcadeDieChoice> choices;
   final Map<String, int> faces;
   final Map<String, _SpinPlan> plans;
@@ -784,12 +855,16 @@ class _DiceBubblePainter extends CustomPainter {
         ..strokeWidth = pressed ? 2.55 : 2.2,
     );
 
-    final offsets = _dieOffsets(choices.length);
+    final visualScale = math.min(size.width, size.height) / 140;
+    final offsets = _dieOffsets(choices.length)
+        .map((offset) => offset * visualScale)
+        .toList(growable: false);
     final squeeze = pressed ? 0.72 : 1.0;
     for (var i = 0; i < choices.length; i += 1) {
       final choice = choices[i];
-      final face = faces[choice.id] ?? 0;
-      final plan = plans[choice.id];
+      final instanceId = instanceIds[i];
+      final face = faces[instanceId] ?? 0;
+      final plan = plans[instanceId];
       final rotation = plan?.rotationAt(progress) ?? _targetForFace(face);
       var dieCenter = center + offsets[i] * squeeze;
       if (plan != null && progress < 1) {
@@ -801,7 +876,13 @@ class _DiceBubblePainter extends CustomPainter {
           math.sin(plan.bounceAngle) * wobble,
         );
       }
-      _paintDie(canvas, dieCenter, 13.8 * squeeze, choice.kind, rotation);
+      _paintDie(
+        canvas,
+        dieCenter,
+        13.8 * visualScale * squeeze,
+        choice.kind,
+        rotation,
+      );
     }
   }
 
@@ -1408,6 +1489,7 @@ class _DiceBubblePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DiceBubblePainter oldDelegate) =>
+      !listEquals(oldDelegate.instanceIds, instanceIds) ||
       !listEquals(oldDelegate.choices, choices) ||
       !mapEquals(oldDelegate.faces, faces) ||
       !mapEquals(oldDelegate.plans, plans) ||

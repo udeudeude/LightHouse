@@ -34,6 +34,22 @@ void main() {
     expect(launch.keyBytes, hasLength(32));
   });
 
+  test('one Board Display pairing link can admit multiple controllers', () {
+    final display = RemoteSession.create(RemoteRole.display);
+    final uri = display.joinUri(Uri.parse('https://example.test/LightHouse/'));
+
+    final first = RemoteLaunch.fromUri(uri);
+    final second = RemoteLaunch.fromUri(uri);
+
+    expect(first, isNotNull);
+    expect(second, isNotNull);
+    expect(first!.roomId, display.roomId);
+    expect(second!.roomId, display.roomId);
+    expect(first.role, RemoteRole.controller);
+    expect(second.role, RemoteRole.controller);
+    expect(first.keyBytes, second.keyBytes);
+  });
+
   test('legacy query-string pairing links remain compatible', () {
     final key = base64UrlEncode(List<int>.generate(32, (index) => index))
         .replaceAll('=', '');

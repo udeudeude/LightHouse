@@ -75,10 +75,11 @@ class RemoteLaunch {
 }
 
 class RemoteAppMessage {
-  const RemoteAppMessage(this.kind, this.payload);
+  const RemoteAppMessage(this.kind, this.payload, {this.senderId});
 
   final String kind;
   final Map<String, Object?> payload;
+  final String? senderId;
 }
 
 enum RemoteConnectionPhase {
@@ -101,7 +102,8 @@ class RemoteSession extends ChangeNotifier {
       CallbackRemoteAppTransport(
         kind: RemoteTransportKind.direct,
         label: 'Direct',
-        isAvailable: () => directConnected && _dataChannel != null,
+        isAvailable: () =>
+            !multipleControllers && directConnected && _dataChannel != null,
         sender: _sendDirectTransport,
       ),
       CallbackRemoteAppTransport(
@@ -143,6 +145,7 @@ class RemoteSession extends ChangeNotifier {
   String? errorMessage;
   bool peerSeen = false;
   bool directConnected = false;
+  bool multipleControllers = false;
 
   MqttClient? _mqtt;
   StreamSubscription<List<MqttReceivedMessage<MqttMessage?>>>?
@@ -154,10 +157,22 @@ class RemoteSession extends ChangeNotifier {
   bool _closed = false;
   int _signalSequence = 0;
   Future<void>? _relayConnectFuture;
+  final Set<String> _knownControllerIds = <String>{};
+  String? _directPeerId;
 
   Stream<RemoteAppMessage> get messages => _messages.stream;
+  String get clientId => _clientId;
+  int get controllerCount => role == RemoteRole.display
+      ? _knownControllerIds.length
+      : (multipleControllers ? 2 : (peerSeen ? 1 : 0));
 
   String get transportLabel {
+    if (multipleControllers && _mqttConnected) {
+      if (role == RemoteRole.display) {
+        return 'Encrypted relay · ${controllerCount} controllers';
+      }
+      return 'Encrypted relay · multiple controllers';
+    }
     final preferred = _transportRouter.preferredAvailable;
     if (preferred?.kind == RemoteTransportKind.direct) return preferred!.label;
     if (peerSeen && preferred?.kind == RemoteTransportKind.encryptedRelay) {
@@ -274,8 +289,12 @@ class RemoteSession extends ChangeNotifier {
   }
 
   Future<void> _announceOnSignalChannel() async {
-    await _publishSignal('presence', const {});
-    if (!isCreator) await _publishSignal('join', const {});
+    final identity = {'role': role.name};
+    await _publishSignal('presence', identity);
+    if (!isCreator) await _publishSignal('join', identity);
+    if (multipleControllers) {
+      await _publishSignal('multi', identity);
+    }
   }
 
   void _handleMqttDisconnected() {
@@ -287,7 +306,12 @@ class RemoteSession extends ChangeNotifier {
   }
 
   Future<void> _suspendRelayForDirect() async {
-    if (_closed || !directConnected) return;
+    if (_closed ||
+        !directConnected ||
+        role == RemoteRole.display ||
+        multipleControllers) {
+      return;
+    }
     final subscription = _mqttSubscription;
     _mqttSubscription = null;
     if (subscription != null) await subscription.cancel();
@@ -307,8 +331,65 @@ class RemoteSession extends ChangeNotifier {
   void _handleDirectUnavailable() {
     if (!directConnected) return;
     directConnected = false;
-    notifyListeners();
+    final peerId = _directPeerId;
+    _directPeerId = null;
+    if (role == RemoteRole.display &&
+        peerId != null &&
+        _knownControllerIds.remove(peerId)) {
+      notifyListeners();
+    } else {
+      notifyListeners();
+    }
     if (!_closed) unawaited(connect());
+  }
+
+  Future<void> _rememberRelayPeer(
+    String sender,
+    Map<String, Object?> payload,
+  ) async {
+    final roleName = payload['role'];
+    final peerRole = RemoteRole.values
+        .where((value) => value.name == roleName)
+        .firstOrNull;
+    if (role != RemoteRole.display || peerRole != RemoteRole.controller) return;
+    final added = _knownControllerIds.add(sender);
+    if (added) notifyListeners();
+    if (multipleControllers) {
+      await _publishSignal('multi', {'role': role.name});
+      return;
+    }
+    if (added && _knownControllerIds.length > 1) {
+      await _enterMultipleControllerMode();
+    }
+  }
+
+  Future<void> _enterMultipleControllerMode({bool announce = true}) async {
+    if (multipleControllers || _closed) return;
+    multipleControllers = true;
+
+    final direct = _dataChannel;
+    if (directConnected && direct != null) {
+      try {
+        await direct.send(
+          RTCDataChannelMessage(
+            jsonEncode({
+              'sender': _clientId,
+              'kind': '__transport_multi__',
+              'payload': const <String, Object?>{},
+            }),
+          ),
+        );
+      } on Object {
+        // The relay transition below still recovers the session.
+      }
+    }
+
+    await _resetPeerConnection();
+    if (!_mqttConnected) await connect();
+    if (announce && _mqttConnected) {
+      await _publishSignal('multi', {'role': role.name});
+    }
+    notifyListeners();
   }
 
   Future<void> _handleEncryptedSignal(String encoded) async {
@@ -320,6 +401,9 @@ class RemoteSession extends ChangeNotifier {
     final rawPayload = envelope['payload'];
     if (sender is! String || kind is! String || rawPayload is! Map) return;
     final payload = rawPayload.cast<String, Object?>();
+    if (kind == 'presence' || kind == 'join') {
+      await _rememberRelayPeer(sender, payload);
+    }
     if (!peerSeen) {
       peerSeen = true;
       phase = RemoteConnectionPhase.connected;
@@ -329,25 +413,33 @@ class RemoteSession extends ChangeNotifier {
     switch (kind) {
       case 'presence':
         if (!isCreator && !directConnected) {
-          await _publishSignal('join', const {});
+          await _publishSignal('join', {'role': role.name});
         }
       case 'join':
-        if (isCreator && !directConnected) {
+        if (isCreator && !directConnected && !multipleControllers) {
           await _makeOffer();
         }
       case 'offer':
-        if (!isCreator) await _acceptOffer(payload);
+        if (!isCreator && !multipleControllers) await _acceptOffer(payload);
       case 'answer':
-        if (isCreator) await _acceptAnswer(payload);
+        if (isCreator && !multipleControllers) await _acceptAnswer(payload);
       case 'candidate':
-        await _acceptCandidate(payload);
+        if (!multipleControllers) await _acceptCandidate(payload);
+      case 'multi':
+        await _enterMultipleControllerMode(announce: false);
+      case 'bye':
+        if (_knownControllerIds.remove(sender)) notifyListeners();
       case 'app':
-        _deliverAppPayload(payload);
+        _deliverAppPayload(payload, senderId: sender);
     }
   }
 
   Future<void> _makeOffer() async {
-    if (_closed || _peerConnection != null && directConnected) return;
+    if (_closed ||
+        multipleControllers ||
+        _peerConnection != null && directConnected) {
+      return;
+    }
     await _resetPeerConnection();
     final pc = await _createPeerConnection();
     _peerConnection = pc;
@@ -362,6 +454,7 @@ class RemoteSession extends ChangeNotifier {
   }
 
   Future<void> _acceptOffer(Map<String, Object?> payload) async {
+    if (multipleControllers) return;
     final sdp = payload['sdp'];
     final type = payload['type'];
     if (sdp is! String || type is! String) return;
@@ -377,6 +470,7 @@ class RemoteSession extends ChangeNotifier {
   }
 
   Future<void> _acceptAnswer(Map<String, Object?> payload) async {
+    if (multipleControllers) return;
     final sdp = payload['sdp'];
     final type = payload['type'];
     final pc = _peerConnection;
@@ -387,6 +481,7 @@ class RemoteSession extends ChangeNotifier {
   }
 
   Future<void> _acceptCandidate(Map<String, Object?> payload) async {
+    if (multipleControllers) return;
     final candidateText = payload['candidate'];
     if (candidateText is! String || candidateText.isEmpty) return;
     final candidate = RTCIceCandidate(
@@ -424,6 +519,7 @@ class RemoteSession extends ChangeNotifier {
       'sdpSemantics': 'unified-plan',
     });
     pc.onIceCandidate = (candidate) {
+      if (multipleControllers) return;
       final text = candidate.candidate;
       if (text == null || text.isEmpty) return;
       unawaited(
@@ -475,19 +571,47 @@ class RemoteSession extends ChangeNotifier {
       final map = decoded.cast<String, Object?>();
       final kind = map['kind'];
       final payload = map['payload'];
+      final sender = map['sender'];
+      if (sender is String) {
+        _directPeerId = sender;
+        if (payload is Map) {
+          unawaited(
+            _rememberRelayPeer(sender, payload.cast<String, Object?>()),
+          );
+        }
+      }
+      if (kind == '__transport_multi__') {
+        unawaited(_enterMultipleControllerMode(announce: false));
+        return;
+      }
       if (kind is String && payload is Map) {
-        _messages.add(RemoteAppMessage(kind, payload.cast<String, Object?>()));
+        _messages.add(
+          RemoteAppMessage(
+            kind,
+            payload.cast<String, Object?>(),
+            senderId: sender is String ? sender : null,
+          ),
+        );
       }
     } on FormatException {
       // Ignore malformed peer messages.
     }
   }
 
-  void _deliverAppPayload(Map<String, Object?> payload) {
+  void _deliverAppPayload(Map<String, Object?> payload, {String? senderId}) {
     final kind = payload['kind'];
     final raw = payload['payload'];
     if (kind is String && raw is Map) {
-      _messages.add(RemoteAppMessage(kind, raw.cast<String, Object?>()));
+      final appPayload = raw.cast<String, Object?>();
+      if (senderId != null && kind == 'hello') {
+        unawaited(_rememberRelayPeer(senderId, appPayload));
+      }
+      if (senderId != null &&
+          kind == 'disconnect' &&
+          _knownControllerIds.remove(senderId)) {
+        notifyListeners();
+      }
+      _messages.add(RemoteAppMessage(kind, appPayload, senderId: senderId));
     }
   }
 
@@ -499,7 +623,11 @@ class RemoteSession extends ChangeNotifier {
     try {
       await direct.send(
         RTCDataChannelMessage(
-          jsonEncode({'kind': message.kind, 'payload': message.payload}),
+          jsonEncode({
+            'sender': _clientId,
+            'kind': message.kind,
+            'payload': message.payload,
+          }),
         ),
       );
     } on Object {
@@ -596,6 +724,7 @@ class RemoteSession extends ChangeNotifier {
 
   Future<void> _resetPeerConnection() async {
     directConnected = false;
+    _directPeerId = null;
     _remoteDescriptionSet = false;
     _pendingCandidates.clear();
     final channel = _dataChannel;
@@ -623,6 +752,9 @@ class RemoteSession extends ChangeNotifier {
     if (_closed) return;
     try {
       await sendApp('disconnect', const {});
+      if (_mqttConnected) {
+        await _publishSignal('bye', {'role': role.name});
+      }
     } on Object {
       // Best-effort notification.
     }
