@@ -4008,7 +4008,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                         state: _controller.state,
                         logicalPixelsPerMm: _pixelsPerMm,
                         geometry: _controller.geometry,
-                        selectedId: _selectedId,
+                        selectedId:
+                            _remoteDisplayMode &&
+                                !_remoteControlState.displayShapesVisible
+                            ? null
+                            : _selectedId,
                         elementOpacities: _paintElementOpacities,
                         burstCenter: _burstCenter,
                         triangleBouncePhase:
@@ -4031,6 +4035,26 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ),
           ),
         ),
+        if (_remoteControlState.rippleLevels.isNotEmpty)
+          Padding(
+            padding: safePadding,
+            child: IgnorePointer(
+              child: ValueListenableBuilder<int>(
+                valueListenable: _toyRevision,
+                builder: (context, revision, child) => RepaintBoundary(
+                  child: CustomPaint(
+                    painter: RippleOverlayPainter(
+                      elements: _controller.state.elements,
+                      levels: _remoteControlState.rippleLevels,
+                      logicalPixelsPerMm: _pixelsPerMm,
+                      phaseSeconds: _rippleClock,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              ),
+            ),
+          ),
         Padding(
           padding: safePadding,
           child: IgnorePointer(
@@ -4070,6 +4094,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                         _activeToys.contains(_ToyKind.cornerRicochet) ||
                         _projectiles.any((p) => p.ricochet),
                     constellation: _constellationPoints,
+                    uiScale: _remoteUiScale,
                   ),
                   child: const SizedBox.expand(),
                 ),
@@ -4085,6 +4110,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               child: DiceBubble(
                 snapshot: _diceSnapshot,
                 onChanged: _remoteDisplayMode ? null : _handleDiceSnapshot,
+                scale: _remoteUiScale,
               ),
             ),
           ),
@@ -4096,6 +4122,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               child: ZendoStonesWidget(
                 snapshot: _zendoSnapshot,
                 onChanged: _remoteDisplayMode ? null : _handleZendoSnapshot,
+                scale: _remoteUiScale,
               ),
             ),
           ),
