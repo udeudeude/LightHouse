@@ -2223,21 +2223,73 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       return;
     }
 
-    final choice = await _showCompactMenu([
+    final items = <PopupMenuEntry<String>>[
       _compactMenuItem(
         'status',
         Icons.link,
         '${session.role.label} · ${session.transportLabel}',
         enabled: false,
       ),
-      _compactMenuItem('pair', Icons.qr_code_2, 'Show Pairing QR'),
-      _compactMenuItem('swap', Icons.swap_horiz, 'Swap Roles'),
+      if (session.role == RemoteRole.display || !session.peerSeen)
+        _compactMenuItem(
+          'pair',
+          Icons.qr_code_2,
+          session.role == RemoteRole.display && session.peerSeen
+              ? 'Add Another Controller'
+              : 'Show Pairing QR',
+        ),
+      if (session.role == RemoteRole.controller && session.peerSeen) ...[
+        _compactMenuItem(
+          'boardInteraction',
+          Icons.touch_app_outlined,
+          'Board Unit Shape Interaction',
+          checked: _remoteControlState.displayInteractionsEnabled,
+        ),
+        _compactMenuItem(
+          'shapeVisibility',
+          Icons.visibility_outlined,
+          'Board Unit Shapes Visible',
+          checked: _remoteControlState.displayShapesVisible,
+        ),
+        _compactMenuItem(
+          'rippleTap',
+          Icons.radio_button_checked,
+          'Tap Shapes to Cycle Ripples',
+          checked: _rippleTapEnabled,
+        ),
+        _compactMenuItem(
+          'clearRipples',
+          Icons.waves_outlined,
+          'Turn Off All Ripples',
+          enabled: _remoteControlState.rippleLevels.isNotEmpty,
+        ),
+      ],
+      _compactMenuItem(
+        'swap',
+        Icons.swap_horiz,
+        'Swap Roles',
+        enabled: !session.multipleControllers,
+      ),
       _compactMenuItem('disconnect', Icons.link_off, 'Disconnect'),
-    ]);
+    ];
+
+    final choice = await _showCompactMenu(items);
     if (!mounted || choice == null) return;
     switch (choice) {
       case 'pair':
         await _showPairingDialog(session);
+      case 'boardInteraction':
+        await _setBoardUnitInteractions(
+          !_remoteControlState.displayInteractionsEnabled,
+        );
+      case 'shapeVisibility':
+        await _setBoardUnitShapesVisible(
+          !_remoteControlState.displayShapesVisible,
+        );
+      case 'rippleTap':
+        setState(() => _rippleTapEnabled = !_rippleTapEnabled);
+      case 'clearRipples':
+        await _clearAllRipples();
       case 'swap':
         await _swapRemoteRoles();
       case 'disconnect':
