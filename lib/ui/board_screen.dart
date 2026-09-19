@@ -18,6 +18,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../application/board_controller.dart';
 import '../application/board_store.dart';
+import '../application/remote_control_state.dart';
 import '../application/remote_session.dart';
 import '../domain/board_state.dart';
 import '../domain/board_underlay.dart';
@@ -31,6 +32,7 @@ import 'board_painter.dart';
 import 'credits_overlay.dart';
 import 'dice_bubble.dart';
 import 'remote_board_viewport.dart';
+import 'ripple_overlay.dart';
 import 'toy_overlay.dart';
 import 'zendo_stones.dart';
 
@@ -183,12 +185,19 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   BoardState? _remotePendingState;
   Timer? _remoteRuntimeTimer;
   String? _lastRemoteRuntimeJson;
+  RemoteBoardControlState _remoteControlState =
+      const RemoteBoardControlState();
+  bool _rippleTapEnabled = false;
+  Timer? _rippleTimer;
+  DateTime? _lastRippleTickAt;
+  double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
   ZendoStonesSnapshot _zendoSnapshot = ZendoStonesSnapshot.initial;
   bool _applyingRemoteState = false;
   bool _remoteSeedReceived = false;
   double? _remoteDisplayWidthMm;
   double? _remoteDisplayHeightMm;
+  double? _remoteDisplayPixelsPerMm;
   double? _faceUpZSign;
   double? _faceUpCandidateSign;
   int _faceUpStableSamples = 0;
@@ -265,6 +274,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _saveDebounceTimer?.cancel();
     _remotePublishTimer?.cancel();
     _remoteRuntimeTimer?.cancel();
+    _rippleTimer?.cancel();
     _remoteMessageSubscription?.cancel();
     unawaited(_remoteSession?.close());
     unawaited(_flushPendingSave());
@@ -593,6 +603,16 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   bool get _remoteControllerMode =>
       _remoteSession?.role == RemoteRole.controller;
+
+  bool get _remoteDisplayInputBlocked =>
+      _remoteDisplayMode && !_remoteControlState.displayInteractionsEnabled;
+
+  double get _remoteUiScale {
+    if (!_remoteControllerMode) return 1;
+    final displayPixelsPerMm = _remoteDisplayPixelsPerMm;
+    if (displayPixelsPerMm == null || displayPixelsPerMm <= 0) return 1;
+    return (_pixelsPerMm / displayPixelsPerMm).clamp(0.25, 4.0).toDouble();
+  }
 
   Rect? _remoteBoardRect(BuildContext surfaceContext) {
     final widthMm = _remoteDisplayWidthMm;
