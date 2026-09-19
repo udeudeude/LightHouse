@@ -1023,19 +1023,27 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Map<String, double> get _paintElementOpacities {
-    if (!_activeToys.contains(_ToyKind.nestCycle)) return _effectOpacities;
     final result = Map<String, double>.from(_effectOpacities);
-    final phase = ((_toyClock / 0.58).floor()) % 3;
-    final wanted = [
-      PyramidSize.large,
-      PyramidSize.medium,
-      PyramidSize.small,
-    ][phase];
-    for (final structure in _controller.state.structures) {
-      if (structure.kind != StructureKind.nest) continue;
-      for (final id in structure.memberIds) {
-        final element = _controller.state.elementById(id);
-        if (element != null) result[id] = element.size == wanted ? 1.0 : 0.025;
+    if (_activeToys.contains(_ToyKind.nestCycle)) {
+      final phase = ((_toyClock / 0.58).floor()) % 3;
+      final wanted = [
+        PyramidSize.large,
+        PyramidSize.medium,
+        PyramidSize.small,
+      ][phase];
+      for (final structure in _controller.state.structures) {
+        if (structure.kind != StructureKind.nest) continue;
+        for (final id in structure.memberIds) {
+          final element = _controller.state.elementById(id);
+          if (element != null) {
+            result[id] = element.size == wanted ? 1.0 : 0.025;
+          }
+        }
+      }
+    }
+    if (_remoteDisplayMode && !_remoteControlState.displayShapesVisible) {
+      for (final element in _controller.state.elements) {
+        result[element.id] = 0;
       }
     }
     return result;
