@@ -1651,6 +1651,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Map<String, Object?> _remoteRuntimePayload() => {
+    'origin': _remoteSession?.clientId,
     'activeToys': [for (final toy in _activeToys) toy.name],
     'toyClock': _toyClock,
     'effectOpacities': _effectOpacities,
@@ -1717,7 +1718,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final encoded = jsonEncode(payload);
     if (!force && encoded == _lastRemoteRuntimeJson) return;
     _lastRemoteRuntimeJson = encoded;
-    await session.sendApp('runtime', payload);
+    await session.sendApp('runtimeProposal', payload);
   }
 
   void _handleDiceSnapshot(DiceBubbleSnapshot snapshot) {
@@ -1731,7 +1732,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _applyRemoteRuntime(Map<String, Object?> payload) async {
-    if (_remoteSession?.role != RemoteRole.display || !mounted) return;
+    if (_remoteSession == null || !mounted) return;
     final activeNames =
         (payload['activeToys'] as List?)?.whereType<String>() ??
         const Iterable<String>.empty();
