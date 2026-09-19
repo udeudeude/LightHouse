@@ -1872,10 +1872,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() {
       _remoteSession = session;
-      _remoteSeedReceived = false;
+      _remoteSeedReceived = session.role == RemoteRole.display;
       _remoteDisplayWidthMm = null;
       _remoteDisplayHeightMm = null;
+      _remoteDisplayPixelsPerMm = null;
+      _remoteControlState = const RemoteBoardControlState();
+      _rippleTapEnabled = false;
     });
+    _syncRippleTicker();
     session.addListener(_remoteSessionChanged);
     _remoteMessageSubscription = session.messages.listen(_handleRemoteMessage);
     await session.connect();
@@ -2171,22 +2175,32 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _remoteSeedReceived = false;
       _remoteDisplayWidthMm = null;
       _remoteDisplayHeightMm = null;
+      _remoteDisplayPixelsPerMm = null;
+      _remoteControlState = const RemoteBoardControlState();
+      _rippleTapEnabled = false;
     });
+    _syncRippleTicker();
   }
 
   Future<void> _swapRemoteRoles() async {
     final session = _remoteSession;
-    if (session == null) return;
+    if (session == null || session.multipleControllers) return;
     await session.setRole(session.role.other);
     setState(() {
+      _remoteSeedReceived = session.role == RemoteRole.display;
       _remoteDisplayWidthMm = null;
       _remoteDisplayHeightMm = null;
+      _remoteDisplayPixelsPerMm = null;
+      _remoteControlState = const RemoteBoardControlState();
+      _rippleTapEnabled = false;
     });
+    _syncRippleTicker();
     _startRemoteRuntimePublisher();
     await _sendRemoteHello();
-    if (session.role == RemoteRole.controller) {
-      await _sendRemoteState('state');
-      await _sendRemoteRuntimeIfChanged(force: true);
+    if (session.role == RemoteRole.display) {
+      await _sendRemoteState('seed');
+      await session.sendApp('runtime', _remoteRuntimePayload());
+      await _broadcastRemoteControlState();
     }
   }
 
