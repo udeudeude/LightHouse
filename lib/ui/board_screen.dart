@@ -2113,7 +2113,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       builder: (dialogContext) => AnimatedBuilder(
         animation: session,
         builder: (context, _) => AlertDialog(
-          title: Text('Pair ${session.role.label}'),
+          title: Text(
+            session.role == RemoteRole.display
+                ? (session.peerSeen ? 'Add Controller' : 'Pair Controller')
+                : 'Pair Board Display',
+          ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 340),
             child: Column(
@@ -2126,7 +2130,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  session.peerSeen
+                  session.role == RemoteRole.display && session.peerSeen
+                      ? '${session.controllerCount} controller${session.controllerCount == 1 ? '' : 's'} connected · ${session.transportLabel}\nScan again to add another controller.'
+                      : session.peerSeen
                       ? 'Paired · ${session.transportLabel}'
                       : 'Scan this with the other device. It will open as ${session.role.other.label}.',
                   textAlign: TextAlign.center,
