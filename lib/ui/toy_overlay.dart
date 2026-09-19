@@ -501,10 +501,13 @@ class ToyOverlayPainter extends CustomPainter {
     final normal = Offset(-direction.dy, direction.dx);
     final body = Path()
       ..moveTo(
-        center.dx + normal.dx * 6.4 * scale * scale,
-        center.dy + normal.dy * 6.4 * scale * scale,
+        center.dx + normal.dx * 6.4 * scale,
+        center.dy + normal.dy * 6.4 * scale,
       )
-      ..lineTo(center.dx - normal.dx * 6.4, center.dy - normal.dy * 6.4)
+      ..lineTo(
+        center.dx - normal.dx * 6.4 * scale,
+        center.dy - normal.dy * 6.4 * scale,
+      )
       ..lineTo(
         center.dx + direction.dx * 14 * scale - normal.dx * 4.2 * scale,
         center.dy + direction.dy * 14 * scale - normal.dy * 4.2 * scale,
