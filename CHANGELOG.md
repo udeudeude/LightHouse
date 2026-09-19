@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Expanded Remote to support multiple controllers sharing one board-authoritative Board Display; added controller controls for Board Unit shape interaction, shape visibility, and persistent normal/dim/off ripple marking; scaled Dice Bubble, Zendo Stones, and guns to the controlled display; improved gun synchronization; changed the Dice Bubble latch to solid light gray; and replaced physical-die selector duplicates with one selector per die kind that can add 0–3 copies within the three-die bubble limit.
 - Refactored Remote application messaging behind a transport boundary, moved pairing secrets from URL query parameters into the URL fragment while retaining legacy-link compatibility, and made the internet relay disconnect after a direct WebRTC link is established and reconnect automatically if that direct link fails.
 - Fixed Remote controller geometry so display dimensions are recovered from hello/state traffic, the controlled screen appears as a visible letterboxed rectangle, and Dice Bubble/Zendo overlays stay inside that same remote frame.
 - Added two-device Remote sessions: either device can be the Board Display or Controller, pairing uses a QR/link, controller coordinates scale to the display board, transient toy effects plus Dice Bubble and Zendo Stone state are mirrored to the display, roles can be swapped without re-pairing, WebRTC is preferred for direct transport, and encrypted relay messaging provides pairing/fallback.
