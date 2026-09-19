@@ -1,0 +1,37 @@
+name: Remote multi controls validation
+
+on:
+  push:
+    branches:
+      - remote-multi-controls
+    paths:
+      - .github/workflows/remote-multi-controls-validation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: remote-multi-controls
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: dart format lib test
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --release --base-href /LightHouse/
+      - name: Commit validated changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/remote-multi-controls-validation.yml
+          git add -A
+          git commit -m "feat: expand Remote multi-controller controls"
+          git push origin HEAD:remote-multi-controls
