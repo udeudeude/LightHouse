@@ -562,7 +562,7 @@ class ToyOverlayPainter extends CustomPainter {
       final d = 7.0 * scale;
       final paint = Paint()..color = Colors.white.withValues(alpha: 0.22);
       for (final p in [
-        const Offset(d, d),
+        Offset(d, d),
         Offset(size.width - d, d),
         Offset(d, size.height - d),
         Offset(size.width - d, size.height - d),
