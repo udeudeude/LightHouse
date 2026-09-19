@@ -2405,6 +2405,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (_creditsVisible) return;
     final point = _toPhysical(details.localPosition);
     final target = _controller.hitTest(point, haloMm: _interactionHaloMm);
+    if (_remoteControllerMode && _rippleTapEnabled) {
+      if (target != null) unawaited(_cycleRipple(target.id));
+      return;
+    }
     if (target == null) {
       _controller.createAt(point);
     } else {
@@ -2426,7 +2430,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _lastRotation = 0;
     _transformStarted = false;
     _transformTranslated = false;
-    if (_transformTarget != null) {
+    if (_transformTarget != null &&
+        !(_remoteControllerMode && _rippleTapEnabled)) {
       setState(() => _selectedId = _transformTarget!.id);
     }
 
@@ -2551,7 +2556,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
     if (displacement <= _tapTravelMm) {
       final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
-      setState(() => _selectedId = tapped?.id);
+      if (_remoteControllerMode && _rippleTapEnabled) {
+        if (tapped != null) unawaited(_cycleRipple(tapped.id));
+      } else {
+        setState(() => _selectedId = tapped?.id);
+      }
     }
     _clearGesture();
   }
@@ -2707,7 +2716,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           _controller.tipOrStand(exact, drag);
         } else if (displacement <= _tapTravelMm) {
           final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
-          setState(() => _selectedId = tapped?.id);
+          if (_remoteControllerMode && _rippleTapEnabled) {
+            if (tapped != null) unawaited(_cycleRipple(tapped.id));
+          } else {
+            setState(() => _selectedId = tapped?.id);
+          }
         }
       }
     }
@@ -3963,7 +3976,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         Padding(
           padding: safePadding,
           child: IgnorePointer(
-            ignoring: _remoteDisplayMode,
+            ignoring: _remoteDisplayInputBlocked,
             child: Listener(
               onPointerDown: _onPointerDown,
               onPointerMove: _onPointerMove,
