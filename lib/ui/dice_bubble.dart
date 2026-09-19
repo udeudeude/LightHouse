@@ -653,7 +653,7 @@ class _DiceBubbleState extends State<DiceBubble>
                         width: 12 * widget.scale.clamp(0.25, 4.0),
                         height: 38 * widget.scale.clamp(0.25, 4.0),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.68),
+                          color: const Color(0xFFBDBDBD),
                           borderRadius: const BorderRadius.horizontal(
                             left: Radius.circular(2),
                           ),
