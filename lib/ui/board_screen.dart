@@ -1939,6 +1939,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Future<void> _handleRemoteMessage(RemoteAppMessage message) async {
     final session = _remoteSession;
     if (session == null || !mounted) return;
+
     switch (message.kind) {
       case 'hello':
         final peerRoleName = message.payload['role'];
@@ -1946,34 +1947,63 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             .where((value) => value.name == peerRoleName)
             .firstOrNull;
         _captureRemoteDisplayMetrics(message.payload, senderRole: peerRole);
-        if (session.isCreator) {
-          await _sendRemoteHello();
+        if (session.role == RemoteRole.display &&
+            peerRole == RemoteRole.controller) {
           await _sendRemoteState('seed');
-          await _sendRemoteRuntimeIfChanged(force: true);
+          await session.sendApp('runtime', _remoteRuntimePayload());
+          await _broadcastRemoteControlState();
         }
+
       case 'seed':
+        if (session.role != RemoteRole.controller) return;
         _captureRemoteDisplayMetrics(
           message.payload,
-          senderRole: session.role.other,
+          senderRole: RemoteRole.display,
         );
-        await _applyRemoteState(message.payload, force: true);
+        await _applyRemoteState(message.payload);
+        _applyRemoteControlState(message.payload);
         _remoteSeedReceived = true;
-        if (session.role == RemoteRole.controller) {
-          _startRemoteRuntimePublisher();
-          await _sendRemoteState('state');
-          await _sendRemoteRuntimeIfChanged(force: true);
-        }
+        _startRemoteRuntimePublisher();
+
+      case 'proposal':
+        if (session.role != RemoteRole.display) return;
+        await _applyRemoteState(message.payload);
+        await _sendRemoteState('state');
+
       case 'state':
+        if (session.role != RemoteRole.controller) return;
         _captureRemoteDisplayMetrics(
           message.payload,
-          senderRole: session.role.other,
+          senderRole: RemoteRole.display,
         );
-        if (session.role == RemoteRole.display) {
-          await _applyRemoteState(message.payload);
-        }
-      case 'runtime':
+        await _applyRemoteState(message.payload);
+        _applyRemoteControlState(message.payload);
+        _remoteSeedReceived = true;
+
+      case 'runtimeProposal':
+        if (session.role != RemoteRole.display) return;
         await _applyRemoteRuntime(message.payload);
+        await session.sendApp('runtime', message.payload);
+
+      case 'runtime':
+        if (session.role != RemoteRole.controller) return;
+        final origin = message.payload['origin'];
+        if (origin != session.clientId) {
+          await _applyRemoteRuntime(message.payload);
+        }
+
+      case 'controlCommand':
+        if (session.role == RemoteRole.display) {
+          await _applyRemoteControlCommand(message.payload);
+        }
+
+      case 'controlState':
+        if (session.role == RemoteRole.controller) {
+          _applyRemoteControlState(message.payload);
+        }
+
       case 'role':
+        if (session.multipleControllers) return;
         final peerRoleName = message.payload['role'];
         final peerRole = RemoteRole.values
             .where((value) => value.name == peerRoleName)
@@ -1981,31 +2011,40 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         if (peerRole == null) return;
         await session.setRole(peerRole.other, announce: false);
         setState(() {
+          _remoteSeedReceived = session.role == RemoteRole.display;
           _remoteDisplayWidthMm = null;
           _remoteDisplayHeightMm = null;
+          _remoteDisplayPixelsPerMm = null;
+          _remoteControlState = const RemoteBoardControlState();
+          _rippleTapEnabled = false;
         });
+        _syncRippleTicker();
         _startRemoteRuntimePublisher();
         await _sendRemoteHello();
-        if (session.role == RemoteRole.controller) {
-          await _sendRemoteState('state');
-          await _sendRemoteRuntimeIfChanged(force: true);
+        if (session.role == RemoteRole.display) {
+          await _sendRemoteState('seed');
+          await session.sendApp('runtime', _remoteRuntimePayload());
+          await _broadcastRemoteControlState();
         }
+
       case 'disconnect':
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Remote device disconnected.')),
+            SnackBar(
+              content: Text(
+                session.multipleControllers
+                    ? 'A Remote controller disconnected.'
+                    : 'Remote device disconnected.',
+              ),
+            ),
           );
         }
     }
   }
 
-  Future<void> _applyRemoteState(
-    Map<String, Object?> payload, {
-    bool force = false,
-  }) async {
+  Future<void> _applyRemoteState(Map<String, Object?> payload) async {
     final rawState = payload['state'];
     if (rawState is! Map) return;
-    if (!force && _remoteSession?.role != RemoteRole.display) return;
     try {
       final state = BoardState.fromJson(rawState.cast<String, Object?>());
       _applyingRemoteState = true;
@@ -2021,12 +2060,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _scheduleRemotePublish() {
     final session = _remoteSession;
-    if (session == null ||
-        session.role != RemoteRole.controller ||
-        _applyingRemoteState ||
-        !_remoteSeedReceived && !session.isCreator) {
-      return;
-    }
+    if (session == null || _applyingRemoteState) return;
+    if (session.role == RemoteRole.controller && !_remoteSeedReceived) return;
+
     _remotePendingState = _controller.state;
     if (_remotePublishTimer != null) return;
     _remotePublishTimer = Timer(const Duration(milliseconds: 50), () {
@@ -2039,12 +2075,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final state = _remotePendingState;
     _remotePendingState = null;
     final session = _remoteSession;
-    if (state == null ||
-        session == null ||
-        session.role != RemoteRole.controller) {
-      return;
-    }
-    await _sendRemoteState('state', state: state);
+    if (state == null || session == null) return;
+
+    await _sendRemoteState(
+      session.role == RemoteRole.display ? 'state' : 'proposal',
+      state: state,
+    );
   }
 
   Future<void> _sendRemoteState(String kind, {BoardState? state}) async {
@@ -2053,10 +2089,15 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final board = _physicalBoardSize();
     await session.sendApp(kind, {
       'role': session.role.name,
+      'origin': session.clientId,
       'state': (state ?? _controller.state).toJson(),
       'selectedId': _selectedId,
-      'widthMm': board.width,
-      'heightMm': board.height,
+      if (session.role == RemoteRole.display) 'widthMm': board.width,
+      if (session.role == RemoteRole.display) 'heightMm': board.height,
+      if (session.role == RemoteRole.display)
+        'pixelsPerMm': widget.logicalPixelsPerMm,
+      if (session.role == RemoteRole.display)
+        'control': _remoteControlState.toJson(),
     });
   }
 
