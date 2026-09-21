@@ -1,6 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 enum PyramidLoveToyIconKind { nest, zendoMarkers, eastQueen }
