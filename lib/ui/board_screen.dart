@@ -36,7 +36,18 @@ import 'ripple_overlay.dart';
 import 'pyramid_love_board_icon.dart';
 import 'pyramid_love_toy_icon.dart';
 import 'toy_overlay.dart';
+import 'zendo_pieces.dart';
+import 'zendo_rules.dart';
 import 'zendo_stones.dart';
+
+enum _ZendoPieceSet {
+  pyramidTrio('Pyramids · S/M/L'),
+  boxed('Boxed Zendo · M pyramid/wedge/block'),
+  both('Both sets');
+
+  const _ZendoPieceSet(this.label);
+  final String label;
+}
 
 enum _ToyKind {
   lightLottery('Light Lottery', Icons.auto_awesome, true),
@@ -194,6 +205,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
   ZendoStonesSnapshot _zendoSnapshot = ZendoStonesSnapshot.initial;
+  ZendoPiecesSnapshot _zendoPiecesSnapshot = ZendoPiecesSnapshot.initial;
+  _ZendoPieceSet _zendoPieceSet = _ZendoPieceSet.pyramidTrio;
+  String? _activeZendoRuleId;
+  bool _zendoRuleVisible = false;
   bool _applyingRemoteState = false;
   bool _remoteSeedReceived = false;
   double? _remoteDisplayWidthMm;
@@ -423,6 +438,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               .clamp(10, 300)
               .toDouble();
       _turnTimerActiveDurationSeconds = _turnTimerDurationSeconds;
+      final zendoSetName = preferences.getString('lighthouse.zendoPieceSet.v1');
+      _zendoPieceSet = _ZendoPieceSet.values
+          .where((value) => value.name == zendoSetName)
+          .firstOrNull ??
+          _ZendoPieceSet.pyramidTrio;
       for (final toy in _ToyKind.values) {
         _toyVisible[toy] =
             preferences.getBool(toy.preferenceKey) ?? toy.defaultVisible;
@@ -2431,7 +2451,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       return;
     }
     if (target == null) {
-      _controller.createAt(point);
+      if (_zendoPieceSet != _ZendoPieceSet.boxed) {
+        _controller.createAt(point);
+      }
     } else {
       _controller.cycleSizeOrDelete(target);
     }
