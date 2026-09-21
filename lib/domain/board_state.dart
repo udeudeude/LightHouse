@@ -115,7 +115,7 @@ class BoardState {
 
   Map<String, Object> toJson() => {
     'format': 'lighthouse-board',
-    'version': 3,
+    'version': 4,
     'title': title,
     'underlay': underlay.name,
     'elements': elements.map((element) => element.toJson()).toList(),
@@ -128,7 +128,7 @@ class BoardState {
     }
 
     final version = json['version'];
-    if (version != 1 && version != 2 && version != 3) {
+    if (version != 1 && version != 2 && version != 3 && version != 4) {
       throw const FormatException('Unsupported LightHouse board version.');
     }
 
@@ -148,7 +148,7 @@ class BoardState {
     final rawStructures = (json['structures'] as List?) ?? const [];
     return BoardState(
       title: (json['title'] as String?) ?? 'Untitled Board',
-      underlay: version == 3
+      underlay: version == 3 || version == 4
           ? BoardUnderlay.fromName(json['underlay'])
           : BoardUnderlay.none,
       elements: elements,
