@@ -4504,7 +4504,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
         if (_boxedZendoEnabled || _zendoPiecesSnapshot.pieces.isNotEmpty)
           Padding(
-            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
+            padding: safePadding,
             child: IgnorePointer(
               ignoring: _remoteDisplayMode,
               child: ZendoPiecesWidget(
