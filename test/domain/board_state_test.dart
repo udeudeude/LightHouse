@@ -151,5 +151,4 @@ void main() {
     expect(restored.elements.single.kind, LightPieceKind.wedge);
     expect(restored.elements.single.pose, PyramidPose.wedgeRectangle);
   });
-
 }

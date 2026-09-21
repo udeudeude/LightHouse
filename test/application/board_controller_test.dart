@@ -200,26 +200,17 @@ void main() {
     expect(element.size, PyramidSize.medium);
     expect(element.kind, LightPieceKind.pyramid);
 
-    controller.cycleSizeOrDelete(
-      element,
-      pieceSet: ZendoPieceSetMode.zendo20,
-    );
+    controller.cycleSizeOrDelete(element, pieceSet: ZendoPieceSetMode.zendo20);
     element = controller.state.elements.single;
     expect(element.kind, LightPieceKind.wedge);
     expect(element.size, PyramidSize.medium);
 
-    controller.cycleSizeOrDelete(
-      element,
-      pieceSet: ZendoPieceSetMode.zendo20,
-    );
+    controller.cycleSizeOrDelete(element, pieceSet: ZendoPieceSetMode.zendo20);
     element = controller.state.elements.single;
     expect(element.kind, LightPieceKind.block);
     expect(element.size, PyramidSize.medium);
 
-    controller.cycleSizeOrDelete(
-      element,
-      pieceSet: ZendoPieceSetMode.zendo20,
-    );
+    controller.cycleSizeOrDelete(element, pieceSet: ZendoPieceSetMode.zendo20);
     expect(controller.state.elements, isEmpty);
   });
 
@@ -280,14 +271,10 @@ void main() {
     wedge = controller.state.elements.single;
     expect(wedge.pose, PyramidPose.upright);
 
-    controller.cycleSizeOrDelete(
-      wedge,
-      pieceSet: ZendoPieceSetMode.zendo20,
-    );
+    controller.cycleSizeOrDelete(wedge, pieceSet: ZendoPieceSetMode.zendo20);
     final block = controller.state.elements.single;
     expect(block.kind, LightPieceKind.block);
     controller.tipOrStand(block, const PhysicalPoint(10, 0));
     expect(controller.state.elements.single.pose, PyramidPose.blockFlat);
   });
-
 }

@@ -89,10 +89,7 @@ List<ZendoRule> _inductionRules() {
   rules.addAll([
     _easy('ind-color-same-all', 'All pieces are the same color.'),
     _easy('ind-color-all-different', 'No two pieces are the same color.'),
-    _easy(
-      'ind-color-same-two-plus',
-      'At least two pieces are the same color.',
-    ),
+    _easy('ind-color-same-two-plus', 'At least two pieces are the same color.'),
     _easy('ind-color-same-two', 'Exactly two pieces are the same color.'),
   ]);
 
@@ -103,11 +100,7 @@ List<ZendoRule> _inductionRules() {
       _easy('ind-$size-any', 'At least one piece is $size.', size: true),
       _easy('ind-$size-one', 'Exactly one piece is $size.', size: true),
       _easy('ind-$size-none', 'No pieces are $size.', size: true),
-      _easy(
-        'ind-$size-two-plus',
-        'At least two pieces are $size.',
-        size: true,
-      ),
+      _easy('ind-$size-two-plus', 'At least two pieces are $size.', size: true),
       _easy('ind-$size-two', 'Exactly two pieces are $size.', size: true),
     ]);
   }
@@ -142,10 +135,7 @@ List<ZendoRule> _inductionRules() {
     ]);
   }
   rules.addAll([
-    _easy(
-      'ind-orientation-same-all',
-      'All pieces have the same orientation.',
-    ),
+    _easy('ind-orientation-same-all', 'All pieces have the same orientation.'),
     _easy(
       'ind-orientation-all-different',
       'No two pieces have the same orientation.',
@@ -158,42 +148,15 @@ List<ZendoRule> _inductionRules() {
       'ind-orientation-same-two',
       'Exactly two pieces have the same orientation.',
     ),
-    _easy(
-      'ind-touch-all',
-      'Every piece touches at least one other piece.',
-    ),
-    _easy(
-      'ind-touch-some',
-      'At least two pieces touch each other.',
-    ),
-    _easy(
-      'ind-touch-exact-two',
-      'Exactly two pieces touch each other.',
-    ),
-    _easy(
-      'ind-touch-none',
-      'No pieces touch another piece.',
-    ),
-    _easy(
-      'ind-ground-all',
-      'All pieces touch the table.',
-    ),
-    _easy(
-      'ind-ground-any',
-      'At least one piece touches the table.',
-    ),
-    _easy(
-      'ind-ground-one',
-      'Exactly one piece touches the table.',
-    ),
-    _easy(
-      'ind-ground-two-plus',
-      'At least two pieces touch the table.',
-    ),
-    _easy(
-      'ind-ground-two',
-      'Exactly two pieces touch the table.',
-    ),
+    _easy('ind-touch-all', 'Every piece touches at least one other piece.'),
+    _easy('ind-touch-some', 'At least two pieces touch each other.'),
+    _easy('ind-touch-exact-two', 'Exactly two pieces touch each other.'),
+    _easy('ind-touch-none', 'No pieces touch another piece.'),
+    _easy('ind-ground-all', 'All pieces touch the table.'),
+    _easy('ind-ground-any', 'At least one piece touches the table.'),
+    _easy('ind-ground-one', 'Exactly one piece touches the table.'),
+    _easy('ind-ground-two-plus', 'At least two pieces touch the table.'),
+    _easy('ind-ground-two', 'Exactly two pieces touch the table.'),
     _easy(
       'ind-pips-5-7',
       'The total pip count is five, six, or seven.',
@@ -209,8 +172,16 @@ List<ZendoRule> _inductionRules() {
     _easy('ind-pips-6', 'The total pip count is six.', pips: true),
     _easy('ind-pips-5', 'The total pip count is five.', pips: true),
     _easy('ind-pips-7', 'The total pip count is seven.', pips: true),
-    _easy('ind-pips-under-6', 'The total pip count is less than six.', pips: true),
-    _easy('ind-pips-over-6', 'The total pip count is more than six.', pips: true),
+    _easy(
+      'ind-pips-under-6',
+      'The total pip count is less than six.',
+      pips: true,
+    ),
+    _easy(
+      'ind-pips-over-6',
+      'The total pip count is more than six.',
+      pips: true,
+    ),
     _easy('ind-pips-odd', 'The total pip count is odd.', pips: true),
     _easy('ind-pips-even', 'The total pip count is even.', pips: true),
   ]);

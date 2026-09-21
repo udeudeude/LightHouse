@@ -57,21 +57,9 @@ class _PyramidLoveToyIconPainter extends CustomPainter {
       '$_eastQueenMain $_eastQueenPipOne $_eastQueenPipTwo $_eastQueenPipThree',
     ),
   );
-  static final _zendoPyramid = _Glyph(
-    512,
-    512,
-    _flattenSvg(_zendoPyramidPath),
-  );
-  static final _zendoWedge = _Glyph(
-    512,
-    512,
-    _flattenSvg(_zendoWedgePath),
-  );
-  static final _zendoBlock = _Glyph(
-    512,
-    512,
-    _flattenSvg(_zendoBlockPath),
-  );
+  static final _zendoPyramid = _Glyph(512, 512, _flattenSvg(_zendoPyramidPath));
+  static final _zendoWedge = _Glyph(512, 512, _flattenSvg(_zendoWedgePath));
+  static final _zendoBlock = _Glyph(512, 512, _flattenSvg(_zendoBlockPath));
 
   _Glyph get _glyph => switch (kind) {
     PyramidLoveToyIconKind.nest => _nest,
@@ -251,7 +239,6 @@ const _eastQueenPipTwo =
     'M76.758 188.098c0.071 0 0.189 0 0.249 0.024 13.032 1.244 36.975 13.008 45.837 17.534 1.433 0.758 1.433 2.82 0 3.542-8.886 4.537-32.876 16.266-45.766 17.558-0.118 0.024-0.249 0.024-0.391 0.048-0.628 0.048-1.232 0.095-1.777 0.095-10.757 0-19.465-8.72-19.465-19.453s8.696-19.465 19.465-19.465c0.581 0.012 1.197 0.059 1.848 0.119z';
 const _eastQueenPipThree =
     'M76.758 241.197c0.071 0.024 0.189 0.024 0.249 0.024 13.032 1.268 36.975 13.032 45.837 17.558 1.433 0.747 1.433 2.82 0 3.543-8.886 4.538-32.876 16.266-45.766 17.558-0.118 0.024-0.249 0.024-0.391 0.048-0.628 0.048-1.232 0.095-1.777 0.095-10.757 0-19.465-8.719-19.465-19.465s8.696-19.465 19.465-19.465c0.581 0.024 1.197 0.059 1.848 0.107z';
-
 
 // Exact path data from the Pyramid Love 3.1 Zendo-piece SVGs. These are used
 // only as menu glyphs. The board itself renders physical footprints.

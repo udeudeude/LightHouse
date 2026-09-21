@@ -209,7 +209,6 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     _ZendoStoneKind.green => const Color(0xFF31C95A),
   };
 
-
   String _label(_ZendoStoneKind kind) => switch (kind) {
     _ZendoStoneKind.white => 'White marking stone',
     _ZendoStoneKind.black => 'Black marking stone',
@@ -403,7 +402,6 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
   );
 }
 
-
 class _ZendoStonePainter extends CustomPainter {
   const _ZendoStonePainter({
     required this.fill,
@@ -421,7 +419,9 @@ class _ZendoStonePainter extends CustomPainter {
     final radius = math.min(size.width, size.height) / 2 - 1;
 
     final shadowPath = Path()
-      ..addOval(Rect.fromCircle(center: center + Offset(0, scale), radius: radius));
+      ..addOval(
+        Rect.fromCircle(center: center + Offset(0, scale), radius: radius),
+      );
     canvas.drawShadow(shadowPath, Colors.black87, 2 * scale, false);
 
     canvas.drawCircle(center, radius, Paint()..color = fill);
@@ -441,8 +441,9 @@ class _ZendoStonePainter extends CustomPainter {
       math.pi * 0.58,
       false,
       Paint()
-        ..color = (whiteStone ? Colors.black : Colors.white)
-            .withValues(alpha: whiteStone ? 0.16 : 0.24)
+        ..color = (whiteStone ? Colors.black : Colors.white).withValues(
+          alpha: whiteStone ? 0.16 : 0.24,
+        )
         ..style = PaintingStyle.stroke
         ..strokeWidth = math.max(1.0, 1.8 * scale)
         ..strokeCap = StrokeCap.round,

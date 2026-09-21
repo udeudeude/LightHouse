@@ -45,9 +45,8 @@ class PyramidGeometryProfile {
 
   double get zendoHeightMm => mediumFlatLengthMm;
 
-  double get zendoWedgeSlopedLengthMm => math.sqrt(
-    mediumBaseMm * mediumBaseMm + zendoHeightMm * zendoHeightMm,
-  );
+  double get zendoWedgeSlopedLengthMm =>
+      math.sqrt(mediumBaseMm * mediumBaseMm + zendoHeightMm * zendoHeightMm);
 
   double footprintLengthMm(LightElement element) => switch (element.pose) {
     PyramidPose.upright => baseMm(element.size),

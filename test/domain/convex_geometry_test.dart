@@ -60,19 +60,21 @@ void main() {
     );
   });
 
-  test('Zendo block flat footprint is medium-base by medium-height rectangle', () {
-    const block = LightElement(
-      id: 'block',
-      size: PyramidSize.medium,
-      pose: PyramidPose.blockFlat,
-      position: PhysicalPoint.zero,
-      headingDegrees: 0,
-      illumination: IlluminationPattern.full,
-      kind: LightPieceKind.block,
-    );
-    final polygon = polygonForElement(block, geometry);
-    expect(polygon, hasLength(4));
-    expect(geometry.footprintLengthMm(block), geometry.mediumFlatLengthMm);
-  });
-
+  test(
+    'Zendo block flat footprint is medium-base by medium-height rectangle',
+    () {
+      const block = LightElement(
+        id: 'block',
+        size: PyramidSize.medium,
+        pose: PyramidPose.blockFlat,
+        position: PhysicalPoint.zero,
+        headingDegrees: 0,
+        illumination: IlluminationPattern.full,
+        kind: LightPieceKind.block,
+      );
+      final polygon = polygonForElement(block, geometry);
+      expect(polygon, hasLength(4));
+      expect(geometry.footprintLengthMm(block), geometry.mediumFlatLengthMm);
+    },
+  );
 }

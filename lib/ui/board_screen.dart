@@ -2609,8 +2609,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       end - triangle.position,
       -triangle.headingDegrees,
     );
-    final halfLength =
-        _controller.geometry.footprintLengthMm(triangle) / 2;
+    final halfLength = _controller.geometry.footprintLengthMm(triangle) / 2;
     final halfBase = _controller.geometry.baseMm(triangle.size) / 2;
     final deltaY = localEnd.yMm - localStart.yMm;
     if (deltaY <= 0 || localEnd.yMm <= halfLength) return false;
@@ -3453,11 +3452,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         enabled: _zendoRulesEnabled && _zendoComplexRulesEnabled,
       ),
       if (ruleActive)
-        _compactMenuItem(
-          'newRule',
-          Icons.shuffle,
-          'Different Rule',
-        ),
+        _compactMenuItem('newRule', Icons.shuffle, 'Different Rule'),
       if (ruleActive)
         _compactMenuItem(
           'ruleVisibility',
@@ -3894,8 +3889,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       final size = switch ((toy, inMenu)) {
         (_ToyKind.nestCycle, true) => 46.0,
         (_ToyKind.nestCycle, false) => 46.0,
-        (_ToyKind.zendoStones, true) ||
-        (_ToyKind.triangleBounce, true) => 11.0,
+        (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 11.0,
         (_ToyKind.zendoStones, false) ||
         (_ToyKind.triangleBounce, false) => 21.0,
         _ => 21.0,

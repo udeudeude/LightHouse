@@ -164,9 +164,10 @@ class BoardController extends ChangeNotifier {
       final targetPose = switch (current.kind) {
         LightPieceKind.pyramid => PyramidPose.flat,
         LightPieceKind.block => PyramidPose.blockFlat,
-        LightPieceKind.wedge => quarterTurn.isEven
-            ? PyramidPose.wedgeTriangle
-            : PyramidPose.wedgeRectangle,
+        LightPieceKind.wedge =>
+          quarterTurn.isEven
+              ? PyramidPose.wedgeTriangle
+              : PyramidPose.wedgeRectangle,
       };
       final tipped = current.copyWith(
         pose: targetPose,
