@@ -130,4 +130,26 @@ void main() {
     expect(state.structureForElement('a'), structure);
     expect(state.structureForElement('missing'), isNull);
   });
+  test('version 4 preserves Zendo footprint kind and pose', () {
+    final original = BoardState(
+      elements: const [
+        LightElement(
+          id: 'wedge',
+          size: PyramidSize.medium,
+          pose: PyramidPose.wedgeRectangle,
+          position: PhysicalPoint(18, 27),
+          headingDegrees: 30,
+          illumination: IlluminationPattern.full,
+          kind: LightPieceKind.wedge,
+        ),
+      ],
+    );
+
+    final json = original.toJson();
+    expect(json['version'], 4);
+    final restored = BoardState.fromJson(json);
+    expect(restored.elements.single.kind, LightPieceKind.wedge);
+    expect(restored.elements.single.pose, PyramidPose.wedgeRectangle);
+  });
+
 }
