@@ -817,7 +817,7 @@ class _DieSelectorMarkPainter extends CustomPainter {
     final spacing = halfBase * 0.54;
     for (var i = -1; i <= 1; i += 1) {
       canvas.drawCircle(
-        Offset(center.dx + spacing * i, center.dy + halfHeight * 0.18),
+        Offset(center.dx + spacing * i, center.dy + halfHeight * 0.62),
         pipRadius,
         Paint()..color = foreground,
       );
@@ -1831,7 +1831,7 @@ class _DiceBubblePainter extends CustomPainter {
     );
     final halfHeight = radius * 0.72;
     final halfBase = halfHeight / pyramidDieHeightToBaseRatio;
-    final pipY = y + (inverted ? -halfHeight * 0.16 : halfHeight * 0.16);
+    final pipY = y + (inverted ? -halfHeight * 0.62 : halfHeight * 0.62);
     final spacing = halfBase * 0.62;
     final startX = x - spacing * (pips - 1) / 2;
     for (var i = 0; i < pips; i += 1) {
