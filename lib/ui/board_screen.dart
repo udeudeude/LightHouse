@@ -2313,11 +2313,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         Icons.pin_outlined,
         'Pair with 6-Character Code',
       ),
-      _compactMenuItem(
-        'qr',
-        Icons.qr_code_2,
-        'Pair with QR / Link',
-      ),
+      _compactMenuItem('qr', Icons.qr_code_2, 'Pair with QR / Link'),
     ]);
     if (!mounted || method == null) return;
     switch (method) {

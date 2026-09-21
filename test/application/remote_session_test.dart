@@ -92,29 +92,34 @@ void main() {
     expect(launch, isNull);
   });
 
-  test('shared pairing code derives the same room and secret on both devices', () async {
-    final display = await RemoteSession.fromPairingCode(
-      'k7m-4q2',
-      RemoteRole.display,
-    );
-    final controller = await RemoteSession.fromPairingCode(
-      'K7M4Q2',
-      RemoteRole.controller,
-    );
+  test(
+    'shared pairing code derives the same room and secret on both devices',
+    () async {
+      final display = await RemoteSession.fromPairingCode(
+        'k7m-4q2',
+        RemoteRole.display,
+      );
+      final controller = await RemoteSession.fromPairingCode(
+        'K7M4Q2',
+        RemoteRole.controller,
+      );
 
-    expect(display.roomId, controller.roomId);
-    expect(display.isCreator, isTrue);
-    expect(controller.isCreator, isFalse);
+      expect(display.roomId, controller.roomId);
+      expect(display.isCreator, isTrue);
+      expect(controller.isCreator, isFalse);
 
-    final displayLink = display.joinUri(Uri.parse('https://example.test/'));
-    final controllerLink = controller.joinUri(Uri.parse('https://example.test/'));
-    final displayFragment = Uri.splitQueryString(displayLink.fragment);
-    final controllerFragment = Uri.splitQueryString(controllerLink.fragment);
-    expect(
-      displayFragment[RemoteLaunch.keyParameter],
-      controllerFragment[RemoteLaunch.keyParameter],
-    );
-  });
+      final displayLink = display.joinUri(Uri.parse('https://example.test/'));
+      final controllerLink = controller.joinUri(
+        Uri.parse('https://example.test/'),
+      );
+      final displayFragment = Uri.splitQueryString(displayLink.fragment);
+      final controllerFragment = Uri.splitQueryString(controllerLink.fragment);
+      expect(
+        displayFragment[RemoteLaunch.keyParameter],
+        controllerFragment[RemoteLaunch.keyParameter],
+      );
+    },
+  );
 
   test('pairing codes normalize case and separators', () {
     expect(RemoteSession.normalizePairingCode(' k7m-4q2 '), 'K7M4Q2');

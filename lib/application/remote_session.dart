@@ -129,9 +129,8 @@ class RemoteSession extends ChangeNotifier {
     bits: 384,
   );
 
-  static String normalizePairingCode(String value) => value
-      .toUpperCase()
-      .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+  static String normalizePairingCode(String value) =>
+      value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 
   static bool isValidPairingCode(String value) =>
       normalizePairingCode(value).length == pairingCodeLength;
