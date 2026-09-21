@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lighthouse/domain/physical_point.dart';
 import 'package:lighthouse/domain/pyramid_geometry.dart';
 import 'package:lighthouse/domain/zendo_geometry.dart';
 
@@ -33,14 +34,14 @@ void main() {
       geometry,
     );
 
-    double width(List<dynamic> points) {
-      final xs = points.map<double>((p) => p.xMm as double).toList();
+    double width(List<PhysicalPoint> points) {
+      final xs = points.map((p) => p.xMm).toList();
       return xs.reduce((a, b) => a > b ? a : b) -
           xs.reduce((a, b) => a < b ? a : b);
     }
 
-    double height(List<dynamic> points) {
-      final ys = points.map<double>((p) => p.yMm as double).toList();
+    double height(List<PhysicalPoint> points) {
+      final ys = points.map((p) => p.yMm).toList();
       return ys.reduce((a, b) => a > b ? a : b) -
           ys.reduce((a, b) => a < b ? a : b);
     }
