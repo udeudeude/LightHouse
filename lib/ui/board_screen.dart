@@ -148,6 +148,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   double _toyClock = 0;
   double _radarAngleDegrees = 0;
   double _redSweepY = 0;
+  double _redSweepPeriodSeconds = 13.33;
+  double _redSweepLongPressStartPeriod = 13.33;
+  bool _redSweepNeedleVisible = false;
   DateTime? _eventZoneEndsAt;
   PhysicalPoint? _eventZoneCenter;
   double? _eventZoneRadiusMm;
@@ -161,7 +164,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   bool _timerNeedleVisible = false;
   List<ToyProjectile> _projectiles = const [];
   List<ToyImpact> _impacts = const [];
-  final List<double> _sideGunAnglesDegrees = [0, 180, 90, 270];
+  final List<double> _sideGunAnglesDegrees = [45, 135, 315, 225];
   final List<int> _sideGunAmmo = [0, 0, 0, 0];
   List<String> _constellationElementIds = const [];
   String? _heartbeatOddId;
@@ -430,6 +433,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               .clamp(10, 300)
               .toDouble();
       _turnTimerActiveDurationSeconds = _turnTimerDurationSeconds;
+      _redSweepPeriodSeconds =
+          (preferences.getDouble('lighthouse.redSweepPeriodSeconds.v1') ??
+                  13.33)
+              .clamp(2, 60)
+              .toDouble();
       for (final toy in _ToyKind.values) {
         _toyVisible[toy] =
             preferences.getBool(toy.preferenceKey) ?? toy.defaultVisible;
@@ -479,6 +487,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     await preferences.setDouble(
       'lighthouse.turnTimerSeconds.v1',
       _turnTimerDurationSeconds,
+    );
+  }
+
+  Future<void> _saveRedSweepPeriod() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setDouble(
+      'lighthouse.redSweepPeriodSeconds.v1',
+      _redSweepPeriodSeconds,
     );
   }
 
@@ -764,6 +780,26 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     unawaited(_saveTurnTimerDuration());
   }
 
+  void _beginRedSweepAdjustment(LongPressStartDetails details) {
+    _redSweepLongPressStartPeriod = _redSweepPeriodSeconds;
+    setState(() => _redSweepNeedleVisible = true);
+  }
+
+  void _updateRedSweepAdjustment(LongPressMoveUpdateDetails details) {
+    final multiplier = math
+        .pow(2, -details.offsetFromOrigin.dx / 78)
+        .toDouble();
+    final next = (_redSweepLongPressStartPeriod * multiplier)
+        .clamp(2.0, 60.0)
+        .toDouble();
+    setState(() => _redSweepPeriodSeconds = next);
+  }
+
+  void _endRedSweepAdjustment(LongPressEndDetails details) {
+    setState(() => _redSweepNeedleVisible = false);
+    unawaited(_saveRedSweepPeriod());
+  }
+
   void _toggleOverlayToy(_ToyKind toy) {
     setState(() {
       if (!_activeToys.add(toy)) _activeToys.remove(toy);
@@ -773,6 +809,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   void _toggleDie() => _toggleOverlayToy(_ToyKind.wireDie);
 
   void _loadSideGuns() {
+    final fullyLoaded =
+        _activeToys.contains(_ToyKind.sideGuns) &&
+        _sideGunAmmo.every((rounds) => rounds >= 5);
+    if (fullyLoaded) {
+      _deactivateToy(_ToyKind.sideGuns);
+      unawaited(_sendRemoteRuntimeIfChanged(force: true));
+      return;
+    }
     _activeToys.add(_ToyKind.sideGuns);
     for (var i = 0; i < _sideGunAmmo.length; i += 1) {
       _sideGunAmmo[i] = 5;
@@ -798,13 +842,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final table = _physicalBoardSize();
     const speed = 85.0;
     final inset = 14 * _remoteUiScale / _pixelsPerMm;
-    final centerX = table.width / 2;
-    final centerY = table.height / 2;
     final position = switch (index) {
-      0 => PhysicalPoint(inset, centerY),
-      1 => PhysicalPoint(table.width - inset, centerY),
-      2 => PhysicalPoint(centerX, inset),
-      _ => PhysicalPoint(centerX, table.height - inset),
+      0 => PhysicalPoint(inset, inset),
+      1 => PhysicalPoint(table.width - inset, inset),
+      2 => PhysicalPoint(inset, table.height - inset),
+      _ => PhysicalPoint(table.width - inset, table.height - inset),
     };
     _sideGunAmmo[index] -= 1;
     _projectiles = [
@@ -826,12 +868,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final box = 48.0 * scale;
     final inset = 14.0 * scale;
     final center = switch (gunIndex) {
-      0 => Offset(inset, box / 2),
-      1 => Offset(box - inset, box / 2),
-      2 => Offset(box / 2, inset),
-      _ => Offset(box / 2, box - inset),
+      0 => Offset(inset, inset),
+      1 => Offset(box - inset, inset),
+      2 => Offset(inset, box - inset),
+      _ => Offset(box - inset, box - inset),
     };
-    final base = <double>[0, 180, 90, 270][gunIndex];
+    final base = <double>[45, 135, 315, 225][gunIndex];
     final raw = normalizeDegrees(
       math.atan2(localPosition.dy - center.dy, localPosition.dx - center.dx) *
           180 /
@@ -1002,7 +1044,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       );
     }
     if (sweepOn) {
-      final phase = (_toyClock * 0.15) % 2;
+      final phase = (_toyClock * 2 / _redSweepPeriodSeconds) % 2;
       _redSweepY = phase <= 1 ? phase : 2 - phase;
     }
     final lineY = table.height * _redSweepY;
@@ -3489,7 +3531,20 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               borderRadius: BorderRadius.circular(8),
               clipBehavior: Clip.antiAlias,
               child: IntrinsicWidth(
-                child: Column(mainAxisSize: MainAxisSize.min, children: items),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: math.max(
+                      120.0,
+                      MediaQuery.sizeOf(sheetContext).height - 80,
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: items,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -3531,91 +3586,93 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _showZendoMenu() async {
-    final ruleActive = _zendoRuleIndex >= 0;
-    final choice = await _showCompactMenu([
-      _compactMenuItem(
-        'zendoOff',
-        Icons.power_settings_new,
-        'Zendo Off · Normal LightHouse',
-      ),
-      const PopupMenuDivider(),
-      _compactMenuItem(
-        'stones',
-        Icons.circle_outlined,
-        'Zendo Stones',
-        checked: _activeToys.contains(_ToyKind.zendoStones),
-      ),
-      const PopupMenuDivider(),
-      _compactMenuItem(
-        'classic',
-        Icons.change_history_outlined,
-        'Classic',
-        checked: _zendoPieceMode == PieceCycleMode.classic,
-      ),
-      _compactMenuItem(
-        'zendo20',
-        Icons.category_outlined,
-        'Zendo 2.0',
-        checked: _zendoPieceMode == PieceCycleMode.zendo20,
-      ),
-      _compactMenuItem(
-        'both',
-        Icons.view_comfy_alt_outlined,
-        'Classic + Zendo 2.0',
-        checked: _zendoPieceMode == PieceCycleMode.both,
-      ),
-      const PopupMenuDivider(),
-      _compactMenuItem(
-        'newRule',
-        Icons.shuffle,
-        ruleActive ? 'Different Zendo Rule' : 'Zendo Rule',
-      ),
-      _compactMenuItem(
-        'difficulty',
-        Icons.tune,
-        'Difficulty: ${_zendoRuleDifficulty.label}',
-      ),
-      _compactMenuItem(
-        'complex',
-        Icons.psychology_alt_outlined,
-        'Complex Rules',
-        checked: _zendoComplexRules,
-      ),
-      if (ruleActive)
+    while (mounted) {
+      final ruleActive = _zendoRuleIndex >= 0;
+      final choice = await _showCompactMenu([
         _compactMenuItem(
-          'ruleVisibility',
-          _zendoRuleVisible ? Icons.visibility_off : Icons.visibility,
-          _zendoRuleVisible ? 'Hide Active Rule' : 'Show Active Rule',
+          'zendoOff',
+          Icons.power_settings_new,
+          'Zendo Off · Normal LightHouse',
         ),
-    ]);
-    if (!mounted || choice == null) return;
-    switch (choice) {
-      case 'zendoOff':
-        _turnOffZendo();
-      case 'stones':
-        _toggleOverlayToy(_ToyKind.zendoStones);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
-      case 'classic':
-        setState(() => _zendoPieceMode = PieceCycleMode.classic);
-      case 'zendo20':
-        setState(() => _zendoPieceMode = PieceCycleMode.zendo20);
-        _ensureRuleStillCompatible();
-      case 'both':
-        setState(() => _zendoPieceMode = PieceCycleMode.both);
-      case 'newRule':
-        _chooseNextZendoRule();
-      case 'difficulty':
-        await _showZendoDifficultyMenu();
-      case 'complex':
-        setState(() {
-          _zendoComplexRules = !_zendoComplexRules;
-          if (!_zendoComplexRules) {
-            _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
-          }
-        });
-        _ensureRuleStillCompatible();
-      case 'ruleVisibility':
-        setState(() => _zendoRuleVisible = !_zendoRuleVisible);
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'stones',
+          Icons.circle_outlined,
+          'Zendo Stones',
+          checked: _activeToys.contains(_ToyKind.zendoStones),
+        ),
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'classic',
+          Icons.change_history_outlined,
+          'Classic',
+          checked: _zendoPieceMode == PieceCycleMode.classic,
+        ),
+        _compactMenuItem(
+          'zendo20',
+          Icons.category_outlined,
+          'Zendo 2.0',
+          checked: _zendoPieceMode == PieceCycleMode.zendo20,
+        ),
+        _compactMenuItem(
+          'both',
+          Icons.view_comfy_alt_outlined,
+          'Classic + Zendo 2.0',
+          checked: _zendoPieceMode == PieceCycleMode.both,
+        ),
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'newRule',
+          Icons.shuffle,
+          ruleActive ? 'Different Zendo Rule' : 'Zendo Rule',
+        ),
+        _compactMenuItem(
+          'difficulty',
+          Icons.tune,
+          'Difficulty: ${_zendoRuleDifficulty.label}',
+        ),
+        _compactMenuItem(
+          'complex',
+          Icons.psychology_alt_outlined,
+          'Complex Rules',
+          checked: _zendoComplexRules,
+        ),
+        if (ruleActive)
+          _compactMenuItem(
+            'ruleVisibility',
+            _zendoRuleVisible ? Icons.visibility_off : Icons.visibility,
+            _zendoRuleVisible ? 'Hide Active Rule' : 'Show Active Rule',
+          ),
+      ]);
+      if (!mounted || choice == null) return;
+      switch (choice) {
+        case 'zendoOff':
+          _turnOffZendo();
+        case 'stones':
+          _toggleOverlayToy(_ToyKind.zendoStones);
+          unawaited(_sendRemoteRuntimeIfChanged(force: true));
+        case 'classic':
+          setState(() => _zendoPieceMode = PieceCycleMode.classic);
+        case 'zendo20':
+          setState(() => _zendoPieceMode = PieceCycleMode.zendo20);
+          _ensureRuleStillCompatible();
+        case 'both':
+          setState(() => _zendoPieceMode = PieceCycleMode.both);
+        case 'newRule':
+          _chooseNextZendoRule();
+        case 'difficulty':
+          await _showZendoDifficultyMenu();
+        case 'complex':
+          setState(() {
+            _zendoComplexRules = !_zendoComplexRules;
+            if (!_zendoComplexRules) {
+              _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
+            }
+          });
+          _ensureRuleStillCompatible();
+        case 'ruleVisibility':
+          setState(() => _zendoRuleVisible = !_zendoRuleVisible);
+      }
     }
   }
 
@@ -4356,6 +4413,58 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         ),
       );
     }
+    if (toy == _ToyKind.redSweep) {
+      return Tooltip(
+        message: toy.label,
+        triggerMode: TooltipTriggerMode.longPress,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Semantics(
+                button: true,
+                label:
+                    'Red Sweep. Hold and drag left or right to adjust speed.',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _activateToy(toy),
+                  onLongPressStart: _beginRedSweepAdjustment,
+                  onLongPressMoveUpdate: _updateRedSweepAdjustment,
+                  onLongPressEnd: _endRedSweepAdjustment,
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(
+                      toy.icon,
+                      size: 21,
+                      color: active ? Colors.white : Colors.white70,
+                    ),
+                  ),
+                ),
+              ),
+              if (_redSweepNeedleVisible)
+                Positioned(
+                  bottom: 34,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      width: 92,
+                      height: 66,
+                      child: CustomPaint(
+                        painter: _TimerNeedlePainter(
+                          durationSeconds: _redSweepPeriodSeconds,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
     return IconButton(
       tooltip: toy.label,
       visualDensity: VisualDensity.compact,
@@ -4377,6 +4486,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     child: Wrap(
       alignment: WrapAlignment.end,
       runAlignment: WrapAlignment.end,
+      verticalDirection: VerticalDirection.up,
       spacing: 0,
       runSpacing: 0,
       children: [
@@ -4407,10 +4517,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   Widget _sideGunAimHandles() => Stack(
     children: [
-      _gunAimHandle(0, Alignment.centerLeft),
-      _gunAimHandle(1, Alignment.centerRight),
-      _gunAimHandle(2, Alignment.topCenter),
-      _gunAimHandle(3, Alignment.bottomCenter),
+      _gunAimHandle(0, Alignment.topLeft),
+      _gunAimHandle(1, Alignment.topRight),
+      _gunAimHandle(2, Alignment.bottomLeft),
+      _gunAimHandle(3, Alignment.bottomRight),
     ],
   );
 
@@ -4667,9 +4777,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.black,
-    body: _buildBoardSurface(context),
+  Widget build(BuildContext context) => TooltipTheme(
+    data: const TooltipThemeData(preferBelow: false),
+    child: Scaffold(
+      backgroundColor: Colors.black,
+      body: _buildBoardSurface(context),
+    ),
   );
 }
 

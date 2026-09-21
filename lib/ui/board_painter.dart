@@ -40,8 +40,14 @@ class BoardPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Offset.zero & size, Paint()..color = Colors.black);
     _paintUnderlay(canvas, size, state.underlay);
-    for (final element in state.elements) {
-      _paintElement(canvas, element, elementOpacities[element.id] ?? 1);
+    for (var index = 0; index < state.elements.length; index += 1) {
+      final element = state.elements[index];
+      _paintElement(
+        canvas,
+        element,
+        elementOpacities[element.id] ?? 1,
+        chaseIndex: index,
+      );
     }
     _paintBurst(canvas, size);
   }
@@ -93,9 +99,72 @@ class BoardPainter extends CustomPainter {
       case BoardUnderlay.worldWar5:
         _paintWorldWar5(canvas, size);
         return;
+      case BoardUnderlay.infiniteSquare:
+        _paintInfiniteSquareGrid(canvas, size);
+        return;
+      case BoardUnderlay.infiniteHex:
+        _paintInfiniteHexGrid(canvas, size);
+        return;
       default:
         _paintRectGrid(canvas, size, underlay);
         return;
+    }
+  }
+
+  void _paintInfiniteSquareGrid(Canvas canvas, Size size) {
+    final cell = BoardUnderlay.cellMm * logicalPixelsPerMm;
+    final center = Offset(size.width / 2, size.height / 2);
+    final paint = _linePaint();
+
+    final firstVertical =
+        center.dx - (center.dx / cell).ceil() * cell - cell / 2;
+    for (var x = firstVertical; x <= size.width + cell; x += cell) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    final firstHorizontal =
+        center.dy - (center.dy / cell).ceil() * cell - cell / 2;
+    for (var y = firstHorizontal; y <= size.height + cell; y += cell) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  void _paintInfiniteHexGrid(Canvas canvas, Size size) {
+    final radius = BoardUnderlay.cellMm / math.sqrt(3) * logicalPixelsPerMm;
+    final horizontalStep = radius * 1.5;
+    final verticalStep = BoardUnderlay.cellMm * logicalPixelsPerMm;
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxColumns = (size.width / horizontalStep).ceil() + 4;
+    final maxRows = (size.height / verticalStep).ceil() + 4;
+    final paint = _linePaint();
+
+    for (var column = -maxColumns; column <= maxColumns; column += 1) {
+      final cx = center.dx + column * horizontalStep;
+      final yOffset = column.isOdd ? verticalStep / 2 : 0.0;
+      for (var row = -maxRows; row <= maxRows; row += 1) {
+        final cy = center.dy + row * verticalStep + yOffset;
+        if (cx < -radius ||
+            cx > size.width + radius ||
+            cy < -verticalStep ||
+            cy > size.height + verticalStep) {
+          continue;
+        }
+        final path = Path();
+        for (var i = 0; i < 6; i += 1) {
+          final angle = math.pi / 3 * i;
+          final point = Offset(
+            cx + math.cos(angle) * radius,
+            cy + math.sin(angle) * radius,
+          );
+          if (i == 0) {
+            path.moveTo(point.dx, point.dy);
+          } else {
+            path.lineTo(point.dx, point.dy);
+          }
+        }
+        path.close();
+        canvas.drawPath(path, paint);
+      }
     }
   }
 
@@ -725,7 +794,12 @@ class BoardPainter extends CustomPainter {
       ..close();
   }
 
-  void _paintElement(Canvas canvas, LightElement element, double opacity) {
+  void _paintElement(
+    Canvas canvas,
+    LightElement element,
+    double opacity, {
+    required int chaseIndex,
+  }) {
     if (opacity <= 0) return;
     final alpha = opacity.clamp(0.0, 1.0).toDouble();
     final white = Color.fromRGBO(255, 255, 255, alpha);
@@ -765,7 +839,13 @@ class BoardPainter extends CustomPainter {
           );
           final chasePath = Path()..addRect(rect.deflate(band / 2));
           final metric = chasePath.computeMetrics().first;
-          final start = metric.length * chase.clamp(0, 1);
+          final seed = element.id.hashCode & 0x7fffffff;
+          final offset = (seed % 1000) / 1000;
+          final clockwise = chaseIndex.isEven;
+          final localPhase = clockwise
+              ? (chase + offset) % 1
+              : (offset - chase) % 1;
+          final start = metric.length * localPhase;
           final span = metric.length * 0.19;
           final chasePaint = Paint()
             ..color = white

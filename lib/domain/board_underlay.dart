@@ -25,7 +25,9 @@ enum BoardUnderlay {
   petalBattle,
   sandships,
   martianBackgammon,
-  worldWar5;
+  worldWar5,
+  infiniteSquare,
+  infiniteHex;
 
   static const double cellMm = 27;
   static const double coasterMm = 101.6;
@@ -41,7 +43,9 @@ enum BoardUnderlay {
     BoardUnderlay.grid3x4 ||
     BoardUnderlay.grid4x4 ||
     BoardUnderlay.grid5x5 ||
-    BoardUnderlay.grid5x6 => BoardUnderlayGroup.grids,
+    BoardUnderlay.grid5x6 ||
+    BoardUnderlay.infiniteSquare ||
+    BoardUnderlay.infiniteHex => BoardUnderlayGroup.grids,
     BoardUnderlay.martianChessHalf ||
     BoardUnderlay.martianChess2 ||
     BoardUnderlay.chess8x8 => BoardUnderlayGroup.chess,
@@ -122,6 +126,8 @@ enum BoardUnderlay {
     BoardUnderlay.sandships => 'Sandships',
     BoardUnderlay.martianBackgammon => 'Martian Backgammon',
     BoardUnderlay.worldWar5 => 'World War 5',
+    BoardUnderlay.infiniteSquare => 'Infinite',
+    BoardUnderlay.infiniteHex => 'Hex grid',
   };
 
   List<PhysicalPoint> snapPoints({
@@ -131,6 +137,18 @@ enum BoardUnderlay {
     final center = PhysicalPoint(boardWidthMm / 2, boardHeightMm / 2);
     if (isRectangularGrid) {
       return _rectGridPoints(center, columns, rows);
+    }
+    if (this == BoardUnderlay.infiniteSquare) {
+      return _infiniteSquareGridPoints(
+        boardWidthMm: boardWidthMm,
+        boardHeightMm: boardHeightMm,
+      );
+    }
+    if (this == BoardUnderlay.infiniteHex) {
+      return _infiniteHexGridPoints(
+        boardWidthMm: boardWidthMm,
+        boardHeightMm: boardHeightMm,
+      );
     }
     return switch (this) {
       BoardUnderlay.launchpad23 ||
@@ -192,6 +210,45 @@ List<PhysicalPoint> _rectGridPoints(
         PhysicalPoint(
           left + (column + 0.5) * BoardUnderlay.cellMm,
           top + (row + 0.5) * BoardUnderlay.cellMm,
+        ),
+  ];
+}
+
+List<PhysicalPoint> _infiniteSquareGridPoints({
+  required double boardWidthMm,
+  required double boardHeightMm,
+}) {
+  final centerX = boardWidthMm / 2;
+  final centerY = boardHeightMm / 2;
+  final maxColumns = (boardWidthMm / BoardUnderlay.cellMm).ceil() + 2;
+  final maxRows = (boardHeightMm / BoardUnderlay.cellMm).ceil() + 2;
+  return [
+    for (var row = -maxRows; row <= maxRows; row += 1)
+      for (var column = -maxColumns; column <= maxColumns; column += 1)
+        PhysicalPoint(
+          centerX + column * BoardUnderlay.cellMm,
+          centerY + row * BoardUnderlay.cellMm,
+        ),
+  ];
+}
+
+List<PhysicalPoint> _infiniteHexGridPoints({
+  required double boardWidthMm,
+  required double boardHeightMm,
+}) {
+  final radius = BoardUnderlay.cellMm / math.sqrt(3);
+  final horizontalStep = radius * 1.5;
+  final verticalStep = BoardUnderlay.cellMm;
+  final centerX = boardWidthMm / 2;
+  final centerY = boardHeightMm / 2;
+  final maxColumns = (boardWidthMm / horizontalStep).ceil() + 3;
+  final maxRows = (boardHeightMm / verticalStep).ceil() + 3;
+  return [
+    for (var column = -maxColumns; column <= maxColumns; column += 1)
+      for (var row = -maxRows; row <= maxRows; row += 1)
+        PhysicalPoint(
+          centerX + column * horizontalStep,
+          centerY + row * verticalStep + (column.isOdd ? verticalStep / 2 : 0),
         ),
   ];
 }
