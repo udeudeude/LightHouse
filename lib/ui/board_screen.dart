@@ -3601,6 +3601,188 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _toggleUnderlaySelection(underlay);
   }
 
+  bool get _boxedZendoEnabled =>
+      _zendoPieceSet != _ZendoPieceSet.pyramidTrio;
+
+  ZendoCommunityRule? get _activeZendoRule {
+    final id = _activeZendoRuleId;
+    if (id == null) return null;
+    return zendoCommunityRules.where((rule) => rule.id == id).firstOrNull;
+  }
+
+  Future<void> _setZendoPieceSet(_ZendoPieceSet value) async {
+    setState(() => _zendoPieceSet = value);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('lighthouse.zendoPieceSet.v1', value.name);
+  }
+
+  Future<void> _showZendoPieceSetMenu() async {
+    final choice = await _showCompactMenu([
+      for (final value in _ZendoPieceSet.values)
+        _compactMenuItem(
+          value.name,
+          Icons.category_outlined,
+          value.label,
+          checked: value == _zendoPieceSet,
+        ),
+    ]);
+    if (!mounted || choice == null) return;
+    final next = _ZendoPieceSet.values
+        .where((value) => value.name == choice)
+        .firstOrNull;
+    if (next != null) await _setZendoPieceSet(next);
+  }
+
+  List<ZendoCommunityRule> get _eligibleZendoRules {
+    final universe = switch (_zendoPieceSet) {
+      _ZendoPieceSet.pyramidTrio => ZendoRuleUniverse.pyramidTrio,
+      _ZendoPieceSet.boxed => ZendoRuleUniverse.boxed,
+      _ZendoPieceSet.both => null,
+    };
+    return [
+      for (final rule in zendoCommunityRules)
+        if (rule.universe == ZendoRuleUniverse.any ||
+            universe == null ||
+            rule.universe == universe)
+          rule,
+    ];
+  }
+
+  Future<void> _showZendoRulePicker() async {
+    final rules = _eligibleZendoRules;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF202020),
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.72,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Community Secret Rules',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: rules.length,
+                  itemBuilder: (context, index) {
+                    final rule = rules[index];
+                    return ListTile(
+                      title: Text(
+                        rule.text,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      subtitle: Text(
+                        '${zendoDifficultyLabel(rule.difficulty)} · '
+                        '${rule.sourceLabel}',
+                        style: const TextStyle(color: Colors.white54),
+                      ),
+                      trailing: _activeZendoRuleId == rule.id
+                          ? const Icon(Icons.check, color: Colors.white70)
+                          : null,
+                      onTap: () => Navigator.pop(sheetContext, rule.id),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    setState(() {
+      _activeZendoRuleId = choice;
+      _zendoRuleVisible = true;
+    });
+  }
+
+  Future<void> _showZendoMenu() async {
+    final rule = _activeZendoRule;
+    final stonesActive = _activeToys.contains(_ToyKind.zendoStones);
+    final choice = await _showCompactMenu([
+      _compactMenuItem(
+        'stones',
+        Icons.circle_outlined,
+        'Marking Stones',
+        checked: stonesActive,
+        leading: const PyramidLoveToyIcon(
+          PyramidLoveToyIconKind.zendoMarkers,
+          color: Colors.white70,
+          size: 17,
+        ),
+      ),
+      _compactMenuItem(
+        'pieces',
+        Icons.category_outlined,
+        'Piece Set · ${_zendoPieceSet.label}',
+      ),
+      const PopupMenuDivider(),
+      _compactMenuItem(
+        'rule',
+        Icons.psychology_alt_outlined,
+        rule == null ? 'Community Secret Rule…' : 'Change Secret Rule…',
+      ),
+      if (rule != null)
+        _compactMenuItem(
+          'visibility',
+          _zendoRuleVisible ? Icons.visibility_off : Icons.visibility,
+          _zendoRuleVisible ? 'Hide Active Rule' : 'Show Active Rule',
+        ),
+      if (rule != null)
+        _compactMenuItem(
+          'source',
+          Icons.open_in_new,
+          'Open Rule Source',
+        ),
+      if (rule != null)
+        _compactMenuItem(
+          'clear',
+          Icons.close,
+          'Clear Active Rule',
+        ),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'stones':
+        _toggleOverlayToy(_ToyKind.zendoStones);
+      case 'pieces':
+        await _showZendoPieceSetMenu();
+      case 'rule':
+        await _showZendoRulePicker();
+      case 'visibility':
+        setState(() => _zendoRuleVisible = !_zendoRuleVisible);
+      case 'source':
+        if (rule != null) {
+          await launchUrl(
+            Uri.parse(rule.sourceUrl),
+            mode: LaunchMode.externalApplication,
+          );
+        }
+      case 'clear':
+        setState(() {
+          _activeZendoRuleId = null;
+          _zendoRuleVisible = false;
+        });
+    }
+  }
+
   Widget _toyIcon(_ToyKind toy, Color color, {required bool inMenu}) {
     final artwork = switch (toy) {
       _ToyKind.nestCycle => PyramidLoveToyIconKind.nest,
