@@ -1725,6 +1725,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     'roundedTriangleTips': _roundedTriangleTips,
     'dice': _diceSnapshot.toJson(),
     'zendo': _zendoSnapshot.toJson(),
+    'zendoPieces': _zendoPiecesSnapshot.toJson(),
   };
 
   void _startRemoteRuntimePublisher() {
@@ -1757,6 +1758,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleZendoSnapshot(ZendoStonesSnapshot snapshot) {
     _zendoSnapshot = snapshot;
+    unawaited(_sendRemoteRuntimeIfChanged());
+  }
+
+  void _handleZendoPiecesSnapshot(ZendoPiecesSnapshot snapshot) {
+    _zendoPiecesSnapshot = snapshot;
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
@@ -1845,6 +1851,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         const <String>[];
     final dice = DiceBubbleSnapshot.fromJson(payload['dice']);
     final zendo = ZendoStonesSnapshot.fromJson(payload['zendo']);
+    final zendoPieces = ZendoPiecesSnapshot.fromJson(payload['zendoPieces']);
 
     _toyTicker?.cancel();
     _toyTicker = null;
@@ -1887,6 +1894,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _roundedTriangleTips = payload['roundedTriangleTips'] == true;
       if (dice != null) _diceSnapshot = dice;
       if (zendo != null) _zendoSnapshot = zendo;
+      if (zendoPieces != null) _zendoPiecesSnapshot = zendoPieces;
     });
     _toyRevision.value += 1;
   }
