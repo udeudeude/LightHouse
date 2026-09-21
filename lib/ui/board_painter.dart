@@ -116,7 +116,8 @@ class BoardPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final paint = _linePaint();
 
-    final firstVertical = center.dx - (center.dx / cell).ceil() * cell - cell / 2;
+    final firstVertical =
+        center.dx - (center.dx / cell).ceil() * cell - cell / 2;
     for (var x = firstVertical; x <= size.width + cell; x += cell) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
