@@ -12,6 +12,8 @@ import '../domain/light_structure.dart';
 import '../domain/physical_point.dart';
 import '../domain/pyramid_geometry.dart';
 
+enum PieceCycleMode { classic, zendo20, both }
+
 class BoardController extends ChangeNotifier {
   BoardController({
     BoardState? initialState,
@@ -44,28 +46,100 @@ class BoardController extends ChangeNotifier {
   LightStructure? structureFor(LightElement element) =>
       _state.structureForElement(element.id);
 
-  void createAt(PhysicalPoint position) {
+  void createAt(
+    PhysicalPoint position, {
+    PieceCycleMode mode = PieceCycleMode.classic,
+  }) {
     final element = LightElement(
       id: _newId(),
-      size: PyramidSize.small,
+      size: mode == PieceCycleMode.zendo20
+          ? PyramidSize.medium
+          : PyramidSize.small,
       pose: PyramidPose.upright,
       position: position,
       headingDegrees: 0,
       illumination: IlluminationPattern.full,
+      kind: LightPieceKind.pyramid,
     );
     _execute(AddElementCommand(element));
   }
 
-  void cycleSizeOrDelete(LightElement element) {
+  void cycleSizeOrDelete(
+    LightElement element, {
+    PieceCycleMode mode = PieceCycleMode.classic,
+  }) {
     final current = _state.elementById(element.id);
     if (current == null) return;
-    switch (current.size) {
-      case PyramidSize.small:
-        _replace(current, current.copyWith(size: PyramidSize.medium));
-      case PyramidSize.medium:
-        _replace(current, current.copyWith(size: PyramidSize.large));
-      case PyramidSize.large:
-        _execute(RemoveElementCommand(current));
+
+    switch (mode) {
+      case PieceCycleMode.classic:
+        if (current.kind != LightPieceKind.pyramid) {
+          _execute(RemoveElementCommand(current));
+          return;
+        }
+        switch (current.size) {
+          case PyramidSize.small:
+            _replace(current, current.copyWith(size: PyramidSize.medium));
+          case PyramidSize.medium:
+            _replace(current, current.copyWith(size: PyramidSize.large));
+          case PyramidSize.large:
+            _execute(RemoveElementCommand(current));
+        }
+      case PieceCycleMode.zendo20:
+        switch (current.kind) {
+          case LightPieceKind.pyramid:
+            _replace(
+              current,
+              current.copyWith(
+                size: PyramidSize.medium,
+                kind: LightPieceKind.wedge,
+                pose: PyramidPose.upright,
+                wedgeFlatFace: WedgeFlatFace.triangle,
+              ),
+            );
+          case LightPieceKind.wedge:
+            _replace(
+              current,
+              current.copyWith(
+                size: PyramidSize.medium,
+                kind: LightPieceKind.block,
+                pose: PyramidPose.upright,
+              ),
+            );
+          case LightPieceKind.block:
+            _execute(RemoveElementCommand(current));
+        }
+      case PieceCycleMode.both:
+        switch (current.kind) {
+          case LightPieceKind.pyramid:
+            switch (current.size) {
+              case PyramidSize.small:
+                _replace(current, current.copyWith(size: PyramidSize.medium));
+              case PyramidSize.medium:
+                _replace(current, current.copyWith(size: PyramidSize.large));
+              case PyramidSize.large:
+                _replace(
+                  current,
+                  current.copyWith(
+                    size: PyramidSize.medium,
+                    kind: LightPieceKind.wedge,
+                    pose: PyramidPose.upright,
+                    wedgeFlatFace: WedgeFlatFace.triangle,
+                  ),
+                );
+            }
+          case LightPieceKind.wedge:
+            _replace(
+              current,
+              current.copyWith(
+                size: PyramidSize.medium,
+                kind: LightPieceKind.block,
+                pose: PyramidPose.upright,
+              ),
+            );
+          case LightPieceKind.block:
+            _execute(RemoveElementCommand(current));
+        }
     }
   }
 
@@ -84,6 +158,18 @@ class BoardController extends ChangeNotifier {
     _replace(current, current.copyWith(illumination: next));
   }
 
+  double _restingLengthMm(LightElement element) {
+    final base = geometry.baseMm(element.size);
+    final height = geometry.flatLengthMm(element.size);
+    return switch (element.kind) {
+      LightPieceKind.pyramid || LightPieceKind.block => height,
+      LightPieceKind.wedge =>
+        element.wedgeFlatFace == WedgeFlatFace.rectangle
+            ? math.sqrt(base * base + height * height)
+            : height,
+    };
+  }
+
   void tipOrStand(LightElement element, PhysicalPoint drag) {
     final current = _state.elementById(element.id);
     if (current == null) return;
@@ -91,8 +177,6 @@ class BoardController extends ChangeNotifier {
     if (distance < 4) return;
 
     final base = geometry.baseMm(current.size);
-    final length = geometry.flatLengthMm(current.size);
-    final hingeTravel = (base + length) / 2;
 
     if (current.pose == PyramidPose.upright) {
       final dragAngle = math.atan2(drag.yMm, drag.xMm) * 180 / math.pi;
@@ -101,12 +185,20 @@ class BoardController extends ChangeNotifier {
       final tipDirection = normalizeDegrees(
         current.headingDegrees + quarterTurn * 90,
       );
+      final wedgeFace = current.kind == LightPieceKind.wedge
+          ? (quarterTurn.abs().isEven
+                ? WedgeFlatFace.triangle
+                : WedgeFlatFace.rectangle)
+          : current.wedgeFlatFace;
+      final provisional = current.copyWith(wedgeFlatFace: wedgeFace);
+      final length = _restingLengthMm(provisional);
+      final hingeTravel = (base + length) / 2;
       final radians = tipDirection * math.pi / 180;
       final ux = math.cos(radians);
       final uy = math.sin(radians);
       _commitPoseChange(
         current,
-        current.copyWith(
+        provisional.copyWith(
           pose: PyramidPose.flat,
           position: PhysicalPoint(
             current.position.xMm + ux * hingeTravel,
@@ -118,6 +210,8 @@ class BoardController extends ChangeNotifier {
       return;
     }
 
+    final length = _restingLengthMm(current);
+    final hingeTravel = (base + length) / 2;
     final rotation = -current.headingDegrees * math.pi / 180;
     final localX =
         drag.xMm * math.cos(rotation) - drag.yMm * math.sin(rotation);
@@ -250,7 +344,11 @@ class BoardController extends ChangeNotifier {
     double snapDistanceMm = 12,
   }) {
     final current = _state.elementById(element.id);
-    if (current == null || current.pose != PyramidPose.upright) return false;
+    if (current == null ||
+        current.pose != PyramidPose.upright ||
+        current.kind != LightPieceKind.pyramid) {
+      return false;
+    }
 
     final currentStructure = _state.structureForElement(current.id);
     final currentIds = currentStructure?.memberIds.toSet() ?? {current.id};
@@ -259,7 +357,8 @@ class BoardController extends ChangeNotifier {
 
     for (final candidate in _state.elements) {
       if (currentIds.contains(candidate.id) ||
-          candidate.pose != PyramidPose.upright) {
+          candidate.pose != PyramidPose.upright ||
+          candidate.kind != LightPieceKind.pyramid) {
         continue;
       }
       final distance = current.position.distanceTo(candidate.position);
@@ -409,6 +508,8 @@ class BoardController extends ChangeNotifier {
 
   bool _isAutomaticNestPair(BoardState state, LightElement a, LightElement b) {
     if (a.id == b.id ||
+        a.kind != LightPieceKind.pyramid ||
+        b.kind != LightPieceKind.pyramid ||
         a.pose != PyramidPose.upright ||
         b.pose != PyramidPose.upright ||
         a.illumination != IlluminationPattern.wall ||
@@ -424,11 +525,20 @@ class BoardController extends ChangeNotifier {
   }
 
   double _boundingRadiusMm(LightElement element) {
-    final halfBase = geometry.baseMm(element.size) / 2;
+    final base = geometry.baseMm(element.size);
+    final halfBase = base / 2;
     if (element.pose == PyramidPose.upright) {
       return math.sqrt(halfBase * halfBase * 2);
     }
-    final halfLength = geometry.flatLengthMm(element.size) / 2;
+    final height = geometry.flatLengthMm(element.size);
+    final length = switch (element.kind) {
+      LightPieceKind.pyramid || LightPieceKind.block => height,
+      LightPieceKind.wedge =>
+        element.wedgeFlatFace == WedgeFlatFace.rectangle
+            ? math.sqrt(base * base + height * height)
+            : height,
+    };
+    final halfLength = length / 2;
     return math.sqrt(halfBase * halfBase + halfLength * halfLength);
   }
 

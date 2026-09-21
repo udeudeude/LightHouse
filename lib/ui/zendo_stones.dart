@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class ZendoStoneSnapshot {
@@ -207,25 +209,6 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     _ZendoStoneKind.green => const Color(0xFF31C95A),
   };
 
-  RadialGradient _glare(_ZendoStoneKind kind) {
-    final base = _fill(kind);
-    final highlight = switch (kind) {
-      _ZendoStoneKind.white => Colors.white,
-      _ZendoStoneKind.black => const Color(0xFF777777),
-      _ZendoStoneKind.green => const Color(0xFFB9FFD0),
-    };
-    return RadialGradient(
-      center: const Alignment(-0.38, -0.48),
-      radius: 0.95,
-      colors: [
-        highlight.withValues(alpha: 0.96),
-        Color.lerp(highlight, base, 0.55)!,
-        base,
-      ],
-      stops: const [0.0, 0.28, 1.0],
-    );
-  }
-
   String _label(_ZendoStoneKind kind) => switch (kind) {
     _ZendoStoneKind.white => 'White marking stone',
     _ZendoStoneKind.black => 'Black marking stone',
@@ -343,7 +326,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
             height: 18 * _scale,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: _glare(kind),
+              color: _fill(kind),
               border: Border.all(color: Colors.white70),
               boxShadow: const [
                 BoxShadow(
@@ -353,6 +336,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                 ),
               ],
             ),
+            child: const CustomPaint(painter: _ZendoStoneGlarePainter()),
           ),
         ),
       ),
@@ -411,7 +395,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                           (stone.expanded ? _largeRadius : _smallRadius) * 2,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: _glare(stone.kind),
+                        color: _fill(stone.kind),
                         border: Border.all(
                           color: stone.kind == _ZendoStoneKind.white
                               ? Colors.black54
@@ -425,6 +409,9 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                           ),
                         ],
                       ),
+                      child: const CustomPaint(
+                        painter: _ZendoStoneGlarePainter(),
+                      ),
                     ),
                   ),
                 ),
@@ -434,4 +421,29 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
       );
     },
   );
+}
+
+class _ZendoStoneGlarePainter extends CustomPainter {
+  const _ZendoStoneGlarePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = math.min(size.width, size.height) / 2;
+    if (radius <= 2) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius * 0.72),
+      math.pi * 1.08,
+      math.pi * 0.58,
+      false,
+      Paint()
+        ..color = const Color(0xFFB8B8B8).withValues(alpha: 0.72)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1.0, radius * 0.10)
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ZendoStoneGlarePainter oldDelegate) => false;
 }

@@ -8,7 +8,8 @@ List<PhysicalPoint> polygonForElement(
   LightElement element,
   PyramidGeometryProfile geometry,
 ) {
-  final halfBase = geometry.baseMm(element.size) / 2;
+  final base = geometry.baseMm(element.size);
+  final halfBase = base / 2;
   final local = <PhysicalPoint>[];
 
   if (element.pose == PyramidPose.upright) {
@@ -19,12 +20,31 @@ List<PhysicalPoint> polygonForElement(
       PhysicalPoint(-halfBase, halfBase),
     ]);
   } else {
-    final halfLength = geometry.flatLengthMm(element.size) / 2;
-    local.addAll([
-      PhysicalPoint(0, -halfLength),
-      PhysicalPoint(halfBase, halfLength),
-      PhysicalPoint(-halfBase, halfLength),
-    ]);
+    final height = geometry.flatLengthMm(element.size);
+    final footprintLength = switch (element.kind) {
+      LightPieceKind.pyramid || LightPieceKind.block => height,
+      LightPieceKind.wedge =>
+        element.wedgeFlatFace == WedgeFlatFace.rectangle
+            ? math.sqrt(base * base + height * height)
+            : height,
+    };
+    final halfLength = footprintLength / 2;
+    if (element.kind == LightPieceKind.pyramid ||
+        (element.kind == LightPieceKind.wedge &&
+            element.wedgeFlatFace == WedgeFlatFace.triangle)) {
+      local.addAll([
+        PhysicalPoint(0, -halfLength),
+        PhysicalPoint(halfBase, halfLength),
+        PhysicalPoint(-halfBase, halfLength),
+      ]);
+    } else {
+      local.addAll([
+        PhysicalPoint(-halfBase, -halfLength),
+        PhysicalPoint(halfBase, -halfLength),
+        PhysicalPoint(halfBase, halfLength),
+        PhysicalPoint(-halfBase, halfLength),
+      ]);
+    }
   }
 
   return [

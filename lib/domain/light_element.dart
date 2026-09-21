@@ -4,6 +4,10 @@ enum PyramidSize { small, medium, large }
 
 enum PyramidPose { upright, flat }
 
+enum LightPieceKind { pyramid, wedge, block }
+
+enum WedgeFlatFace { triangle, rectangle }
+
 enum IlluminationPattern { full, wall }
 
 class LightElement {
@@ -14,6 +18,8 @@ class LightElement {
     required this.position,
     required this.headingDegrees,
     required this.illumination,
+    this.kind = LightPieceKind.pyramid,
+    this.wedgeFlatFace = WedgeFlatFace.triangle,
   });
 
   final String id;
@@ -22,6 +28,8 @@ class LightElement {
   final PhysicalPoint position;
   final double headingDegrees;
   final IlluminationPattern illumination;
+  final LightPieceKind kind;
+  final WedgeFlatFace wedgeFlatFace;
 
   LightElement copyWith({
     PyramidSize? size,
@@ -29,6 +37,8 @@ class LightElement {
     PhysicalPoint? position,
     double? headingDegrees,
     IlluminationPattern? illumination,
+    LightPieceKind? kind,
+    WedgeFlatFace? wedgeFlatFace,
   }) {
     return LightElement(
       id: id,
@@ -37,6 +47,8 @@ class LightElement {
       position: position ?? this.position,
       headingDegrees: headingDegrees ?? this.headingDegrees,
       illumination: illumination ?? this.illumination,
+      kind: kind ?? this.kind,
+      wedgeFlatFace: wedgeFlatFace ?? this.wedgeFlatFace,
     );
   }
 
@@ -47,6 +59,8 @@ class LightElement {
     'position': position.toJson(),
     'headingDegrees': headingDegrees,
     'illumination': illumination.name,
+    'kind': kind.name,
+    'wedgeFlatFace': wedgeFlatFace.name,
   };
 
   factory LightElement.fromJson(Map<String, Object?> json) => LightElement(
@@ -60,6 +74,10 @@ class LightElement {
     illumination: IlluminationPattern.values.byName(
       json['illumination']! as String,
     ),
+    kind: LightPieceKind.values.byName((json['kind'] as String?) ?? 'pyramid'),
+    wedgeFlatFace: WedgeFlatFace.values.byName(
+      (json['wedgeFlatFace'] as String?) ?? 'triangle',
+    ),
   );
 
   @override
@@ -70,9 +88,19 @@ class LightElement {
       other.pose == pose &&
       other.position == position &&
       other.headingDegrees == headingDegrees &&
-      other.illumination == illumination;
+      other.illumination == illumination &&
+      other.kind == kind &&
+      other.wedgeFlatFace == wedgeFlatFace;
 
   @override
-  int get hashCode =>
-      Object.hash(id, size, pose, position, headingDegrees, illumination);
+  int get hashCode => Object.hash(
+    id,
+    size,
+    pose,
+    position,
+    headingDegrees,
+    illumination,
+    kind,
+    wedgeFlatFace,
+  );
 }
