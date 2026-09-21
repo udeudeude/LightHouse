@@ -2738,7 +2738,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             !_containsPoint(exact, end)) {
           _controller.tipOrStand(exact, drag);
         } else if (exact != null &&
-            exact.pose == PyramidPose.flat &&
+            exact.pose != PyramidPose.upright &&
             displacement >= _minimumLineGestureMm &&
             _crossesFlatBaseEdge(exact, start, end)) {
           _controller.tipOrStand(exact, drag);
