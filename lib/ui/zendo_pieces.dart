@@ -189,7 +189,7 @@ class _ZendoPiecesWidgetState extends State<ZendoPiecesWidget> {
       final shape = _shape(item.shape);
       final orientation = _orientation(item.orientation);
       if (shape == null || orientation == null) continue;
-      maximumId = math.max(maximumId, item.id);
+      if (item.id > maximumId) maximumId = item.id;
       _pieces.add(
         _ZendoPiece(
           id: item.id,
