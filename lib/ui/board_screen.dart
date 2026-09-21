@@ -3332,6 +3332,16 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _compactMenuItem('file', Icons.folder_outlined, 'File'),
       _compactMenuItem('edit', Icons.edit_outlined, 'Edit'),
       _compactMenuItem('boards', Icons.grid_on, 'Boards'),
+      _compactMenuItem(
+        'zendo',
+        Icons.circle_outlined,
+        'ZENDO',
+        leading: const PyramidLoveToyIcon(
+          PyramidLoveToyIconKind.zendoMarkers,
+          color: Colors.white70,
+          size: 18,
+        ),
+      ),
       _compactMenuItem('toys', Icons.toys_outlined, 'Toys'),
       _compactMenuItem('display', Icons.display_settings, 'Display'),
       _compactMenuItem('remote', Icons.devices_outlined, 'Remote'),
@@ -3345,6 +3355,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         await _showEditMenu();
       case 'boards':
         await _showBoardsMenu();
+      case 'zendo':
+        await _showZendoMenu();
       case 'toys':
         await _showToyMenu();
       case 'display':
@@ -3598,14 +3610,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     };
     if (artwork != null) {
       final size = switch ((toy, inMenu)) {
-        (_ToyKind.nestCycle, true) => 21.0,
-        (_ToyKind.nestCycle, false) => 28.0,
-        (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 17.0,
+        (_ToyKind.nestCycle, true) => 18.0,
+        (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 15.0,
         _ => 21.0,
       };
       final icon = PyramidLoveToyIcon(artwork, color: color, size: size);
       if (toy == _ToyKind.nestCycle && inMenu) {
-        return Transform.translate(offset: const Offset(0, -2.5), child: icon);
+        return Transform.translate(offset: const Offset(0, -1.5), child: icon);
       }
       return icon;
     }
