@@ -56,16 +56,3 @@ bool hitTestLightElement(
   // controls rather than forcing fingers to hit a mathematically exact edge.
   return local.xMm.abs() <= halfBase + haloMm &&
       local.yMm.abs() <= halfLength + haloMm;
-}) {
-  final local = rotateVector(point - element.position, -element.headingDegrees);
-  final halfBase = geometry.baseMm(element.size) / 2;
-
-  if (element.pose == PyramidPose.upright) {
-    return local.xMm.abs() <= halfBase + haloMm &&
-        local.yMm.abs() <= halfBase + haloMm;
-  }
-
-  final halfLength = geometry.flatLengthMm(element.size) / 2;
-  return local.xMm.abs() <= halfBase + haloMm &&
-      local.yMm.abs() <= halfLength + haloMm;
-}
