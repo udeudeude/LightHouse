@@ -799,44 +799,79 @@ class BoardPainter extends CustomPainter {
         );
       }
     } else {
-      final points = <Offset>[
-        Offset(0, -flatLength / 2),
-        Offset(base / 2, flatLength / 2),
-        Offset(-base / 2, flatLength / 2),
-      ];
-      final triangle = roundTriangleTips
-          ? _apexRoundedTriangle(points, math.min(base, flatLength) * 0.18)
-          : (Path()
-              ..moveTo(points[0].dx, points[0].dy)
-              ..lineTo(points[1].dx, points[1].dy)
-              ..lineTo(points[2].dx, points[2].dy)
-              ..close());
-      final bounce = triangleBouncePhase;
-      if (bounce == null) {
-        canvas.drawPath(triangle, Paint()..color = white);
+      final footprintLength = switch (element.kind) {
+        LightPieceKind.pyramid || LightPieceKind.block => flatLength,
+        LightPieceKind.wedge =>
+          element.wedgeFlatFace == WedgeFlatFace.rectangle
+              ? math.sqrt(base * base + flatLength * flatLength)
+              : flatLength,
+      };
+      final triangular =
+          element.kind == LightPieceKind.pyramid ||
+          (element.kind == LightPieceKind.wedge &&
+              element.wedgeFlatFace == WedgeFlatFace.triangle);
+
+      if (triangular) {
+        final points = <Offset>[
+          Offset(0, -footprintLength / 2),
+          Offset(base / 2, footprintLength / 2),
+          Offset(-base / 2, footprintLength / 2),
+        ];
+        final triangle = roundTriangleTips
+            ? _apexRoundedTriangle(
+                points,
+                math.min(base, footprintLength) * 0.18,
+              )
+            : (Path()
+                ..moveTo(points[0].dx, points[0].dy)
+                ..lineTo(points[1].dx, points[1].dy)
+                ..lineTo(points[2].dx, points[2].dy)
+                ..close());
+        final bounce = triangleBouncePhase;
+        if (bounce == null || element.kind != LightPieceKind.pyramid) {
+          canvas.drawPath(triangle, Paint()..color = white);
+        } else {
+          canvas.drawPath(
+            triangle,
+            Paint()..color = Color.fromRGBO(255, 255, 255, 0.045 * alpha),
+          );
+          final y =
+              -footprintLength / 2 +
+              footprintLength * bounce.clamp(0, 1);
+          final band = math.max(3.0, footprintLength * 0.16);
+          canvas.save();
+          canvas.clipPath(triangle);
+          canvas.drawRect(
+            Rect.fromLTWH(-base, y - band / 2, base * 2, band),
+            Paint()..color = white,
+          );
+          canvas.restore();
+        }
+        if (element.id == selectedId && alpha > 0.15) {
+          canvas.drawPath(
+            triangle,
+            Paint()
+              ..color = Color.fromRGBO(255, 255, 255, 0.34 * alpha)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2,
+          );
+        }
       } else {
-        canvas.drawPath(
-          triangle,
-          Paint()..color = Color.fromRGBO(255, 255, 255, 0.045 * alpha),
+        final rect = Rect.fromCenter(
+          center: Offset.zero,
+          width: base,
+          height: footprintLength,
         );
-        final y = -flatLength / 2 + flatLength * bounce.clamp(0, 1);
-        final band = math.max(3.0, flatLength * 0.16);
-        canvas.save();
-        canvas.clipPath(triangle);
-        canvas.drawRect(
-          Rect.fromLTWH(-base, y - band / 2, base * 2, band),
-          Paint()..color = white,
-        );
-        canvas.restore();
-      }
-      if (element.id == selectedId && alpha > 0.15) {
-        canvas.drawPath(
-          triangle,
-          Paint()
-            ..color = Color.fromRGBO(255, 255, 255, 0.34 * alpha)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2,
-        );
+        canvas.drawRect(rect, Paint()..color = white);
+        if (element.id == selectedId && alpha > 0.15) {
+          canvas.drawRect(
+            rect.inflate(3),
+            Paint()
+              ..color = Color.fromRGBO(255, 255, 255, 0.34 * alpha)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2,
+          );
+        }
       }
     }
 
