@@ -11,20 +11,46 @@ List<PhysicalPoint> polygonForElement(
   final halfBase = geometry.baseMm(element.size) / 2;
   final local = <PhysicalPoint>[];
 
-  if (element.pose == PyramidPose.upright) {
-    local.addAll([
-      PhysicalPoint(-halfBase, -halfBase),
-      PhysicalPoint(halfBase, -halfBase),
-      PhysicalPoint(halfBase, halfBase),
-      PhysicalPoint(-halfBase, halfBase),
-    ]);
-  } else {
-    final halfLength = geometry.flatLengthMm(element.size) / 2;
-    local.addAll([
-      PhysicalPoint(0, -halfLength),
-      PhysicalPoint(halfBase, halfLength),
-      PhysicalPoint(-halfBase, halfLength),
-    ]);
+  switch (element.pose) {
+    case PyramidPose.upright:
+      local.addAll([
+        PhysicalPoint(-halfBase, -halfBase),
+        PhysicalPoint(halfBase, -halfBase),
+        PhysicalPoint(halfBase, halfBase),
+        PhysicalPoint(-halfBase, halfBase),
+      ]);
+    case PyramidPose.flat:
+      final halfLength = geometry.flatLengthMm(element.size) / 2;
+      local.addAll([
+        PhysicalPoint(0, -halfLength),
+        PhysicalPoint(halfBase, halfLength),
+        PhysicalPoint(-halfBase, halfLength),
+      ]);
+    case PyramidPose.blockFlat:
+      final halfLength = geometry.zendoHeightMm / 2;
+      local.addAll([
+        PhysicalPoint(-halfBase, -halfLength),
+        PhysicalPoint(halfBase, -halfLength),
+        PhysicalPoint(halfBase, halfLength),
+        PhysicalPoint(-halfBase, halfLength),
+      ]);
+    case PyramidPose.wedgeTriangle:
+      final halfLength = geometry.zendoHeightMm / 2;
+      // A Cheesecake wedge rests on one of its triangular end faces. Unlike
+      // the pyramid footprint, this is a right triangle.
+      local.addAll([
+        PhysicalPoint(-halfBase, -halfLength),
+        PhysicalPoint(-halfBase, halfLength),
+        PhysicalPoint(halfBase, halfLength),
+      ]);
+    case PyramidPose.wedgeRectangle:
+      final halfLength = geometry.zendoWedgeSlopedLengthMm / 2;
+      local.addAll([
+        PhysicalPoint(-halfBase, -halfLength),
+        PhysicalPoint(halfBase, -halfLength),
+        PhysicalPoint(halfBase, halfLength),
+        PhysicalPoint(-halfBase, halfLength),
+      ]);
   }
 
   return [
