@@ -3911,10 +3911,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               {_ToyKind.lightLottery, _ToyKind.hotPotato}.contains(toy)
           ? null
           : () => _activateToy(toy),
-      icon: _toyMenuIcon(
-        toy,
-        active ? Colors.white : Colors.white70,
-      ),
+      icon: _toyMenuIcon(toy, active ? Colors.white : Colors.white70),
     );
   }
 
