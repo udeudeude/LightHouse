@@ -344,7 +344,11 @@ class BoardController extends ChangeNotifier {
     double snapDistanceMm = 12,
   }) {
     final current = _state.elementById(element.id);
-    if (current == null || current.pose != PyramidPose.upright) return false;
+    if (current == null ||
+        current.pose != PyramidPose.upright ||
+        current.kind != LightPieceKind.pyramid) {
+      return false;
+    }
 
     final currentStructure = _state.structureForElement(current.id);
     final currentIds = currentStructure?.memberIds.toSet() ?? {current.id};
@@ -353,7 +357,8 @@ class BoardController extends ChangeNotifier {
 
     for (final candidate in _state.elements) {
       if (currentIds.contains(candidate.id) ||
-          candidate.pose != PyramidPose.upright) {
+          candidate.pose != PyramidPose.upright ||
+          candidate.kind != LightPieceKind.pyramid) {
         continue;
       }
       final distance = current.position.distanceTo(candidate.position);
@@ -503,6 +508,8 @@ class BoardController extends ChangeNotifier {
 
   bool _isAutomaticNestPair(BoardState state, LightElement a, LightElement b) {
     if (a.id == b.id ||
+        a.kind != LightPieceKind.pyramid ||
+        b.kind != LightPieceKind.pyramid ||
         a.pose != PyramidPose.upright ||
         b.pose != PyramidPose.upright ||
         a.illumination != IlluminationPattern.wall ||
@@ -518,11 +525,20 @@ class BoardController extends ChangeNotifier {
   }
 
   double _boundingRadiusMm(LightElement element) {
-    final halfBase = geometry.baseMm(element.size) / 2;
+    final base = geometry.baseMm(element.size);
+    final halfBase = base / 2;
     if (element.pose == PyramidPose.upright) {
       return math.sqrt(halfBase * halfBase * 2);
     }
-    final halfLength = geometry.flatLengthMm(element.size) / 2;
+    final height = geometry.flatLengthMm(element.size);
+    final length = switch (element.kind) {
+      LightPieceKind.pyramid || LightPieceKind.block => height,
+      LightPieceKind.wedge =>
+        element.wedgeFlatFace == WedgeFlatFace.rectangle
+            ? math.sqrt(base * base + height * height)
+            : height,
+    };
+    final halfLength = length / 2;
     return math.sqrt(halfBase * halfBase + halfLength * halfLength);
   }
 
