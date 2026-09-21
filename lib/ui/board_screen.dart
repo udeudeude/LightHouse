@@ -3950,6 +3950,83 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _showHistoryControls();
   }
 
+  Widget _zendoRuleCard() {
+    final rule = _activeZendoRule;
+    if (rule == null || !_zendoRuleVisible || _remoteDisplayMode) {
+      return const SizedBox.shrink();
+    }
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          child: Material(
+            color: const Color(0xEE171717),
+            elevation: 8,
+            borderRadius: BorderRadius.circular(10),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.psychology_alt_outlined,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'ZENDO · SECRET RULE',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            rule.text,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              height: 1.25,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Hide secret rule',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() => _zendoRuleVisible = false),
+                      icon: const Icon(
+                        Icons.visibility_off,
+                        color: Colors.white54,
+                        size: 19,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _instructionsPane() {
     final size = MediaQuery.sizeOf(context);
     final isDesktop =
@@ -4408,6 +4485,21 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
+        if (_boxedZendoEnabled || _zendoPiecesSnapshot.pieces.isNotEmpty)
+          Padding(
+            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
+            child: IgnorePointer(
+              ignoring: _remoteDisplayMode,
+              child: ZendoPiecesWidget(
+                geometry: _controller.geometry,
+                logicalPixelsPerMm: _pixelsPerMm,
+                snapshot: _zendoPiecesSnapshot,
+                onChanged:
+                    _remoteDisplayMode ? null : _handleZendoPiecesSnapshot,
+                showTray: !_remoteDisplayMode && _boxedZendoEnabled,
+              ),
+            ),
+          ),
         if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)
           Padding(padding: safePadding, child: _sideGunAimHandles()),
         SafeArea(
@@ -4440,6 +4532,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
+        if (_activeZendoRule != null &&
+            _zendoRuleVisible &&
+            !_remoteDisplayMode)
+          _zendoRuleCard(),
         if (_instructionsVisible) _instructionsPane(),
         if (_creditsVisible) Positioned.fill(child: _credits()),
       ],
