@@ -34,6 +34,7 @@ import 'dice_bubble.dart';
 import 'remote_board_viewport.dart';
 import 'ripple_overlay.dart';
 import 'pyramid_love_board_icon.dart';
+import 'pyramid_love_toy_icon.dart';
 import 'toy_overlay.dart';
 import 'zendo_stones.dart';
 
@@ -3566,11 +3567,20 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _toggleUnderlaySelection(underlay);
   }
 
-  IconData _toyIcon(_ToyKind toy) {
-    if (toy == _ToyKind.entropy) {
-      return _entropyEnabled ? Icons.hourglass_top : Icons.hourglass_bottom;
+  Widget _toyMenuIcon(_ToyKind toy, Color color) {
+    final artwork = switch (toy) {
+      _ToyKind.nestCycle => PyramidLoveToyIconKind.nest,
+      _ToyKind.zendoStones => PyramidLoveToyIconKind.zendoMarkers,
+      _ToyKind.triangleBounce => PyramidLoveToyIconKind.eastQueen,
+      _ => null,
+    };
+    if (artwork != null) {
+      return PyramidLoveToyIcon(artwork, color: color, size: 21);
     }
-    return toy.icon;
+    final icon = toy == _ToyKind.entropy
+        ? (_entropyEnabled ? Icons.hourglass_top : Icons.hourglass_bottom)
+        : toy.icon;
+    return Icon(icon, size: 21, color: color);
   }
 
   Future<void> _showToyMenu() async {
@@ -3630,12 +3640,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                                             : Colors.transparent,
                                       ),
                                     ),
-                                    child: Icon(
-                                      _toyIcon(toy),
-                                      size: 21,
-                                      color:
-                                          (_toyVisible[toy] ??
-                                              toy.defaultVisible)
+                                    child: _toyMenuIcon(
+                                      toy,
+                                      (_toyVisible[toy] ?? toy.defaultVisible)
                                           ? Colors.white
                                           : Colors.white38,
                                     ),
