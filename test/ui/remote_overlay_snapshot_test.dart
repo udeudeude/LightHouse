@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lighthouse/ui/dice_bubble.dart';
+import 'package:lighthouse/ui/zendo_pieces.dart';
 import 'package:lighthouse/ui/zendo_stones.dart';
 
 void main() {
@@ -69,4 +70,27 @@ void main() {
     expect(decoded.stones.single.kind, 'green');
     expect(decoded.stones.single.id, 9);
   });
+  test('boxed Zendo pieces snapshot round trips', () {
+    const source = ZendoPiecesSnapshot(
+      revision: 6,
+      pieces: [
+        ZendoPieceSnapshot(
+          id: 12,
+          shape: 'wedge',
+          orientation: 'wedgeDoorstop',
+          xFraction: 0.31,
+          yFraction: 0.64,
+          headingDegrees: 27,
+        ),
+      ],
+    );
+    final decoded = ZendoPiecesSnapshot.fromJson(source.toJson());
+    expect(decoded, isNotNull);
+    expect(decoded!.revision, 6);
+    expect(decoded.pieces.single.id, 12);
+    expect(decoded.pieces.single.shape, 'wedge');
+    expect(decoded.pieces.single.orientation, 'wedgeDoorstop');
+    expect(decoded.pieces.single.headingDegrees, closeTo(27, 0.001));
+  });
+
 }
