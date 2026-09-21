@@ -43,7 +43,10 @@ class _Glyph {
         bottom = math.max(bottom, point.dy);
       }
     }
-    if (!left.isFinite || !top.isFinite || !right.isFinite || !bottom.isFinite) {
+    if (!left.isFinite ||
+        !top.isFinite ||
+        !right.isFinite ||
+        !bottom.isFinite) {
       return Rect.fromLTWH(0, 0, width, height);
     }
     return Rect.fromLTRB(left, top, right, bottom);

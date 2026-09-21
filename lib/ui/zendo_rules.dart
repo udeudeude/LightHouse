@@ -30,8 +30,7 @@ const zendoCommunityRules = <ZendoCommunityRule>[
     difficulty: ZendoRuleDifficulty.easy,
     universe: ZendoRuleUniverse.any,
     sourceLabel: 'BoardGameGeek · Zendo and the scientific method',
-    sourceUrl:
-        'https://boardgamegeek.com/blog/812/blogpost/5759/zendo-as-a-tool-for-teaching-the-scientific-method',
+    sourceUrl: 'https://boardgamegeek.com/blog/812/blogpost/5759/zendo-as-a-tool-for-teaching-the-scientific-method',
   ),
   ZendoCommunityRule(
     id: 'one-medium',
@@ -39,8 +38,7 @@ const zendoCommunityRules = <ZendoCommunityRule>[
     difficulty: ZendoRuleDifficulty.easy,
     universe: ZendoRuleUniverse.pyramidTrio,
     sourceLabel: 'BoardGameGeek · Pretty Sneaky, Sis review',
-    sourceUrl:
-        'https://boardgamegeek.com/thread/1047875/pretty-sneaky-sis-pyramid-scheme-a-zendo-review',
+    sourceUrl: 'https://boardgamegeek.com/thread/1047875/pretty-sneaky-sis-pyramid-scheme-a-zendo-review',
   ),
   ZendoCommunityRule(
     id: 'blue-pyramid',
@@ -48,8 +46,7 @@ const zendoCommunityRules = <ZendoCommunityRule>[
     difficulty: ZendoRuleDifficulty.easy,
     universe: ZendoRuleUniverse.pyramidTrio,
     sourceLabel: 'BoardGameGeek · game-night report',
-    sourceUrl:
-        'https://boardgamegeek.com/geeklist/145548/game-night-ministers-to-the-rash-tube-past-the-toa',
+    sourceUrl: 'https://boardgamegeek.com/geeklist/145548/game-night-ministers-to-the-rash-tube-past-the-toa',
   ),
   ZendoCommunityRule(
     id: 'large-blue',
@@ -57,8 +54,7 @@ const zendoCommunityRules = <ZendoCommunityRule>[
     difficulty: ZendoRuleDifficulty.easy,
     universe: ZendoRuleUniverse.pyramidTrio,
     sourceLabel: 'BoardGameGeek · Pretty Sneaky, Sis review',
-    sourceUrl:
-        'https://boardgamegeek.com/thread/1047875/pretty-sneaky-sis-pyramid-scheme-a-zendo-review',
+    sourceUrl: 'https://boardgamegeek.com/thread/1047875/pretty-sneaky-sis-pyramid-scheme-a-zendo-review',
   ),
   ZendoCommunityRule(
     id: 'medium-touch',
@@ -66,8 +62,7 @@ const zendoCommunityRules = <ZendoCommunityRule>[
     difficulty: ZendoRuleDifficulty.medium,
     universe: ZendoRuleUniverse.pyramidTrio,
     sourceLabel: 'BoardGameGeek · The best way to play Zendo?',
-    sourceUrl:
-        'https://boardgamegeek.com/geeklist/33356/the-best-way-to-play-zendo-please-vote',
+    sourceUrl: 'https://boardgamegeek.com/geeklist/33356/the-best-way-to-play-zendo-please-vote',
   ),
   ZendoCommunityRule(
     id: 'no-pointing',
@@ -75,8 +70,7 @@ const zendoCommunityRules = <ZendoCommunityRule>[
     difficulty: ZendoRuleDifficulty.medium,
     universe: ZendoRuleUniverse.any,
     sourceLabel: 'BoardGameGeek · game-night report',
-    sourceUrl:
-        'https://boardgamegeek.com/geeklist/145548/game-night-ministers-to-the-rash-tube-past-the-toa',
+    sourceUrl: 'https://boardgamegeek.com/geeklist/145548/game-night-ministers-to-the-rash-tube-past-the-toa',
   ),
   ZendoCommunityRule(
     id: 'uprights-same-size',
@@ -84,8 +78,7 @@ const zendoCommunityRules = <ZendoCommunityRule>[
     difficulty: ZendoRuleDifficulty.medium,
     universe: ZendoRuleUniverse.pyramidTrio,
     sourceLabel: 'BoardGameGeek · game-night report',
-    sourceUrl:
-        'https://boardgamegeek.com/geeklist/145548/game-night-ministers-to-the-rash-tube-past-the-toa',
+    sourceUrl: 'https://boardgamegeek.com/geeklist/145548/game-night-ministers-to-the-rash-tube-past-the-toa',
   ),
   ZendoCommunityRule(
     id: 'green-over-red',
@@ -93,43 +86,37 @@ const zendoCommunityRules = <ZendoCommunityRule>[
     difficulty: ZendoRuleDifficulty.medium,
     universe: ZendoRuleUniverse.pyramidTrio,
     sourceLabel: 'BoardGameGeek · community difficulty thread',
-    sourceUrl:
-        'https://boardgamegeek.com/thread/3111857/what-are-some-rules-you-came-up-with-as-master-tha',
+    sourceUrl: 'https://boardgamegeek.com/thread/3111857/what-are-some-rules-you-came-up-with-as-master-tha',
   ),
   ZendoCommunityRule(
     id: 'ignore-small',
-    text:
-        'Ignoring small pyramids, there are more blue pyramids than yellow pyramids.',
+    text: 'Ignoring small pyramids, there are more blue pyramids than yellow pyramids.',
     difficulty: ZendoRuleDifficulty.hard,
     universe: ZendoRuleUniverse.pyramidTrio,
     sourceLabel: 'BoardGameGeek · community difficulty thread',
-    sourceUrl:
-        'https://boardgamegeek.com/thread/3111857/what-are-some-rules-you-came-up-with-as-master-tha',
+    sourceUrl: 'https://boardgamegeek.com/thread/3111857/what-are-some-rules-you-came-up-with-as-master-tha',
   ),
   ZendoCommunityRule(
     id: 'boxed-five-points',
-    text:
-        'Count a pyramid as 1, a wedge as 2, and a block as 4; the structure totals exactly 5.',
+    text: 'Count a pyramid as 1, a wedge as 2, and a block as 4; the structure totals exactly 5.',
     difficulty: ZendoRuleDifficulty.hard,
     universe: ZendoRuleUniverse.boxed,
     sourceLabel: 'BoardGameGeek · Geekway 2023 recap',
-    sourceUrl:
-        'https://boardgamegeek.com/blog/9268/blogpost/148014/geekway-2023-recap-to-feel-the-warm-thrill-of-conf',
+    sourceUrl: 'https://boardgamegeek.com/blog/9268/blogpost/148014/geekway-2023-recap-to-feel-the-warm-thrill-of-conf',
   ),
   ZendoCommunityRule(
     id: 'set-like',
-    text:
-        'Using exactly three pyramids, each chosen attribute is either all the same or all different.',
+    text: 'Using exactly three pyramids, each chosen attribute is either all the same or all different.',
     difficulty: ZendoRuleDifficulty.hard,
     universe: ZendoRuleUniverse.pyramidTrio,
     sourceLabel: 'BoardGameGeek · community difficulty thread',
-    sourceUrl:
-        'https://boardgamegeek.com/thread/3111857/what-are-some-rules-you-came-up-with-as-master-tha',
+    sourceUrl: 'https://boardgamegeek.com/thread/3111857/what-are-some-rules-you-came-up-with-as-master-tha',
   ),
 ];
 
-String zendoDifficultyLabel(ZendoRuleDifficulty difficulty) => switch (difficulty) {
-  ZendoRuleDifficulty.easy => 'Easy',
-  ZendoRuleDifficulty.medium => 'Medium',
-  ZendoRuleDifficulty.hard => 'Hard',
-};
+String zendoDifficultyLabel(ZendoRuleDifficulty difficulty) =>
+    switch (difficulty) {
+      ZendoRuleDifficulty.easy => 'Easy',
+      ZendoRuleDifficulty.medium => 'Medium',
+      ZendoRuleDifficulty.hard => 'Hard',
+    };

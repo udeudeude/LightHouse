@@ -92,5 +92,4 @@ void main() {
     expect(decoded.pieces.single.orientation, 'wedgeDoorstop');
     expect(decoded.pieces.single.headingDegrees, closeTo(27, 0.001));
   });
-
 }

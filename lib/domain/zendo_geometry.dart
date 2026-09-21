@@ -97,11 +97,7 @@ List<PhysicalPoint> zendoLocalFootprint(
       PhysicalPoint(halfBase, halfSlant),
       PhysicalPoint(-halfBase, halfSlant),
     ],
-    _ => zendoLocalFootprint(
-      shape,
-      ZendoPieceOrientation.upright,
-      geometry,
-    ),
+    _ => zendoLocalFootprint(shape, ZendoPieceOrientation.upright, geometry),
   };
 }
 

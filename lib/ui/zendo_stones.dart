@@ -419,12 +419,8 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
   );
 }
 
-
 class _ZendoStonePainter extends CustomPainter {
-  const _ZendoStonePainter({
-    required this.fill,
-    required this.lightBorder,
-  });
+  const _ZendoStonePainter({required this.fill, required this.lightBorder});
 
   final Color fill;
   final bool lightBorder;

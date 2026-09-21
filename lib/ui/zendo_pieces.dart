@@ -254,7 +254,9 @@ class _ZendoPiecesWidgetState extends State<ZendoPiecesWidget> {
     final radius = _interactionRadius;
     return Offset(
       center.dx.clamp(radius, math.max(radius, size.width - radius)).toDouble(),
-      center.dy.clamp(radius, math.max(radius, size.height - radius)).toDouble(),
+      center.dy
+          .clamp(radius, math.max(radius, size.height - radius))
+          .toDouble(),
     );
   }
 
@@ -353,19 +355,15 @@ class _ZendoPiecesWidgetState extends State<ZendoPiecesWidget> {
   Widget _trayButton(ZendoPieceShape shape) => Tooltip(
     message: 'Add ' + _shapeLabel(shape),
     child: GestureDetector(
-      onTap: () => _add(
-        shape,
-        Offset(_surfaceSize.width / 2, _surfaceSize.height / 2),
-      ),
+      onTap: () =>
+          _add(shape, Offset(_surfaceSize.width / 2, _surfaceSize.height / 2)),
       onPanStart: (details) => _beginTrayDrag(shape, details),
       onPanUpdate: _updateTrayDrag,
       onPanEnd: (_) => _endTrayDrag(),
       onPanCancel: _endTrayDrag,
       child: SizedBox.square(
         dimension: 38,
-        child: CustomPaint(
-          painter: _ZendoTrayPiecePainter(shape: shape),
-        ),
+        child: CustomPaint(painter: _ZendoTrayPiecePainter(shape: shape)),
       ),
     ),
   );
@@ -418,8 +416,7 @@ class _ZendoPiecesWidgetState extends State<ZendoPiecesWidget> {
                   onTap: () => _cycleOrientation(piece.id),
                   onDoubleTap: () => _remove(piece.id),
                   onScaleStart: (_) => _gestureStart(piece),
-                  onScaleUpdate: (details) =>
-                      _gestureUpdate(piece.id, details),
+                  onScaleUpdate: (details) => _gestureUpdate(piece.id, details),
                   child: CustomPaint(
                     painter: _ZendoFootprintPainter(
                       piece: piece,
@@ -449,11 +446,7 @@ class _ZendoFootprintPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final local = zendoLocalFootprint(
-      piece.shape,
-      piece.orientation,
-      geometry,
-    );
+    final local = zendoLocalFootprint(piece.shape, piece.orientation, geometry);
     if (local.isEmpty) return;
 
     canvas.save();

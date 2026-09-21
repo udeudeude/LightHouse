@@ -439,9 +439,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               .toDouble();
       _turnTimerActiveDurationSeconds = _turnTimerDurationSeconds;
       final zendoSetName = preferences.getString('lighthouse.zendoPieceSet.v1');
-      _zendoPieceSet = _ZendoPieceSet.values
-          .where((value) => value.name == zendoSetName)
-          .firstOrNull ??
+      _zendoPieceSet =
+          _ZendoPieceSet.values
+              .where((value) => value.name == zendoSetName)
+              .firstOrNull ??
           _ZendoPieceSet.pyramidTrio;
       for (final toy in _ToyKind.values) {
         _toyVisible[toy] =
@@ -3609,8 +3610,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _toggleUnderlaySelection(underlay);
   }
 
-  bool get _boxedZendoEnabled =>
-      _zendoPieceSet != _ZendoPieceSet.pyramidTrio;
+  bool get _boxedZendoEnabled => _zendoPieceSet != _ZendoPieceSet.pyramidTrio;
 
   ZendoCommunityRule? get _activeZendoRule {
     final id = _activeZendoRuleId;
@@ -3754,17 +3754,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           _zendoRuleVisible ? 'Hide Active Rule' : 'Show Active Rule',
         ),
       if (rule != null)
-        _compactMenuItem(
-          'source',
-          Icons.open_in_new,
-          'Open Rule Source',
-        ),
+        _compactMenuItem('source', Icons.open_in_new, 'Open Rule Source'),
       if (rule != null)
-        _compactMenuItem(
-          'clear',
-          Icons.close,
-          'Clear Active Rule',
-        ),
+        _compactMenuItem('clear', Icons.close, 'Clear Active Rule'),
     ]);
     if (!mounted || choice == null) return;
     switch (choice) {
@@ -4010,7 +4002,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                     IconButton(
                       tooltip: 'Hide secret rule',
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => setState(() => _zendoRuleVisible = false),
+                      onPressed: () =>
+                          setState(() => _zendoRuleVisible = false),
                       icon: const Icon(
                         Icons.visibility_off,
                         color: Colors.white54,
@@ -4494,8 +4487,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 geometry: _controller.geometry,
                 logicalPixelsPerMm: _pixelsPerMm,
                 snapshot: _zendoPiecesSnapshot,
-                onChanged:
-                    _remoteDisplayMode ? null : _handleZendoPiecesSnapshot,
+                onChanged: _remoteDisplayMode
+                    ? null
+                    : _handleZendoPiecesSnapshot,
                 showTray: !_remoteDisplayMode && _boxedZendoEnabled,
               ),
             ),
