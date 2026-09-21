@@ -36,7 +36,6 @@ import 'ripple_overlay.dart';
 import 'pyramid_love_board_icon.dart';
 import 'pyramid_love_toy_icon.dart';
 import 'toy_overlay.dart';
-import 'zendo_pieces.dart';
 import 'zendo_rule_library.dart';
 import 'zendo_stones.dart';
 
@@ -196,10 +195,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
   ZendoStonesSnapshot _zendoSnapshot = ZendoStonesSnapshot.initial;
-  ZendoPiecesSnapshot _zendoPiecesSnapshot = ZendoPiecesSnapshot.initial;
-  ZendoPieceSet? _zendoPieceSet;
+  PieceCycleMode _zendoPieceMode = PieceCycleMode.classic;
   int _zendoRuleIndex = -1;
   bool _zendoRuleVisible = false;
+  bool _zendoComplexRules = false;
+  ZendoRuleDifficulty _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
   bool _applyingRemoteState = false;
   bool _remoteSeedReceived = false;
   double? _remoteDisplayWidthMm;
@@ -1711,8 +1711,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     'roundedTriangleTips': _roundedTriangleTips,
     'dice': _diceSnapshot.toJson(),
     'zendo': _zendoSnapshot.toJson(),
-    'zendoPieces': _zendoPiecesSnapshot.toJson(),
-    'zendoPieceSet': _zendoPieceSet?.name,
   };
 
   void _startRemoteRuntimePublisher() {
@@ -1745,11 +1743,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleZendoSnapshot(ZendoStonesSnapshot snapshot) {
     _zendoSnapshot = snapshot;
-    unawaited(_sendRemoteRuntimeIfChanged());
-  }
-
-  void _handleZendoPiecesSnapshot(ZendoPiecesSnapshot snapshot) {
-    _zendoPiecesSnapshot = snapshot;
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
@@ -1838,11 +1831,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         const <String>[];
     final dice = DiceBubbleSnapshot.fromJson(payload['dice']);
     final zendo = ZendoStonesSnapshot.fromJson(payload['zendo']);
-    final zendoPieces = ZendoPiecesSnapshot.fromJson(payload['zendoPieces']);
-    final zendoPieceSetName = payload['zendoPieceSet'];
-    final zendoPieceSet = ZendoPieceSet.values
-        .where((value) => value.name == zendoPieceSetName)
-        .firstOrNull;
 
     _toyTicker?.cancel();
     _toyTicker = null;
@@ -1885,8 +1873,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _roundedTriangleTips = payload['roundedTriangleTips'] == true;
       if (dice != null) _diceSnapshot = dice;
       if (zendo != null) _zendoSnapshot = zendo;
-      if (zendoPieces != null) _zendoPiecesSnapshot = zendoPieces;
-      _zendoPieceSet = zendoPieceSet;
     });
     _toyRevision.value += 1;
   }
@@ -2451,9 +2437,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       return;
     }
     if (target == null) {
-      _controller.createAt(point);
+      _controller.createAt(point, mode: _zendoPieceMode);
     } else {
-      _controller.cycleSizeOrDelete(target);
+      _controller.cycleSizeOrDelete(target, mode: _zendoPieceMode);
     }
     HapticFeedback.selectionClick();
   }
@@ -2606,24 +2592,36 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _clearGesture();
   }
 
+  double _flatFootprintLengthMm(LightElement element) {
+    final base = _controller.geometry.baseMm(element.size);
+    final height = _controller.geometry.flatLengthMm(element.size);
+    return switch (element.kind) {
+      LightPieceKind.pyramid || LightPieceKind.block => height,
+      LightPieceKind.wedge =>
+        element.wedgeFlatFace == WedgeFlatFace.rectangle
+            ? math.sqrt(base * base + height * height)
+            : height,
+    };
+  }
+
   bool _crossesFlatBaseEdge(
-    LightElement triangle,
+    LightElement element,
     PhysicalPoint start,
     PhysicalPoint end,
   ) {
-    if (!_containsPoint(triangle, start) || _containsPoint(triangle, end)) {
+    if (!_containsPoint(element, start) || _containsPoint(element, end)) {
       return false;
     }
     final localStart = rotateVector(
-      start - triangle.position,
-      -triangle.headingDegrees,
+      start - element.position,
+      -element.headingDegrees,
     );
     final localEnd = rotateVector(
-      end - triangle.position,
-      -triangle.headingDegrees,
+      end - element.position,
+      -element.headingDegrees,
     );
-    final halfLength = _controller.geometry.flatLengthMm(triangle.size) / 2;
-    final halfBase = _controller.geometry.baseMm(triangle.size) / 2;
+    final halfLength = _flatFootprintLengthMm(element) / 2;
+    final halfBase = _controller.geometry.baseMm(element.size) / 2;
     final deltaY = localEnd.yMm - localStart.yMm;
     if (deltaY <= 0 || localEnd.yMm <= halfLength) return false;
 
@@ -3368,34 +3366,39 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       ),
       const PopupMenuDivider(),
       _compactMenuItem(
-        'pyramids',
+        'classic',
         Icons.change_history_outlined,
-        'Pieces: S / M / L Pyramids',
-        checked: _zendoPieceSet == ZendoPieceSet.pyramids,
+        'Classic',
+        checked: _zendoPieceMode == PieceCycleMode.classic,
       ),
       _compactMenuItem(
-        'boxed',
+        'zendo20',
         Icons.category_outlined,
-        'Pieces: M Pyramid / Wedge / Block',
-        checked: _zendoPieceSet == ZendoPieceSet.boxed,
+        'Zendo 2.0',
+        checked: _zendoPieceMode == PieceCycleMode.zendo20,
       ),
       _compactMenuItem(
         'both',
         Icons.view_comfy_alt_outlined,
-        'Pieces: Both Sets',
-        checked: _zendoPieceSet == ZendoPieceSet.both,
-      ),
-      _compactMenuItem(
-        'piecesOff',
-        Icons.layers_clear_outlined,
-        'Pieces: Off',
-        checked: _zendoPieceSet == null,
+        'Classic + Zendo 2.0',
+        checked: _zendoPieceMode == PieceCycleMode.both,
       ),
       const PopupMenuDivider(),
       _compactMenuItem(
         'newRule',
         Icons.shuffle,
-        ruleActive ? 'Another Community Rule' : 'Community Rule',
+        ruleActive ? 'Different Zendo Rule' : 'Zendo Rule',
+      ),
+      _compactMenuItem(
+        'difficulty',
+        Icons.tune,
+        'Difficulty: ${_zendoRuleDifficulty.label}',
+      ),
+      _compactMenuItem(
+        'complex',
+        Icons.psychology_alt_outlined,
+        'Complex Rules',
+        checked: _zendoComplexRules,
       ),
       if (ruleActive)
         _compactMenuItem(
@@ -3409,43 +3412,84 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       case 'stones':
         _toggleOverlayToy(_ToyKind.zendoStones);
         unawaited(_sendRemoteRuntimeIfChanged(force: true));
-      case 'pyramids':
-        setState(() => _zendoPieceSet = ZendoPieceSet.pyramids);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
-      case 'boxed':
-        setState(() => _zendoPieceSet = ZendoPieceSet.boxed);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
+      case 'classic':
+        setState(() => _zendoPieceMode = PieceCycleMode.classic);
+      case 'zendo20':
+        setState(() => _zendoPieceMode = PieceCycleMode.zendo20);
+        _ensureRuleStillCompatible();
       case 'both':
-        setState(() => _zendoPieceSet = ZendoPieceSet.both);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
-      case 'piecesOff':
-        setState(() => _zendoPieceSet = null);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
+        setState(() => _zendoPieceMode = PieceCycleMode.both);
       case 'newRule':
         _chooseNextZendoRule();
+      case 'difficulty':
+        await _showZendoDifficultyMenu();
+      case 'complex':
+        setState(() {
+          _zendoComplexRules = !_zendoComplexRules;
+          if (!_zendoComplexRules) {
+            _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
+          }
+        });
+        _ensureRuleStillCompatible();
       case 'ruleVisibility':
         setState(() => _zendoRuleVisible = !_zendoRuleVisible);
     }
   }
 
-  void _chooseNextZendoRule() {
-    final compatible = <int>[];
-    for (var i = 0; i < zendoCommunityRules.length; i += 1) {
-      final compatibility = zendoCommunityRules[i].compatibility;
-      final allowed = switch (_zendoPieceSet) {
-        ZendoPieceSet.pyramids => compatibility != 'boxed',
-        ZendoPieceSet.boxed => compatibility != 'pyramids',
-        ZendoPieceSet.both || null => true,
-      };
-      if (allowed) compatible.add(i);
+  Future<void> _showZendoDifficultyMenu() async {
+    final available = _zendoComplexRules
+        ? ZendoRuleDifficulty.values
+        : const [ZendoRuleDifficulty.easy];
+    final choice = await _showCompactMenu([
+      for (final difficulty in available)
+        _compactMenuItem(
+          difficulty.name,
+          Icons.radio_button_unchecked,
+          difficulty.label,
+          checked: _zendoRuleDifficulty == difficulty,
+        ),
+    ]);
+    if (!mounted || choice == null) return;
+    final difficulty = ZendoRuleDifficulty.values
+        .where((value) => value.name == choice)
+        .firstOrNull;
+    if (difficulty == null) return;
+    setState(() => _zendoRuleDifficulty = difficulty);
+    _chooseNextZendoRule();
+  }
+
+  bool _ruleCompatible(ZendoRule rule) {
+    if (rule.difficulty != _zendoRuleDifficulty) return false;
+    if (!_zendoComplexRules && rule.difficulty != ZendoRuleDifficulty.easy) {
+      return false;
     }
+    if (_zendoPieceMode == PieceCycleMode.zendo20 &&
+        !rule.suitableForZendo20) {
+      return false;
+    }
+    return true;
+  }
+
+  void _ensureRuleStillCompatible() {
+    final index = _zendoRuleIndex;
+    if (index < 0 || index >= zendoRules.length) return;
+    if (_ruleCompatible(zendoRules[index])) return;
+    _chooseNextZendoRule();
+  }
+
+  void _chooseNextZendoRule() {
+    final compatible = <int>[
+      for (var i = 0; i < zendoRules.length; i += 1)
+        if (_ruleCompatible(zendoRules[i])) i,
+    ];
     if (compatible.isEmpty) return;
-    final currentPosition = compatible.indexOf(_zendoRuleIndex);
-    final nextPosition = currentPosition < 0
-        ? _random.nextInt(compatible.length)
-        : (currentPosition + 1) % compatible.length;
+    final withoutCurrent = compatible
+        .where((index) => index != _zendoRuleIndex)
+        .toList(growable: false);
+    final pool = withoutCurrent.isEmpty ? compatible : withoutCurrent;
+    final next = pool[_random.nextInt(pool.length)];
     setState(() {
-      _zendoRuleIndex = compatible[nextPosition];
+      _zendoRuleIndex = next;
       _zendoRuleVisible = true;
     });
   }
@@ -3453,24 +3497,24 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Widget _zendoRuleCard() {
     if (!_zendoRuleVisible ||
         _zendoRuleIndex < 0 ||
-        _zendoRuleIndex >= zendoCommunityRules.length ||
+        _zendoRuleIndex >= zendoRules.length ||
         _remoteDisplayMode) {
       return const SizedBox.shrink();
     }
-    final rule = zendoCommunityRules[_zendoRuleIndex];
+    final rule = zendoRules[_zendoRuleIndex];
     return SafeArea(
       child: Align(
-        alignment: Alignment.topCenter,
+        alignment: Alignment.bottomCenter,
         child: Padding(
-          padding: const EdgeInsets.only(top: 10, left: 60, right: 60),
+          padding: const EdgeInsets.fromLTRB(70, 8, 70, 62),
           child: Material(
             color: const Color(0xED171717),
             elevation: 8,
             borderRadius: BorderRadius.circular(10),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 430),
+              constraints: const BoxConstraints(maxWidth: 460),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 9, 8, 9),
+                padding: const EdgeInsets.fromLTRB(14, 9, 4, 9),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -3479,13 +3523,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'ZENDO RULE',
-                            style: TextStyle(
+                          Text(
+                            'ZENDO RULE · ${rule.difficulty.label.toUpperCase()}',
+                            style: const TextStyle(
                               color: Colors.white54,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
+                              letterSpacing: 1.0,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -3497,30 +3541,27 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () => unawaited(
-                              launchUrl(
-                                Uri.parse(rule.sourceUrl),
-                                mode: LaunchMode.externalApplication,
-                              ),
-                            ),
-                            child: Text(
-                              rule.sourceLabel,
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 10,
-                                decoration: TextDecoration.underline,
-                              ),
+                          const SizedBox(height: 2),
+                          Text(
+                            rule.source,
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 9,
                             ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
+                      tooltip: 'Different rule',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _chooseNextZendoRule,
+                      icon: const Icon(Icons.shuffle, size: 18),
+                    ),
+                    IconButton(
                       tooltip: 'Hide rule',
                       visualDensity: VisualDensity.compact,
-                      onPressed: () =>
-                          setState(() => _zendoRuleVisible = false),
+                      onPressed: () => setState(() => _zendoRuleVisible = false),
                       icon: const Icon(Icons.visibility_off, size: 18),
                     ),
                   ],
@@ -3784,7 +3825,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       };
       final icon = PyramidLoveToyIcon(artwork, color: color, size: size);
       if (toy == _ToyKind.nestCycle && inMenu) {
-        return Transform.translate(offset: const Offset(0, -5.5), child: icon);
+        return Transform.translate(
+          offset: Offset(0, inMenu ? -8.0 : -5.0),
+          child: icon,
+        );
       }
       return icon;
     }
@@ -4383,23 +4427,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 snapshot: _zendoSnapshot,
                 onChanged: _remoteDisplayMode ? null : _handleZendoSnapshot,
                 scale: _remoteUiScale,
-              ),
-            ),
-          ),
-        if (_zendoPieceSet != null)
-          Padding(
-            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
-            child: IgnorePointer(
-              ignoring: _remoteDisplayMode,
-              child: ZendoPiecesWidget(
-                snapshot: _zendoPiecesSnapshot,
-                onChanged: _remoteDisplayMode
-                    ? null
-                    : _handleZendoPiecesSnapshot,
-                scale: _remoteUiScale,
-                pixelsPerMm: _pixelsPerMm,
-                pieceSet: _zendoPieceSet!,
-                showTray: !_remoteDisplayMode,
               ),
             ),
           ),
