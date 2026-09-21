@@ -797,31 +797,40 @@ class _DieSelectorMarkPainter extends CustomPainter {
   }
 
   void _paintPyramid(Canvas canvas, Offset center, Size size) {
-    final height = size.height * 0.58;
-    final halfHeight = height / 2;
-    final halfBase = halfHeight / pyramidDieHeightToBaseRatio;
-    final path = Path()
-      ..moveTo(center.dx, center.dy - halfHeight)
-      ..lineTo(center.dx + halfBase, center.dy + halfHeight)
-      ..lineTo(center.dx - halfBase, center.dy + halfHeight)
-      ..close();
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = foreground
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(1.4, size.shortestSide * 0.045)
-        ..strokeJoin = StrokeJoin.round,
-    );
-    final pipRadius = size.shortestSide * 0.045;
-    final spacing = halfBase * 0.54;
-    for (var i = -1; i <= 1; i += 1) {
-      canvas.drawCircle(
-        Offset(center.dx + spacing * i, center.dy + halfHeight * 0.68),
-        pipRadius,
-        Paint()..color = foreground,
-      );
+    final paint = Paint()
+      ..color = foreground
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.25, size.shortestSide * 0.035)
+      ..strokeJoin = StrokeJoin.round;
+    final pipPaint = Paint()..color = foreground;
+    final baseline = size.height * 0.73;
+
+    void drawPyramid(double x, double height, int pips) {
+      final halfHeight = height / 2;
+      final halfBase = halfHeight / pyramidDieHeightToBaseRatio;
+      final cy = baseline - halfHeight;
+      final path = Path()
+        ..moveTo(x, cy - halfHeight)
+        ..lineTo(x + halfBase, baseline)
+        ..lineTo(x - halfBase, baseline)
+        ..close();
+      canvas.drawPath(path, paint);
+      final spacing = halfBase * 0.58;
+      final start = x - spacing * (pips - 1) / 2;
+      for (var i = 0; i < pips; i += 1) {
+        canvas.drawCircle(
+          Offset(start + i * spacing, baseline - height * 0.10),
+          math.max(1.05, size.shortestSide * 0.027),
+          pipPaint,
+        );
+      }
     }
+
+    // Keep the physical S:M:L proportions legible in the selector rather
+    // than showing three identical symbolic triangles.
+    drawPyramid(size.width * 0.22, size.height * 0.27, 1);
+    drawPyramid(size.width * 0.50, size.height * 0.375, 2);
+    drawPyramid(size.width * 0.78, size.height * 0.48, 3);
   }
 
   void _paintTreehouse(Canvas canvas, Offset center, Size size) {
@@ -1857,6 +1866,15 @@ class _DiceBubblePainter extends CustomPainter {
     _Face face,
     Paint paint,
   ) {
+    const smallRatio = 0.5625;
+    const mediumRatio = 0.78125;
+    const singleLarge = 0.62;
+    const comboLarge = 0.48;
+    const singleSmall = singleLarge * smallRatio;
+    const singleMedium = singleLarge * mediumRatio;
+    const comboSmall = comboLarge * smallRatio;
+    const comboMedium = comboLarge * mediumRatio;
+
     switch (face.index) {
       case 0: // Small.
         _paintPyramidFace(
@@ -1867,7 +1885,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.04,
-          radius: 0.42,
+          radius: singleSmall,
           pips: 1,
           paint: paint,
         );
@@ -1880,7 +1898,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.04,
-          radius: 0.50,
+          radius: singleMedium,
           pips: 2,
           paint: paint,
         );
@@ -1893,7 +1911,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.03,
-          radius: 0.58,
+          radius: singleLarge,
           pips: 3,
           paint: paint,
         );
@@ -1904,9 +1922,9 @@ class _DiceBubblePainter extends CustomPainter {
           scale,
           rotation,
           face,
-          x: -0.28,
-          y: -0.12,
-          radius: 0.31,
+          x: -0.30,
+          y: -0.13,
+          radius: comboSmall,
           pips: 1,
           paint: paint,
           inverted: true,
@@ -1917,9 +1935,9 @@ class _DiceBubblePainter extends CustomPainter {
           scale,
           rotation,
           face,
-          x: 0.26,
+          x: 0.25,
           y: 0.18,
-          radius: 0.39,
+          radius: comboMedium,
           pips: 2,
           paint: paint,
         );
@@ -1932,7 +1950,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.31,
           y: -0.14,
-          radius: 0.30,
+          radius: comboSmall,
           pips: 1,
           paint: paint,
           inverted: true,
@@ -1943,9 +1961,9 @@ class _DiceBubblePainter extends CustomPainter {
           scale,
           rotation,
           face,
-          x: 0.23,
+          x: 0.22,
           y: 0.18,
-          radius: 0.47,
+          radius: comboLarge,
           pips: 3,
           paint: paint,
         );
@@ -1958,7 +1976,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.31,
           y: -0.14,
-          radius: 0.34,
+          radius: comboMedium,
           pips: 2,
           paint: paint,
           inverted: true,
@@ -1971,7 +1989,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0.24,
           y: 0.18,
-          radius: 0.47,
+          radius: comboLarge,
           pips: 3,
           paint: paint,
         );
