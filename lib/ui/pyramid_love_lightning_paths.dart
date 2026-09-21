@@ -1,25 +1,13 @@
 import 'dart:ui';
 
-final pyramidLoveLightningBoltContours = _flattenSvg(
-  _boltPath,
-  372,
-  512,
-);
-final pyramidLoveLightningAtomContours = _flattenSvg(
-  _atomPath,
-  474,
-  512,
-);
+final pyramidLoveLightningBoltContours = _flattenSvg(_boltPath, 372, 512);
+final pyramidLoveLightningAtomContours = _flattenSvg(_atomPath, 474, 512);
 final pyramidLoveLightningSplitCircleContours = _flattenSvg(
   '$_splitCircleLeftPath $_splitCircleRightPath',
   529,
   512,
 );
-final pyramidLoveLightningArrowContours = _flattenSvg(
-  _arrowPath,
-  512,
-  512,
-);
+final pyramidLoveLightningArrowContours = _flattenSvg(_arrowPath, 512, 512);
 final pyramidLoveLightningPyramidsContours = _flattenSvg(
   '$_pyramidsLargePath $_pyramidsSmallPath',
   523,
@@ -32,9 +20,10 @@ final pyramidLoveLightningRecycleContours = _flattenSvg(
 );
 
 List<List<Offset>> _flattenSvg(String data, double width, double height) {
-  final tokens = RegExp(
-    r'[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?',
-  ).allMatches(data).map((match) => match.group(0)!).toList(growable: false);
+  final tokens = RegExp(r'[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?')
+      .allMatches(data)
+      .map((match) => match.group(0)!)
+      .toList(growable: false);
   final contours = <List<Offset>>[];
   var contour = <Offset>[];
   var index = 0;
@@ -128,7 +117,8 @@ List<List<Offset>> _flattenSvg(String data, double width, double height) {
       case 's':
         if (!hasNumber()) continue;
         final p0 = current;
-        final p1 = (previousCommand == 'c' || previousCommand == 's') &&
+        final p1 =
+            (previousCommand == 'c' || previousCommand == 's') &&
                 previousControl != null
             ? current * 2 - previousControl!
             : current;
