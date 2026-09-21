@@ -3567,11 +3567,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _toggleUnderlaySelection(underlay);
   }
 
-  Widget _toyIcon(
-    _ToyKind toy,
-    Color color, {
-    required bool inMenu,
-  }) {
+  Widget _toyIcon(_ToyKind toy, Color color, {required bool inMenu}) {
     final artwork = switch (toy) {
       _ToyKind.nestCycle => PyramidLoveToyIconKind.nest,
       _ToyKind.zendoStones => PyramidLoveToyIconKind.zendoMarkers,
@@ -3582,8 +3578,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       final size = switch ((toy, inMenu)) {
         (_ToyKind.nestCycle, true) => 21.0,
         (_ToyKind.nestCycle, false) => 28.0,
-        (_ToyKind.zendoStones, true) ||
-        (_ToyKind.triangleBounce, true) => 17.0,
+        (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 17.0,
         _ => 21.0,
       };
       final icon = PyramidLoveToyIcon(artwork, color: color, size: size);

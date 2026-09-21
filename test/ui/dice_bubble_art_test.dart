@@ -153,5 +153,4 @@ void main() {
     expect(find.text('Dice · 0/3 selected'), findsNothing);
     expect(tester.takeException(), isNull);
   });
-
 }
