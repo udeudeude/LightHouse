@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'pyramid_love_lightning_paths.dart';
+
 enum ArcadeDieKind { standard, lightning, pyramid, treehouse, color }
 
 bool arcadeDieUsesDarkBody(ArcadeDieKind kind) =>
@@ -1207,215 +1209,53 @@ class _DiceBubblePainter extends CustomPainter {
           Paint()..color = Colors.yellow,
         );
       case 5: // Pyramid Love: wild atom.
-        _paintHubAtom(canvas, center, scale, rotation, face, black);
-    }
-  }
-
-  void _lineOnFace(
-    Canvas canvas,
-    Offset center,
-    double scale,
-    _Rotation3 rotation,
-    _Face face,
-    Offset a,
-    Offset b,
-    Paint paint,
-  ) {
-    canvas.drawLine(
-      _facePoint(center, scale, rotation, face, a.dx, a.dy),
-      _facePoint(center, scale, rotation, face, b.dx, b.dy),
-      paint,
-    );
-  }
-
-  void _paintHubAtom(
-    Canvas canvas,
-    Offset center,
-    double scale,
-    _Rotation3 rotation,
-    _Face face,
-    Paint fill,
-  ) {
-    final stroke = Paint()
-      ..color = fill.color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(0.9, scale * 0.075)
-      ..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 8; i += 1) {
-      final angle = -math.pi / 2 + i * math.pi / 4;
-      final inner = Offset(math.cos(angle) * 0.15, math.sin(angle) * 0.15);
-      final outer = Offset(math.cos(angle) * 0.49, math.sin(angle) * 0.49);
-      _lineOnFace(canvas, center, scale, rotation, face, inner, outer, stroke);
-      _projectedDisc(
-        canvas,
-        center,
-        scale,
-        rotation,
-        face,
-        outer.dx,
-        outer.dy,
-        0.105,
-        fill,
-      );
-    }
-    _projectedDisc(canvas, center, scale, rotation, face, 0, 0, 0.18, fill);
-  }
-
-  void _paintSplitCircle(
-    Canvas canvas,
-    Offset center,
-    double scale,
-    _Rotation3 rotation,
-    _Face face,
-    Paint fill,
-  ) {
-    List<Offset> half(double startAngle, double endAngle, double shift) {
-      final points = <Offset>[];
-      for (var i = 0; i <= 16; i += 1) {
-        final t = i / 16;
-        final angle = startAngle + (endAngle - startAngle) * t;
-        points.add(
-          Offset(shift + math.cos(angle) * 0.53, math.sin(angle) * 0.53),
-        );
-      }
-      points.add(Offset(shift, 0));
-      return points;
-    }
-
-    _projectedPolygon(
-      canvas,
-      center,
-      scale,
-      rotation,
-      face,
-      half(math.pi / 2, 3 * math.pi / 2, -0.055),
-      fill,
-    );
-    _projectedPolygon(
-      canvas,
-      center,
-      scale,
-      rotation,
-      face,
-      half(-math.pi / 2, math.pi / 2, 0.055),
-      fill,
-    );
-  }
-
-  void _drawFaceArc(
-    Canvas canvas,
-    Offset center,
-    double scale,
-    _Rotation3 rotation,
-    _Face face,
-    double startAngle,
-    double sweep,
-    double radius,
-    Paint paint,
-  ) {
-    Offset? previous;
-    const segments = 14;
-    for (var i = 0; i <= segments; i += 1) {
-      final angle = startAngle + sweep * i / segments;
-      final current = Offset(
-        math.cos(angle) * radius,
-        math.sin(angle) * radius,
-      );
-      if (previous != null) {
-        _lineOnFace(
+        _paintPyramidLoveContours(
           canvas,
           center,
           scale,
           rotation,
           face,
-          previous,
-          current,
-          paint,
+          pyramidLoveLightningAtomContours,
+          black,
         );
-      }
-      previous = current;
     }
   }
 
-  void _paintFaceArrowhead(
+  void _paintPyramidLoveContours(
     Canvas canvas,
     Offset center,
     double scale,
     _Rotation3 rotation,
     _Face face,
-    Offset tip,
-    double direction,
-    Paint fill,
+    List<List<Offset>> contours,
+    Paint paint,
   ) {
-    const length = 0.27;
-    const half = 0.18;
-    final back =
-        tip - Offset(math.cos(direction), math.sin(direction)) * length;
-    final normal = Offset(-math.sin(direction), math.cos(direction));
-    _projectedPolygon(canvas, center, scale, rotation, face, <Offset>[
-      tip,
-      back + normal * half,
-      back - normal * half,
-    ], fill);
-  }
-
-  void _paintRecycle(
-    Canvas canvas,
-    Offset center,
-    double scale,
-    _Rotation3 rotation,
-    _Face face,
-    Paint fill,
-  ) {
-    final stroke = Paint()
-      ..color = fill.color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.2, scale * 0.13)
-      ..strokeCap = StrokeCap.round;
-    _drawFaceArc(
-      canvas,
-      center,
-      scale,
-      rotation,
-      face,
-      -2.75,
-      2.45,
-      0.38,
-      stroke,
-    );
-    _drawFaceArc(
-      canvas,
-      center,
-      scale,
-      rotation,
-      face,
-      0.39,
-      2.45,
-      0.38,
-      stroke,
-    );
-    final firstTip = Offset(math.cos(-0.30) * 0.38, math.sin(-0.30) * 0.38);
-    final secondTip = Offset(math.cos(2.84) * 0.38, math.sin(2.84) * 0.38);
-    _paintFaceArrowhead(
-      canvas,
-      center,
-      scale,
-      rotation,
-      face,
-      firstTip,
-      1.27,
-      fill,
-    );
-    _paintFaceArrowhead(
-      canvas,
-      center,
-      scale,
-      rotation,
-      face,
-      secondTip,
-      -1.87,
-      fill,
-    );
+    final path = Path()..fillType = PathFillType.nonZero;
+    for (final contour in contours) {
+      if (contour.isEmpty) continue;
+      final first = _facePoint(
+        center,
+        scale,
+        rotation,
+        face,
+        contour.first.dx,
+        contour.first.dy,
+      );
+      path.moveTo(first.dx, first.dy);
+      for (final point in contour.skip(1)) {
+        final projected = _facePoint(
+          center,
+          scale,
+          rotation,
+          face,
+          point.dx,
+          point.dy,
+        );
+        path.lineTo(projected.dx, projected.dy);
+      }
+      path.close();
+    }
+    canvas.drawPath(path, paint);
   }
 
   void _paintLightningMark(
@@ -1426,60 +1266,23 @@ class _DiceBubblePainter extends CustomPainter {
     _Face face,
     Paint fill,
   ) {
-    switch (face.index) {
-      case 0: // SymbolBolt.
-        _projectedPolygon(canvas, center, scale, rotation, face, const [
-          Offset(-0.06, -0.64),
-          Offset(0.25, -0.19),
-          Offset(0.05, -0.19),
-          Offset(0.25, 0.03),
-          Offset(0.02, 0.03),
-          Offset(0.15, 0.64),
-          Offset(-0.28, 0.14),
-          Offset(-0.07, 0.14),
-          Offset(-0.28, -0.08),
-          Offset(-0.08, -0.08),
-        ], fill);
-      case 1: // SymbolWildAtom.
-        _paintHubAtom(canvas, center, scale, rotation, face, fill);
-      case 2: // SymbolSplitCircle.
-        _paintSplitCircle(canvas, center, scale, rotation, face, fill);
-      case 3: // ArrowEast.
-        _projectedPolygon(canvas, center, scale, rotation, face, const [
-          Offset(-0.58, -0.20),
-          Offset(0.12, -0.20),
-          Offset(0.12, -0.48),
-          Offset(0.62, 0),
-          Offset(0.12, 0.48),
-          Offset(0.12, 0.20),
-          Offset(-0.58, 0.20),
-        ], fill);
-      case 4: // SymbolPyramids.
-        _projectedTriangle(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          -0.33,
-          0.18,
-          0.25,
-          fill,
-        );
-        _projectedTriangle(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          0.17,
-          0.06,
-          0.51,
-          fill,
-        );
-      case 5: // SymbolRecycle.
-        _paintRecycle(canvas, center, scale, rotation, face, fill);
-    }
+    final contours = switch (face.index) {
+      0 => pyramidLoveLightningBoltContours,
+      1 => pyramidLoveLightningAtomContours,
+      2 => pyramidLoveLightningSplitCircleContours,
+      3 => pyramidLoveLightningArrowContours,
+      4 => pyramidLoveLightningPyramidsContours,
+      _ => pyramidLoveLightningRecycleContours,
+    };
+    _paintPyramidLoveContours(
+      canvas,
+      center,
+      scale,
+      rotation,
+      face,
+      contours,
+      fill,
+    );
   }
 
   void _projectedTriangle(
