@@ -530,7 +530,6 @@ class _DiceBubbleState extends State<DiceBubble>
       backgroundColor: const Color(0xFF202020),
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
-          final atLimit = _selectedIds.length >= 3;
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
