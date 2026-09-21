@@ -3820,13 +3820,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         (_ToyKind.nestCycle, false) => 36.0,
         (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 13.0,
         (_ToyKind.zendoStones, false) ||
-        (_ToyKind.triangleBounce, false) => 15.0,
+        (_ToyKind.triangleBounce, false) => 21.0,
         _ => 21.0,
       };
       final icon = PyramidLoveToyIcon(artwork, color: color, size: size);
-      if (toy == _ToyKind.nestCycle && inMenu) {
+      if (toy == _ToyKind.nestCycle) {
         return Transform.translate(
-          offset: Offset(0, inMenu ? -8.0 : -5.0),
+          offset: Offset(0, inMenu ? -8.0 : -6.0),
           child: icon,
         );
       }
