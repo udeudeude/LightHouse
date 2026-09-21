@@ -117,4 +117,40 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
+  testWidgets('zero-dice selector renders all die artwork and closes cleanly', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 360,
+          height: 640,
+          child: DiceBubble(
+            snapshot: DiceBubbleSnapshot(
+              revision: 10,
+              rollSerial: 2,
+              selectedIds: [],
+              faces: {},
+              xFraction: 0.5,
+              yFraction: 0.35,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('dice-selector-latch')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dice · 0/3 selected'), findsOneWidget);
+    for (final choice in arcadeDiceChoices) {
+      expect(find.byTooltip(choice.label), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+
+    Navigator.of(tester.element(find.text('Dice · 0/3 selected'))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Dice · 0/3 selected'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

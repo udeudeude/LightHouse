@@ -217,6 +217,8 @@ class _DiceBubbleState extends State<DiceBubble>
   int _appliedRevision = -1;
   int _nextInstanceSerial = 2;
   bool _pressed = false;
+  bool _pickerOpen = false;
+  bool _spiderRevealed = false;
   bool _twoFingerMove = false;
   bool _gestureMoved = false;
   double _gestureTravel = 0;
@@ -452,64 +454,6 @@ class _DiceBubbleState extends State<DiceBubble>
   Widget _selectorImage(ArcadeDieChoice choice) {
     final darkBody = arcadeDieUsesDarkBody(choice.kind);
     final foreground = darkBody ? Colors.white : Colors.black;
-    Widget mark;
-    switch (choice.kind) {
-      case ArcadeDieKind.standard:
-        mark = Stack(
-          children: [
-            Positioned(left: 11, top: 11, child: _SelectorPip(foreground)),
-            Positioned(right: 11, top: 11, child: _SelectorPip(foreground)),
-            Center(child: _SelectorPip(foreground)),
-            Positioned(left: 11, bottom: 11, child: _SelectorPip(foreground)),
-            Positioned(right: 11, bottom: 11, child: _SelectorPip(foreground)),
-          ],
-        );
-      case ArcadeDieKind.lightning:
-        mark = Icon(Icons.bolt, color: foreground, size: 35);
-      case ArcadeDieKind.pyramid:
-        mark = Icon(Icons.change_history, color: foreground, size: 35);
-      case ArcadeDieKind.treehouse:
-        mark = Center(
-          child: Transform.rotate(
-            angle: math.pi / 4,
-            child: Text(
-              'AIM',
-              style: TextStyle(
-                color: foreground,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.6,
-              ),
-            ),
-          ),
-        );
-      case ArcadeDieKind.color:
-        mark = Center(
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 1,
-            runSpacing: -4,
-            children: const [
-              Text('♠', style: TextStyle(color: Colors.purple, fontSize: 17)),
-              Text('♥', style: TextStyle(color: Colors.red, fontSize: 17)),
-              Text('♦', style: TextStyle(color: Colors.blue, fontSize: 17)),
-              Text('♣', style: TextStyle(color: Colors.green, fontSize: 17)),
-              Text('★', style: TextStyle(color: Colors.yellow, fontSize: 15)),
-            ],
-          ),
-        );
-      case ArcadeDieKind.fate:
-        mark = Center(
-          child: Text(
-            '±',
-            style: TextStyle(
-              color: foreground,
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        );
-    }
     return Container(
       width: 58,
       height: 58,
@@ -518,153 +462,173 @@ class _DiceBubbleState extends State<DiceBubble>
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: darkBody ? Colors.white70 : Colors.black87),
       ),
-      child: mark,
+      child: CustomPaint(
+        painter: _DieSelectorMarkPainter(
+          kind: choice.kind,
+          foreground: foreground,
+        ),
+      ),
     );
   }
 
   Future<void> _showPicker() async {
     HapticFeedback.selectionClick();
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: const Color(0xFF202020),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
-                    child: Text(
-                      'Dice · ${_selectedIds.length}/3 selected',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
+    if (mounted) {
+      setState(() {
+        _pickerOpen = true;
+        _spiderRevealed = false;
+      });
+    }
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        backgroundColor: const Color(0xFF202020),
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
+                      child: Text(
+                        'Dice · ${_selectedIds.length}/3 selected',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 9,
-                          crossAxisSpacing: 9,
-                          childAspectRatio: 1,
-                        ),
-                    itemCount: arcadeDiceChoices.length,
-                    itemBuilder: (context, index) {
-                      final choice = arcadeDiceChoices[index];
-                      final count = _choiceCount(choice.id);
-                      final canAdd = count < _maximumChoiceCount(choice);
-                      return Tooltip(
-                        message: choice.label,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: () {
-                            _cycleChoice(choice);
-                            setSheetState(() {});
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: count > 0
-                                  ? Colors.white.withValues(alpha: 0.10)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 9,
+                            crossAxisSpacing: 9,
+                            mainAxisExtent: 112,
+                          ),
+                      itemCount: arcadeDiceChoices.length,
+                      itemBuilder: (context, index) {
+                        final choice = arcadeDiceChoices[index];
+                        final count = _choiceCount(choice.id);
+                        final canAdd = count < _maximumChoiceCount(choice);
+                        return Tooltip(
+                          message: choice.label,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () {
+                              _cycleChoice(choice);
+                              setSheetState(() {});
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
                                 color: count > 0
-                                    ? Colors.white
-                                    : Colors.white24,
-                                width: count > 0 ? 2 : 1,
+                                    ? Colors.white.withValues(alpha: 0.10)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: count > 0
+                                      ? Colors.white
+                                      : Colors.white24,
+                                  width: count > 0 ? 2 : 1,
+                                ),
                               ),
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                _selectorImage(choice),
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Container(
-                                    constraints: const BoxConstraints(
-                                      minWidth: 20,
-                                      minHeight: 20,
-                                    ),
-                                    alignment: Alignment.center,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Text(
-                                      '$count',
-                                      style: const TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w800,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  _selectorImage(choice),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: Container(
+                                      constraints: const BoxConstraints(
+                                        minWidth: 20,
+                                        minHeight: 20,
+                                      ),
+                                      alignment: Alignment.center,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '$count',
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                Positioned(
-                                  left: 2,
-                                  bottom: 2,
-                                  child: IconButton(
-                                    tooltip: 'Remove one ${choice.label}',
-                                    visualDensity: VisualDensity.compact,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 30,
-                                      minHeight: 30,
+                                  Positioned(
+                                    left: 2,
+                                    bottom: 2,
+                                    child: IconButton(
+                                      tooltip: 'Remove one ${choice.label}',
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 30,
+                                        minHeight: 30,
+                                      ),
+                                      onPressed: count == 0
+                                          ? null
+                                          : () {
+                                              _removeChoice(choice);
+                                              setSheetState(() {});
+                                            },
+                                      icon: const Icon(Icons.remove, size: 18),
                                     ),
-                                    onPressed: count == 0
-                                        ? null
-                                        : () {
-                                            _removeChoice(choice);
-                                            setSheetState(() {});
-                                          },
-                                    icon: const Icon(Icons.remove, size: 18),
                                   ),
-                                ),
-                                Positioned(
-                                  right: 2,
-                                  bottom: 2,
-                                  child: IconButton(
-                                    tooltip: 'Add one ${choice.label}',
-                                    visualDensity: VisualDensity.compact,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 30,
-                                      minHeight: 30,
+                                  Positioned(
+                                    right: 2,
+                                    bottom: 2,
+                                    child: IconButton(
+                                      tooltip: 'Add one ${choice.label}',
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 30,
+                                        minHeight: 30,
+                                      ),
+                                      onPressed: canAdd
+                                          ? () {
+                                              _addChoice(choice);
+                                              setSheetState(() {});
+                                            }
+                                          : null,
+                                      icon: const Icon(Icons.add, size: 18),
                                     ),
-                                    onPressed: canAdd
-                                        ? () {
-                                            _addChoice(choice);
-                                            setSheetState(() {});
-                                          }
-                                        : null,
-                                    icon: const Icon(Icons.add, size: 18),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      ),
-    );
+            );
+          },
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _pickerOpen = false;
+          _spiderRevealed = _selectedIds.isEmpty;
+        });
+      }
+    }
   }
 
   @override
@@ -741,11 +705,13 @@ class _DiceBubbleState extends State<DiceBubble>
                       progress: _rollController.value,
                       rollSerial: _rollSerial,
                       pressed: _pressed,
+                      showSpider: !_pickerOpen && _spiderRevealed,
                     ),
                   ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: GestureDetector(
+                      key: const Key('dice-selector-latch'),
                       behavior: HitTestBehavior.opaque,
                       onTap: _showPicker,
                       child: Container(
@@ -770,17 +736,264 @@ class _DiceBubbleState extends State<DiceBubble>
   );
 }
 
-class _SelectorPip extends StatelessWidget {
-  const _SelectorPip(this.color);
+class _DieSelectorMarkPainter extends CustomPainter {
+  const _DieSelectorMarkPainter({required this.kind, required this.foreground});
 
-  final Color color;
+  final ArcadeDieKind kind;
+  final Color foreground;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 7,
-    height: 7,
-    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-  );
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    switch (kind) {
+      case ArcadeDieKind.standard:
+        _paintStandard(canvas, size);
+      case ArcadeDieKind.lightning:
+        _paintLightning(canvas, center, size);
+      case ArcadeDieKind.pyramid:
+        _paintPyramid(canvas, center, size);
+      case ArcadeDieKind.treehouse:
+        _paintTreehouse(canvas, center, size);
+      case ArcadeDieKind.color:
+        _paintColor(canvas, center, size);
+      case ArcadeDieKind.fate:
+        _paintFate(canvas, center, size);
+    }
+  }
+
+  void _paintStandard(Canvas canvas, Size size) {
+    final paint = Paint()..color = foreground;
+    final radius = size.shortestSide * 0.083;
+    final left = size.width * 0.29;
+    final right = size.width * 0.71;
+    final top = size.height * 0.29;
+    final bottom = size.height * 0.71;
+    for (final point in [
+      Offset(left, top),
+      Offset(right, top),
+      Offset(size.width / 2, size.height / 2),
+      Offset(left, bottom),
+      Offset(right, bottom),
+    ]) {
+      canvas.drawCircle(point, radius, paint);
+    }
+  }
+
+  void _paintLightning(Canvas canvas, Offset center, Size size) {
+    final path = Path()..fillType = PathFillType.nonZero;
+    final scale = size.shortestSide * 0.62;
+    for (final contour in pyramidLoveLightningBoltContours) {
+      if (contour.isEmpty) continue;
+      path.moveTo(
+        center.dx + contour.first.dx * scale,
+        center.dy + contour.first.dy * scale,
+      );
+      for (final point in contour.skip(1)) {
+        path.lineTo(center.dx + point.dx * scale, center.dy + point.dy * scale);
+      }
+      path.close();
+    }
+    canvas.drawPath(path, Paint()..color = foreground);
+  }
+
+  void _paintPyramid(Canvas canvas, Offset center, Size size) {
+    final height = size.height * 0.58;
+    final halfHeight = height / 2;
+    final halfBase = halfHeight / pyramidDieHeightToBaseRatio;
+    final path = Path()
+      ..moveTo(center.dx, center.dy - halfHeight)
+      ..lineTo(center.dx + halfBase, center.dy + halfHeight)
+      ..lineTo(center.dx - halfBase, center.dy + halfHeight)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = foreground
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1.4, size.shortestSide * 0.045)
+        ..strokeJoin = StrokeJoin.round,
+    );
+    final pipRadius = size.shortestSide * 0.045;
+    final spacing = halfBase * 0.54;
+    for (var i = -1; i <= 1; i += 1) {
+      canvas.drawCircle(
+        Offset(center.dx + spacing * i, center.dy + halfHeight * 0.18),
+        pipRadius,
+        Paint()..color = foreground,
+      );
+    }
+  }
+
+  void _paintTreehouse(Canvas canvas, Offset center, Size size) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: 'AIM',
+        style: TextStyle(
+          color: foreground,
+          fontSize: size.shortestSide * 0.38,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -1.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(math.pi / 4);
+    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
+    canvas.restore();
+  }
+
+  void _paintColor(Canvas canvas, Offset center, Size size) {
+    final unit = size.shortestSide;
+    final diamond = Path()
+      ..moveTo(center.dx, center.dy - unit * 0.22)
+      ..lineTo(center.dx + unit * 0.15, center.dy)
+      ..lineTo(center.dx, center.dy + unit * 0.22)
+      ..lineTo(center.dx - unit * 0.15, center.dy)
+      ..close();
+    canvas.drawPath(diamond, Paint()..color = Colors.blue);
+
+    final heartCenter = center + Offset(-unit * 0.22, -unit * 0.18);
+    final heart = Path()
+      ..moveTo(heartCenter.dx, heartCenter.dy + unit * 0.13)
+      ..cubicTo(
+        heartCenter.dx - unit * 0.20,
+        heartCenter.dy,
+        heartCenter.dx - unit * 0.10,
+        heartCenter.dy - unit * 0.16,
+        heartCenter.dx,
+        heartCenter.dy - unit * 0.06,
+      )
+      ..cubicTo(
+        heartCenter.dx + unit * 0.10,
+        heartCenter.dy - unit * 0.16,
+        heartCenter.dx + unit * 0.20,
+        heartCenter.dy,
+        heartCenter.dx,
+        heartCenter.dy + unit * 0.13,
+      )
+      ..close();
+    canvas.drawPath(heart, Paint()..color = Colors.red);
+
+    final clubCenter = center + Offset(unit * 0.23, -unit * 0.17);
+    final green = Paint()..color = Colors.green;
+    final clubRadius = unit * 0.075;
+    canvas.drawCircle(clubCenter + Offset(0, -clubRadius), clubRadius, green);
+    canvas.drawCircle(
+      clubCenter + Offset(-clubRadius * 0.85, clubRadius * 0.25),
+      clubRadius,
+      green,
+    );
+    canvas.drawCircle(
+      clubCenter + Offset(clubRadius * 0.85, clubRadius * 0.25),
+      clubRadius,
+      green,
+    );
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: clubCenter + Offset(0, clubRadius * 1.25),
+        width: clubRadius * 0.72,
+        height: clubRadius * 1.7,
+      ),
+      green,
+    );
+
+    final starCenter = center + Offset(-unit * 0.22, unit * 0.19);
+    final star = Path();
+    for (var i = 0; i < 10; i += 1) {
+      final angle = -math.pi / 2 + i * math.pi / 5;
+      final radius = unit * (i.isEven ? 0.105 : 0.045);
+      final point =
+          starCenter + Offset(math.cos(angle), math.sin(angle)) * radius;
+      if (i == 0) {
+        star.moveTo(point.dx, point.dy);
+      } else {
+        star.lineTo(point.dx, point.dy);
+      }
+    }
+    star.close();
+    canvas.drawPath(star, Paint()..color = Colors.yellow);
+
+    final spadeCenter = center + Offset(unit * 0.22, unit * 0.20);
+    final purple = Paint()..color = Colors.purple;
+    final spade = Path()
+      ..moveTo(spadeCenter.dx, spadeCenter.dy - unit * 0.12)
+      ..lineTo(spadeCenter.dx - unit * 0.10, spadeCenter.dy + unit * 0.01)
+      ..quadraticBezierTo(
+        spadeCenter.dx - unit * 0.09,
+        spadeCenter.dy + unit * 0.10,
+        spadeCenter.dx,
+        spadeCenter.dy + unit * 0.05,
+      )
+      ..quadraticBezierTo(
+        spadeCenter.dx + unit * 0.09,
+        spadeCenter.dy + unit * 0.10,
+        spadeCenter.dx + unit * 0.10,
+        spadeCenter.dy + unit * 0.01,
+      )
+      ..close();
+    canvas.drawPath(spade, purple);
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: spadeCenter + Offset(0, unit * 0.08),
+        width: unit * 0.035,
+        height: unit * 0.11,
+      ),
+      purple,
+    );
+  }
+
+  void _paintFate(Canvas canvas, Offset center, Size size) {
+    final unit = size.shortestSide;
+    final paint = Paint()..color = foreground;
+    _paintVectorPlus(
+      canvas,
+      center + Offset(-unit * 0.15, 0),
+      unit * 0.16,
+      unit * 0.045,
+      paint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: center + Offset(unit * 0.20, 0),
+          width: unit * 0.27,
+          height: unit * 0.085,
+        ),
+        Radius.circular(unit * 0.025),
+      ),
+      paint,
+    );
+  }
+
+  void _paintVectorPlus(
+    Canvas canvas,
+    Offset center,
+    double halfExtent,
+    double halfThickness,
+    Paint paint,
+  ) {
+    final path = Path()
+      ..moveTo(center.dx - halfThickness, center.dy - halfExtent)
+      ..lineTo(center.dx + halfThickness, center.dy - halfExtent)
+      ..lineTo(center.dx + halfThickness, center.dy - halfThickness)
+      ..lineTo(center.dx + halfExtent, center.dy - halfThickness)
+      ..lineTo(center.dx + halfExtent, center.dy + halfThickness)
+      ..lineTo(center.dx + halfThickness, center.dy + halfThickness)
+      ..lineTo(center.dx + halfThickness, center.dy + halfExtent)
+      ..lineTo(center.dx - halfThickness, center.dy + halfExtent)
+      ..lineTo(center.dx - halfThickness, center.dy + halfThickness)
+      ..lineTo(center.dx - halfExtent, center.dy + halfThickness)
+      ..lineTo(center.dx - halfExtent, center.dy - halfThickness)
+      ..lineTo(center.dx - halfThickness, center.dy - halfThickness)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DieSelectorMarkPainter oldDelegate) =>
+      oldDelegate.kind != kind || oldDelegate.foreground != foreground;
 }
 
 class _V3 {
@@ -819,6 +1032,7 @@ class _DiceBubblePainter extends CustomPainter {
     required this.progress,
     required this.rollSerial,
     required this.pressed,
+    required this.showSpider,
   });
 
   final List<String> instanceIds;
@@ -828,6 +1042,7 @@ class _DiceBubblePainter extends CustomPainter {
   final double progress;
   final int rollSerial;
   final bool pressed;
+  final bool showSpider;
 
   static const _vertices = <_V3>[
     _V3(-1, -1, -1),
@@ -957,7 +1172,9 @@ class _DiceBubblePainter extends CustomPainter {
 
     final visualScale = math.min(size.width, size.height) / 140;
     if (choices.isEmpty) {
-      _paintSpider(canvas, center, baseRadius, visualScale);
+      if (showSpider) {
+        _paintSpider(canvas, center, baseRadius, visualScale);
+      }
       return;
     }
     final offsets = _dieOffsets(choices.length)
@@ -998,64 +1215,122 @@ class _DiceBubblePainter extends CustomPainter {
   ) {
     final from = diceBubbleSpiderPoint(math.max(0, rollSerial - 1));
     final to = diceBubbleSpiderPoint(rollSerial);
-    final eased = 1 - math.pow(1 - progress.clamp(0.0, 1.0), 3).toDouble();
-    final base = Offset.lerp(from, to, eased)! * (bubbleRadius * 0.82);
-    final skitterEnvelope = math.sin(math.pi * progress.clamp(0.0, 1.0));
-    final skitterAngle = rollSerial * 1.7 + progress * math.pi * 14;
-    final jitter =
-        Offset(math.cos(skitterAngle), math.sin(skitterAngle * 1.13)) *
-        (bubbleRadius * 0.065 * skitterEnvelope);
-    final position = center + base + jitter;
+    final t = progress.clamp(0.0, 1.0);
+    final eased = 1 - math.pow(1 - t, 3).toDouble();
+    final travel = Offset.lerp(from, to, eased)! * (bubbleRadius * 0.82);
     final motion = to - from;
+    final moving = motion.distance > 0.001 && t < 1;
+    final gaitEnvelope = moving ? math.sin(math.pi * t) : 0.0;
+    final gaitPhase = t * math.pi * 12 + rollSerial * 0.73;
     final heading = motion.distance < 0.001
         ? -math.pi / 2
         : math.atan2(motion.dy, motion.dx);
-    final bodyScale = visualScale * (pressed ? 0.82 : 1.0);
+    final sideJitter =
+        Offset(-math.sin(heading), math.cos(heading)) *
+        (math.sin(gaitPhase * 0.53) * bubbleRadius * 0.025 * gaitEnvelope);
+    final position = center + travel + sideJitter;
+    final scale = visualScale * (pressed ? 0.82 : 1.0);
+
     final white = Paint()
-      ..color = Colors.white.withValues(alpha: 0.94)
+      ..color = Colors.white.withValues(alpha: 0.96)
       ..style = PaintingStyle.fill;
-    final leg = Paint()
-      ..color = Colors.white.withValues(alpha: 0.88)
+    final legPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.94)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.0, 1.25 * visualScale)
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = math.max(1.0, 1.18 * visualScale)
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final eyePaint = Paint()..color = Colors.black.withValues(alpha: 0.84);
 
     canvas.save();
     canvas.translate(position.dx, position.dy);
-    canvas.rotate(heading);
-    final legSwing =
-        math.sin(progress * math.pi * 18 + rollSerial) *
-        2.3 *
-        visualScale *
-        skitterEnvelope;
+    canvas.rotate(heading + math.sin(gaitPhase * 0.5) * 0.055 * gaitEnvelope);
+
+    // Local +X is forward. Four articulated legs on each side alternate
+    // their stride, producing an eight-legged skitter instead of a body wobble.
+    const rootX = <double>[3.2, 1.2, -0.9, -2.8];
+    const kneeForward = <double>[3.6, 1.7, -1.3, -3.4];
+    const footForward = <double>[8.6, 5.4, -4.8, -8.4];
+    const kneeOut = <double>[6.3, 7.8, 7.9, 6.7];
+    const footOut = <double>[11.2, 12.8, 12.9, 11.5];
+
     for (var side = -1; side <= 1; side += 2) {
-      for (var i = 0; i < 4; i += 1) {
-        final y = (-7.2 + i * 4.8) * bodyScale;
-        final root = Offset(side * 2.5 * bodyScale, y * 0.68);
+      for (var pair = 0; pair < 4; pair += 1) {
+        final alternating = pair.isEven ? 0.0 : math.pi;
+        final sidePhase = side < 0 ? math.pi : 0.0;
+        final stride =
+            math.sin(gaitPhase + alternating + sidePhase) * gaitEnvelope;
+        final lift =
+            math.cos(gaitPhase + alternating + sidePhase) * gaitEnvelope;
+        final root = Offset(
+          rootX[pair] * scale,
+          side * (2.0 + pair * 0.28) * scale,
+        );
         final knee = Offset(
-          side * (7.0 + i * 0.55) * bodyScale,
-          y + (i.isEven ? legSwing : -legSwing),
+          (kneeForward[pair] + stride * 1.2) * scale,
+          side * (kneeOut[pair] + lift * 0.75) * scale,
         );
         final foot = Offset(
-          side * (11.5 + i * 0.7) * bodyScale,
-          y + (i.isEven ? -2.2 : 2.2) * bodyScale,
+          (footForward[pair] + stride * 2.6) * scale,
+          side * (footOut[pair] - lift * 0.9) * scale,
         );
         final path = Path()
           ..moveTo(root.dx, root.dy)
           ..lineTo(knee.dx, knee.dy)
           ..lineTo(foot.dx, foot.dy);
-        canvas.drawPath(path, leg);
+        canvas.drawPath(path, legPaint);
       }
     }
+
+    // Abdomen, narrow waist, and cephalothorax.
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(0, 1.5 * bodyScale),
-        width: 8.0 * bodyScale,
-        height: 12.5 * bodyScale,
+        center: Offset(-3.9 * scale, 0),
+        width: 11.7 * scale,
+        height: 9.7 * scale,
       ),
       white,
     );
-    canvas.drawCircle(Offset(0, -6.0 * bodyScale), 3.4 * bodyScale, white);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(2.8 * scale, 0),
+        width: 7.5 * scale,
+        height: 7.0 * scale,
+      ),
+      white,
+    );
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: Offset(-0.2 * scale, 0),
+        width: 3.1 * scale,
+        height: 3.2 * scale,
+      ),
+      white,
+    );
+
+    // Pedipalps make the front read as a spider head rather than an insect.
+    for (final side in const [-1.0, 1.0]) {
+      final path = Path()
+        ..moveTo(5.2 * scale, side * 1.9 * scale)
+        ..lineTo(7.2 * scale, side * 3.2 * scale)
+        ..lineTo(8.8 * scale, side * 2.5 * scale);
+      canvas.drawPath(path, legPaint);
+    }
+
+    // Four tiny eyes remain visible even at small scale.
+    for (final eye in const [
+      Offset(5.0, -1.45),
+      Offset(5.0, 1.45),
+      Offset(4.25, -0.48),
+      Offset(4.25, 0.48),
+    ]) {
+      canvas.drawCircle(
+        eye * scale,
+        math.max(0.55, 0.55 * visualScale),
+        eyePaint,
+      );
+    }
+
     canvas.restore();
   }
 
@@ -1206,7 +1481,7 @@ class _DiceBubblePainter extends CustomPainter {
             face,
             pip.dx,
             pip.dy,
-            0.145,
+            0.195,
             mark,
           );
         }
@@ -1225,24 +1500,12 @@ class _DiceBubblePainter extends CustomPainter {
           labels[face.index],
           mark.color,
           diagonal: true,
-          sizeFactor: 1.28,
+          sizeFactor: 1.68,
         );
       case ArcadeDieKind.color:
         _paintColorMark(canvas, center, scale, rotation, face, mark);
       case ArcadeDieKind.fate:
-        final symbol = fateDieFaceSymbol(face.index);
-        if (symbol.isNotEmpty) {
-          _paintFaceText(
-            canvas,
-            center,
-            scale,
-            rotation,
-            face,
-            symbol,
-            mark.color,
-            sizeFactor: 1.55,
-          );
-        }
+        _paintFateMark(canvas, center, scale, rotation, face, mark);
     }
   }
 
@@ -1273,6 +1536,41 @@ class _DiceBubblePainter extends CustomPainter {
     }
     path.close();
     canvas.drawPath(path, paint);
+  }
+
+  void _paintFateMark(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face,
+    Paint paint,
+  ) {
+    final symbol = fateDieFaceSymbol(face.index);
+    if (symbol.isEmpty) return;
+    if (symbol == '-') {
+      _projectedPolygon(canvas, center, scale, rotation, face, const [
+        Offset(-0.72, -0.13),
+        Offset(0.72, -0.13),
+        Offset(0.72, 0.13),
+        Offset(-0.72, 0.13),
+      ], paint);
+      return;
+    }
+    _projectedPolygon(canvas, center, scale, rotation, face, const [
+      Offset(-0.13, -0.72),
+      Offset(0.13, -0.72),
+      Offset(0.13, -0.13),
+      Offset(0.72, -0.13),
+      Offset(0.72, 0.13),
+      Offset(0.13, 0.13),
+      Offset(0.13, 0.72),
+      Offset(-0.13, 0.72),
+      Offset(-0.13, 0.13),
+      Offset(-0.72, 0.13),
+      Offset(-0.72, -0.13),
+      Offset(-0.13, -0.13),
+    ], paint);
   }
 
   void _paintColorMark(
@@ -1727,5 +2025,6 @@ class _DiceBubblePainter extends CustomPainter {
       !mapEquals(oldDelegate.plans, plans) ||
       oldDelegate.progress != progress ||
       oldDelegate.rollSerial != rollSerial ||
-      oldDelegate.pressed != pressed;
+      oldDelegate.pressed != pressed ||
+      oldDelegate.showSpider != showSpider;
 }

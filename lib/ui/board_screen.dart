@@ -3567,7 +3567,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _toggleUnderlaySelection(underlay);
   }
 
-  Widget _toyMenuIcon(_ToyKind toy, Color color) {
+  Widget _toyIcon(_ToyKind toy, Color color, {required bool inMenu}) {
     final artwork = switch (toy) {
       _ToyKind.nestCycle => PyramidLoveToyIconKind.nest,
       _ToyKind.zendoStones => PyramidLoveToyIconKind.zendoMarkers,
@@ -3575,7 +3575,17 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _ => null,
     };
     if (artwork != null) {
-      return PyramidLoveToyIcon(artwork, color: color, size: 21);
+      final size = switch ((toy, inMenu)) {
+        (_ToyKind.nestCycle, true) => 21.0,
+        (_ToyKind.nestCycle, false) => 28.0,
+        (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 17.0,
+        _ => 21.0,
+      };
+      final icon = PyramidLoveToyIcon(artwork, color: color, size: size);
+      if (toy == _ToyKind.nestCycle && inMenu) {
+        return Transform.translate(offset: const Offset(0, -2.5), child: icon);
+      }
+      return icon;
     }
     final icon = toy == _ToyKind.entropy
         ? (_entropyEnabled ? Icons.hourglass_top : Icons.hourglass_bottom)
@@ -3640,11 +3650,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                                             : Colors.transparent,
                                       ),
                                     ),
-                                    child: _toyMenuIcon(
+                                    child: _toyIcon(
                                       toy,
                                       (_toyVisible[toy] ?? toy.defaultVisible)
                                           ? Colors.white
                                           : Colors.white38,
+                                      inMenu: true,
                                     ),
                                   ),
                                 ),
@@ -3743,7 +3754,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
-              'Press/release to roll; two-finger drag moves; latch tiles cycle die counts; empty bubble skitters the spider',
+              'Press/release to roll; two-finger drag moves; latch tiles cycle die counts',
             ),
             (
               'Zendo stones',
@@ -3759,7 +3770,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
-              'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts; empty bubble skitters the spider',
+              'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts',
             ),
             (
               'Zendo stones',
@@ -3911,7 +3922,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               {_ToyKind.lightLottery, _ToyKind.hotPotato}.contains(toy)
           ? null
           : () => _activateToy(toy),
-      icon: _toyMenuIcon(toy, active ? Colors.white : Colors.white70),
+      icon: _toyIcon(
+        toy,
+        active ? Colors.white : Colors.white70,
+        inMenu: false,
+      ),
     );
   }
 
