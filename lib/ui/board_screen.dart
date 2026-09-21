@@ -3345,46 +3345,119 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
   }
 
+  Widget _zendoSetIcon(ZendoPieceSetMode mode) {
+    Widget glyph(PyramidLoveToyIconKind kind, double size) =>
+        PyramidLoveToyIcon(kind, color: Colors.white70, size: size);
+
+    return SizedBox(
+      width: 32,
+      height: 22,
+      child: Center(
+        child: switch (mode) {
+          ZendoPieceSetMode.classic => Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              glyph(PyramidLoveToyIconKind.zendoPyramid, 8),
+              glyph(PyramidLoveToyIconKind.zendoPyramid, 11),
+              glyph(PyramidLoveToyIconKind.zendoPyramid, 14),
+            ],
+          ),
+          ZendoPieceSetMode.zendo20 => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              glyph(PyramidLoveToyIconKind.zendoPyramid, 10),
+              glyph(PyramidLoveToyIconKind.zendoWedge, 10),
+              glyph(PyramidLoveToyIconKind.zendoBlock, 10),
+            ],
+          ),
+          ZendoPieceSetMode.both => Stack(
+            alignment: Alignment.center,
+            children: [
+              Transform.translate(
+                offset: const Offset(-8, 0),
+                child: glyph(PyramidLoveToyIconKind.zendoPyramid, 14),
+              ),
+              Transform.translate(
+                offset: const Offset(4, -3),
+                child: glyph(PyramidLoveToyIconKind.zendoWedge, 10),
+              ),
+              Transform.translate(
+                offset: const Offset(8, 5),
+                child: glyph(PyramidLoveToyIconKind.zendoBlock, 10),
+              ),
+            ],
+          ),
+        },
+      ),
+    );
+  }
+
   Future<void> _showZendoMenu() async {
-    final ruleActive = _zendoRuleIndex >= 0;
+    final ruleActive =
+        _zendoRulesEnabled &&
+        _zendoRuleIndex >= 0 &&
+        _zendoRuleIndex < zendoRules.length;
     final choice = await _showCompactMenu([
       _compactMenuItem(
         'stones',
         Icons.circle_outlined,
         'Zendo Stones',
         checked: _activeToys.contains(_ToyKind.zendoStones),
+        leading: const PyramidLoveToyIcon(
+          PyramidLoveToyIconKind.zendoMarkers,
+          color: Colors.white70,
+          size: 16,
+        ),
       ),
       const PopupMenuDivider(),
       _compactMenuItem(
-        'pyramids',
+        'classic',
         Icons.change_history_outlined,
-        'Pieces: S / M / L Pyramids',
-        checked: _zendoPieceSet == ZendoPieceSet.pyramids,
+        'Classic',
+        checked: _zendoPieceSetMode == ZendoPieceSetMode.classic,
+        leading: _zendoSetIcon(ZendoPieceSetMode.classic),
       ),
       _compactMenuItem(
-        'boxed',
+        'zendo20',
         Icons.category_outlined,
-        'Pieces: M Pyramid / Wedge / Block',
-        checked: _zendoPieceSet == ZendoPieceSet.boxed,
+        'Zendo 2.0',
+        checked: _zendoPieceSetMode == ZendoPieceSetMode.zendo20,
+        leading: _zendoSetIcon(ZendoPieceSetMode.zendo20),
       ),
       _compactMenuItem(
         'both',
         Icons.view_comfy_alt_outlined,
-        'Pieces: Both Sets',
-        checked: _zendoPieceSet == ZendoPieceSet.both,
-      ),
-      _compactMenuItem(
-        'piecesOff',
-        Icons.layers_clear_outlined,
-        'Pieces: Off',
-        checked: _zendoPieceSet == null,
+        'Both',
+        checked: _zendoPieceSetMode == ZendoPieceSetMode.both,
+        leading: _zendoSetIcon(ZendoPieceSetMode.both),
       ),
       const PopupMenuDivider(),
       _compactMenuItem(
-        'newRule',
-        Icons.shuffle,
-        ruleActive ? 'Another Community Rule' : 'Community Rule',
+        'rules',
+        Icons.psychology_alt_outlined,
+        'Zendo Rules',
+        checked: _zendoRulesEnabled,
       ),
+      _compactMenuItem(
+        'complex',
+        Icons.tune,
+        'Complex Rules',
+        checked: _zendoComplexRulesEnabled,
+        enabled: _zendoRulesEnabled,
+      ),
+      _compactMenuItem(
+        'difficulty',
+        Icons.signal_cellular_alt,
+        'Difficulty: ${_zendoRuleDifficulty.label}',
+        enabled: _zendoRulesEnabled && _zendoComplexRulesEnabled,
+      ),
+      if (ruleActive)
+        _compactMenuItem(
+          'newRule',
+          Icons.shuffle,
+          'Different Rule',
+        ),
       if (ruleActive)
         _compactMenuItem(
           'ruleVisibility',
@@ -3397,55 +3470,113 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       case 'stones':
         _toggleOverlayToy(_ToyKind.zendoStones);
         unawaited(_sendRemoteRuntimeIfChanged(force: true));
-      case 'pyramids':
-        setState(() => _zendoPieceSet = ZendoPieceSet.pyramids);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
-      case 'boxed':
-        setState(() => _zendoPieceSet = ZendoPieceSet.boxed);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
+      case 'classic':
+        _setZendoPieceSetMode(ZendoPieceSetMode.classic);
+      case 'zendo20':
+        _setZendoPieceSetMode(ZendoPieceSetMode.zendo20);
       case 'both':
-        setState(() => _zendoPieceSet = ZendoPieceSet.both);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
-      case 'piecesOff':
-        setState(() => _zendoPieceSet = null);
-        unawaited(_sendRemoteRuntimeIfChanged(force: true));
+        _setZendoPieceSetMode(ZendoPieceSetMode.both);
+      case 'rules':
+        setState(() {
+          _zendoRulesEnabled = !_zendoRulesEnabled;
+          if (!_zendoRulesEnabled) {
+            _zendoRuleVisible = false;
+            _zendoRuleIndex = -1;
+          }
+        });
+        if (_zendoRulesEnabled) _chooseDifferentZendoRule();
+      case 'complex':
+        setState(() {
+          _zendoComplexRulesEnabled = !_zendoComplexRulesEnabled;
+          if (!_zendoComplexRulesEnabled) {
+            _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
+          }
+        });
+        if (_zendoRulesEnabled) _chooseDifferentZendoRule();
+      case 'difficulty':
+        await _showZendoDifficultyMenu();
       case 'newRule':
-        _chooseNextZendoRule();
+        _chooseDifferentZendoRule();
       case 'ruleVisibility':
         setState(() => _zendoRuleVisible = !_zendoRuleVisible);
     }
   }
 
-  void _chooseNextZendoRule() {
-    final compatible = <int>[];
-    for (var i = 0; i < zendoCommunityRules.length; i += 1) {
-      final compatibility = zendoCommunityRules[i].compatibility;
-      final allowed = switch (_zendoPieceSet) {
-        ZendoPieceSet.pyramids => compatibility != 'boxed',
-        ZendoPieceSet.boxed => compatibility != 'pyramids',
-        ZendoPieceSet.both || null => true,
-      };
-      if (allowed) compatible.add(i);
+  void _setZendoPieceSetMode(ZendoPieceSetMode mode) {
+    setState(() => _zendoPieceSetMode = mode);
+    if (_zendoRulesEnabled) _chooseDifferentZendoRule();
+  }
+
+  Future<void> _showZendoDifficultyMenu() async {
+    final choice = await _showCompactMenu([
+      for (final difficulty in ZendoRuleDifficulty.values)
+        _compactMenuItem(
+          difficulty.name,
+          Icons.circle_outlined,
+          difficulty.label,
+          checked: _zendoRuleDifficulty == difficulty,
+        ),
+    ]);
+    if (!mounted || choice == null) return;
+    final difficulty = ZendoRuleDifficulty.values
+        .where((item) => item.name == choice)
+        .firstOrNull;
+    if (difficulty == null) return;
+    setState(() => _zendoRuleDifficulty = difficulty);
+    _chooseDifferentZendoRule();
+  }
+
+  bool _zendoRuleIsCompatible(ZendoRule rule) {
+    if (rule.difficulty != _zendoRuleDifficulty) return false;
+    if (_zendoPieceSetMode == ZendoPieceSetMode.zendo20 &&
+        !rule.worksWithZendo20) {
+      return false;
     }
-    if (compatible.isEmpty) return;
-    final currentPosition = compatible.indexOf(_zendoRuleIndex);
-    final nextPosition = currentPosition < 0
-        ? _random.nextInt(compatible.length)
-        : (currentPosition + 1) % compatible.length;
+    return true;
+  }
+
+  void _chooseDifferentZendoRule() {
+    final compatible = <int>[
+      for (var i = 0; i < zendoRules.length; i += 1)
+        if (_zendoRuleIsCompatible(zendoRules[i])) i,
+    ];
+    if (compatible.isEmpty) {
+      setState(() {
+        _zendoRuleIndex = -1;
+        _zendoRuleVisible = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _zendoPieceSetMode == ZendoPieceSetMode.zendo20
+                ? 'No ${_zendoRuleDifficulty.label} rules in the supplied PDFs fit Zendo 2.0 without size or pip conditions.'
+                : 'No ${_zendoRuleDifficulty.label} rule is available in the supplied PDFs.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    var choices = compatible;
+    if (compatible.length > 1 && compatible.contains(_zendoRuleIndex)) {
+      choices = compatible.where((index) => index != _zendoRuleIndex).toList();
+    }
+    final next = choices[_random.nextInt(choices.length)];
     setState(() {
-      _zendoRuleIndex = compatible[nextPosition];
+      _zendoRuleIndex = next;
       _zendoRuleVisible = true;
     });
   }
 
   Widget _zendoRuleCard() {
-    if (!_zendoRuleVisible ||
+    if (!_zendoRulesEnabled ||
+        !_zendoRuleVisible ||
         _zendoRuleIndex < 0 ||
-        _zendoRuleIndex >= zendoCommunityRules.length ||
+        _zendoRuleIndex >= zendoRules.length ||
         _remoteDisplayMode) {
       return const SizedBox.shrink();
     }
-    final rule = zendoCommunityRules[_zendoRuleIndex];
+    final rule = zendoRules[_zendoRuleIndex];
     return SafeArea(
       child: Align(
         alignment: Alignment.topCenter,
@@ -3467,13 +3598,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'ZENDO RULE',
-                            style: TextStyle(
+                          Text(
+                            'ZENDO RULE · ${rule.difficulty.label.toUpperCase()}',
+                            style: const TextStyle(
                               color: Colors.white54,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
+                              letterSpacing: 1.0,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -3485,24 +3616,22 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () => unawaited(
-                              launchUrl(
-                                Uri.parse(rule.sourceUrl),
-                                mode: LaunchMode.externalApplication,
-                              ),
-                            ),
-                            child: Text(
-                              rule.sourceLabel,
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 10,
-                                decoration: TextDecoration.underline,
-                              ),
+                          const SizedBox(height: 2),
+                          Text(
+                            rule.sourceLabel,
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
                             ),
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Different rule',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _chooseDifferentZendoRule,
+                      icon: const Icon(Icons.shuffle, size: 18),
                     ),
                     IconButton(
                       tooltip: 'Hide rule',
