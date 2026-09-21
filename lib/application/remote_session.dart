@@ -527,12 +527,9 @@ class RemoteSession extends ChangeNotifier {
   }
 
   Future<void> _makeOffer() async {
-    if (_closed ||
-        multipleControllers ||
-        _peerConnection != null && directConnected) {
+    if (_closed || multipleControllers || _peerConnection != null) {
       return;
     }
-    await _resetPeerConnection();
     final pc = await _createPeerConnection();
     _peerConnection = pc;
     final channel = await pc.createDataChannel(
@@ -624,11 +621,15 @@ class RemoteSession extends ChangeNotifier {
     };
     pc.onDataChannel = _attachDataChannel;
     pc.onConnectionState = (state) {
-      if (_closed) return;
+      if (_closed || !identical(_peerConnection, pc)) return;
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-        _handleDirectUnavailable();
+        if (directConnected) {
+          _handleDirectUnavailable();
+        } else {
+          unawaited(_resetPeerConnection());
+        }
       }
     };
     return pc;
