@@ -189,4 +189,105 @@ void main() {
     expect(controller.state.title, before.title);
     expect(controller.state.elements, orderedEquals(before.elements));
   });
+  test('Zendo 2.0 uses the native footprint creation cycle', () {
+    final controller = BoardController();
+    controller.createAt(
+      const PhysicalPoint(25, 40),
+      pieceSet: ZendoPieceSetMode.zendo20,
+    );
+
+    var element = controller.state.elements.single;
+    expect(element.size, PyramidSize.medium);
+    expect(element.kind, LightPieceKind.pyramid);
+
+    controller.cycleSizeOrDelete(
+      element,
+      pieceSet: ZendoPieceSetMode.zendo20,
+    );
+    element = controller.state.elements.single;
+    expect(element.kind, LightPieceKind.wedge);
+    expect(element.size, PyramidSize.medium);
+
+    controller.cycleSizeOrDelete(
+      element,
+      pieceSet: ZendoPieceSetMode.zendo20,
+    );
+    element = controller.state.elements.single;
+    expect(element.kind, LightPieceKind.block);
+    expect(element.size, PyramidSize.medium);
+
+    controller.cycleSizeOrDelete(
+      element,
+      pieceSet: ZendoPieceSetMode.zendo20,
+    );
+    expect(controller.state.elements, isEmpty);
+  });
+
+  test('Both set cycles Classic sizes then Zendo 2.0 shapes', () {
+    final controller = BoardController();
+    controller.createAt(
+      const PhysicalPoint(25, 40),
+      pieceSet: ZendoPieceSetMode.both,
+    );
+
+    expect(controller.state.elements.single.size, PyramidSize.small);
+    controller.cycleSizeOrDelete(
+      controller.state.elements.single,
+      pieceSet: ZendoPieceSetMode.both,
+    );
+    expect(controller.state.elements.single.size, PyramidSize.medium);
+    controller.cycleSizeOrDelete(
+      controller.state.elements.single,
+      pieceSet: ZendoPieceSetMode.both,
+    );
+    expect(controller.state.elements.single.size, PyramidSize.large);
+    controller.cycleSizeOrDelete(
+      controller.state.elements.single,
+      pieceSet: ZendoPieceSetMode.both,
+    );
+    expect(controller.state.elements.single.kind, LightPieceKind.wedge);
+    expect(controller.state.elements.single.size, PyramidSize.medium);
+    controller.cycleSizeOrDelete(
+      controller.state.elements.single,
+      pieceSet: ZendoPieceSetMode.both,
+    );
+    expect(controller.state.elements.single.kind, LightPieceKind.block);
+    controller.cycleSizeOrDelete(
+      controller.state.elements.single,
+      pieceSet: ZendoPieceSetMode.both,
+    );
+    expect(controller.state.elements, isEmpty);
+  });
+
+  test('Zendo 2.0 wedge and block tip into footprint poses', () {
+    final controller = BoardController();
+    controller.createAt(
+      const PhysicalPoint(50, 50),
+      pieceSet: ZendoPieceSetMode.zendo20,
+    );
+    controller.cycleSizeOrDelete(
+      controller.state.elements.single,
+      pieceSet: ZendoPieceSetMode.zendo20,
+    );
+
+    var wedge = controller.state.elements.single;
+    expect(wedge.kind, LightPieceKind.wedge);
+    controller.tipOrStand(wedge, const PhysicalPoint(10, 0));
+    var flat = controller.state.elements.single;
+    expect(flat.pose, PyramidPose.wedgeTriangle);
+
+    controller.tipOrStand(flat, const PhysicalPoint(-10, 0));
+    wedge = controller.state.elements.single;
+    expect(wedge.pose, PyramidPose.upright);
+
+    controller.cycleSizeOrDelete(
+      wedge,
+      pieceSet: ZendoPieceSetMode.zendo20,
+    );
+    final block = controller.state.elements.single;
+    expect(block.kind, LightPieceKind.block);
+    controller.tipOrStand(block, const PhysicalPoint(10, 0));
+    expect(controller.state.elements.single.pose, PyramidPose.blockFlat);
+  });
+
 }
