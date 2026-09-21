@@ -7,6 +7,6 @@ MqttClient createRemoteMqttClient(String clientId) {
     clientId,
   );
   client.port = 8884;
-  client.websocketProtocols = const ['mqtt'];
+  client.websocketProtocols = MqttClientConstants.protocolsSingleDefault;
   return client;
 }
