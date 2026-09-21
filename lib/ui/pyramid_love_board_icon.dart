@@ -31,14 +31,14 @@ class PyramidLoveBoardIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-        dimension: size,
-        child: CustomPaint(
-          painter: _PyramidLoveBoardIconPainter(
-            kind,
-            color ?? IconTheme.of(context).color ?? Colors.white,
-          ),
-        ),
-      );
+    dimension: size,
+    child: CustomPaint(
+      painter: _PyramidLoveBoardIconPainter(
+        kind,
+        color ?? IconTheme.of(context).color ?? Colors.white,
+      ),
+    ),
+  );
 }
 
 class _PyramidLoveBoardIconPainter extends CustomPainter {
@@ -59,8 +59,12 @@ class _PyramidLoveBoardIconPainter extends CustomPainter {
   Offset _polar(Offset center, double radius, double angle) =>
       center + Offset(math.cos(angle), math.sin(angle)) * radius;
 
-  Path _regularPolygon(Offset center, double radius, int sides,
-      {double start = -math.pi / 2}) {
+  Path _regularPolygon(
+    Offset center,
+    double radius,
+    int sides, {
+    double start = -math.pi / 2,
+  }) {
     final path = Path();
     for (var i = 0; i < sides; i += 1) {
       final point = _polar(center, radius, start + i * 2 * math.pi / sides);

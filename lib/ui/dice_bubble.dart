@@ -27,7 +27,6 @@ String pyramidDieFaceSymbol(int face) => switch (face % 6) {
   _ => 'medium-large',
 };
 
-
 class ArcadeDieChoice {
   const ArcadeDieChoice(this.id, this.kind, this.label);
 
@@ -1276,10 +1275,7 @@ class _DiceBubblePainter extends CustomPainter {
         final t = i / 16;
         final angle = startAngle + (endAngle - startAngle) * t;
         points.add(
-          Offset(
-            shift + math.cos(angle) * 0.53,
-            math.sin(angle) * 0.53,
-          ),
+          Offset(shift + math.cos(angle) * 0.53, math.sin(angle) * 0.53),
         );
       }
       points.add(Offset(shift, 0));
@@ -1321,7 +1317,10 @@ class _DiceBubblePainter extends CustomPainter {
     const segments = 14;
     for (var i = 0; i <= segments; i += 1) {
       final angle = startAngle + sweep * i / segments;
-      final current = Offset(math.cos(angle) * radius, math.sin(angle) * radius);
+      final current = Offset(
+        math.cos(angle) * radius,
+        math.sin(angle) * radius,
+      );
       if (previous != null) {
         _lineOnFace(
           canvas,
@@ -1350,7 +1349,8 @@ class _DiceBubblePainter extends CustomPainter {
   ) {
     const length = 0.27;
     const half = 0.18;
-    final back = tip - Offset(math.cos(direction), math.sin(direction)) * length;
+    final back =
+        tip - Offset(math.cos(direction), math.sin(direction)) * length;
     final normal = Offset(-math.sin(direction), math.cos(direction));
     _projectedPolygon(canvas, center, scale, rotation, face, <Offset>[
       tip,
@@ -1394,14 +1394,8 @@ class _DiceBubblePainter extends CustomPainter {
       0.38,
       stroke,
     );
-    final firstTip = Offset(
-      math.cos(-0.30) * 0.38,
-      math.sin(-0.30) * 0.38,
-    );
-    final secondTip = Offset(
-      math.cos(2.84) * 0.38,
-      math.sin(2.84) * 0.38,
-    );
+    final firstTip = Offset(math.cos(-0.30) * 0.38, math.sin(-0.30) * 0.38);
+    final secondTip = Offset(math.cos(2.84) * 0.38, math.sin(2.84) * 0.38);
     _paintFaceArrowhead(
       canvas,
       center,

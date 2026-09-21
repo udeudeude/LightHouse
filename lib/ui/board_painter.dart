@@ -675,8 +675,7 @@ class BoardPainter extends CustomPainter {
 
     final center = Offset(size.width / 2, size.height / 2);
     final sourceToPixels =
-        BoardUnderlay.wheelOuterRadiusMm * logicalPixelsPerMm /
-        sourceHalfWidth;
+        BoardUnderlay.wheelOuterRadiusMm * logicalPixelsPerMm / sourceHalfWidth;
 
     Offset mapPoint(Offset point) =>
         center + (point - sourceCenter) * sourceToPixels;
