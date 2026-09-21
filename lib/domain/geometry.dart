@@ -44,6 +44,27 @@ bool hitTestLightElement(
         local.yMm.abs() <= halfBase + haloMm;
   }
 
+  final halfLength = geometry.footprintLengthMm(element) / 2;
+  if (element.pose == PyramidPose.blockFlat ||
+      element.pose == PyramidPose.wedgeRectangle) {
+    return local.xMm.abs() <= halfBase + haloMm &&
+        local.yMm.abs() <= halfLength + haloMm;
+  }
+
+  // Flat pyramids and Cheesecake wedges are triangles. The interaction halo
+  // deliberately remains generous, matching the long-established pyramid
+  // controls rather than forcing fingers to hit a mathematically exact edge.
+  return local.xMm.abs() <= halfBase + haloMm &&
+      local.yMm.abs() <= halfLength + haloMm;
+}) {
+  final local = rotateVector(point - element.position, -element.headingDegrees);
+  final halfBase = geometry.baseMm(element.size) / 2;
+
+  if (element.pose == PyramidPose.upright) {
+    return local.xMm.abs() <= halfBase + haloMm &&
+        local.yMm.abs() <= halfBase + haloMm;
+  }
+
   final halfLength = geometry.flatLengthMm(element.size) / 2;
   return local.xMm.abs() <= halfBase + haloMm &&
       local.yMm.abs() <= halfLength + haloMm;
