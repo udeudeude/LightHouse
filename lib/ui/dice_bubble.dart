@@ -613,7 +613,8 @@ class _DiceBubbleState extends State<DiceBubble>
             ),
           );
         },
-      );
+      ),
+    );
     } finally {
       if (mounted) setState(() => _pickerOpen = false);
     }
