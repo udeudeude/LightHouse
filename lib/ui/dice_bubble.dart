@@ -39,7 +39,7 @@ int nextArcadeDieCount({
   required int current,
   required int otherSelected,
 }) {
-  final maximum = (3 - otherSelected).clamp(0, 3);
+  final maximum = (3 - otherSelected).clamp(0, 3).toInt();
   if (maximum == 0 || current >= maximum) return 0;
   return current + 1;
 }
@@ -348,12 +348,12 @@ class _DiceBubbleState extends State<DiceBubble>
   int _maximumChoiceCount(ArcadeDieChoice choice) {
     final current = _choiceCount(choice.id);
     final otherSelected = _selectedIds.length - current;
-    return (3 - otherSelected).clamp(0, 3);
+    return (3 - otherSelected).clamp(0, 3).toInt();
   }
 
   void _setChoiceCount(ArcadeDieChoice choice, int target) {
     final maximum = _maximumChoiceCount(choice);
-    final desired = target.clamp(0, maximum);
+    final desired = target.clamp(0, maximum).toInt();
     final current = _choiceCount(choice.id);
     if (current == desired) return;
     setState(() {
