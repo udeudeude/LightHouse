@@ -3743,7 +3743,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
-              'Press/release to roll; two-finger drag moves; latch chooses dice',
+              'Press/release to roll; two-finger drag moves; latch tiles cycle die counts; empty bubble skitters the spider',
             ),
             (
               'Zendo stones',
@@ -3759,7 +3759,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
-              'Tap or hold/release to roll; two-finger drag moves; latch chooses dice',
+              'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts; empty bubble skitters the spider',
             ),
             (
               'Zendo stones',
