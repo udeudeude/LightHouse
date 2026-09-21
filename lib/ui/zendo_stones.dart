@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class ZendoStoneSnapshot {
@@ -390,21 +392,21 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                       width: (stone.expanded ? _largeRadius : _smallRadius) * 2,
                       height:
                           (stone.expanded ? _largeRadius : _smallRadius) * 2,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _fill(stone.kind),
-                        border: Border.all(
-                          color: stone.kind == _ZendoStoneKind.white
-                              ? Colors.black54
-                              : Colors.white70,
-                        ),
-                        boxShadow: const [
+                        boxShadow: [
                           BoxShadow(
                             color: Colors.black54,
                             blurRadius: 3,
                             offset: Offset(0, 1),
                           ),
                         ],
+                      ),
+                      child: CustomPaint(
+                        painter: _ZendoStonePainter(
+                          fill: _fill(stone.kind),
+                          lightBorder: stone.kind != _ZendoStoneKind.white,
+                        ),
                       ),
                     ),
                   ),
@@ -415,4 +417,59 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
       );
     },
   );
+}
+
+
+class _ZendoStonePainter extends CustomPainter {
+  const _ZendoStonePainter({
+    required this.fill,
+    required this.lightBorder,
+  });
+
+  final Color fill;
+  final bool lightBorder;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2;
+    canvas.drawCircle(center, radius, Paint()..color = fill);
+    canvas.drawCircle(
+      center,
+      radius - 0.6,
+      Paint()
+        ..color = lightBorder ? Colors.white70 : Colors.black54
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.15,
+    );
+
+    final sheen = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.45, -0.55),
+        radius: 0.82,
+        colors: [
+          Colors.white.withValues(alpha: 0.52),
+          Colors.white.withValues(alpha: 0.10),
+          Colors.transparent,
+        ],
+        stops: const [0, 0.32, 0.82],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawCircle(center, radius - 1.2, sheen);
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius * 0.72),
+      math.pi * 1.05,
+      math.pi * 0.56,
+      false,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.42)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1.0, radius * 0.085)
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ZendoStonePainter oldDelegate) =>
+      oldDelegate.fill != fill || oldDelegate.lightBorder != lightBorder;
 }
