@@ -933,6 +933,18 @@ class _DiceBubblePainter extends CustomPainter {
     }
     visible.sort((a, b) => a.depth.compareTo(b.depth));
 
+    final darkBody = arcadeDieUsesDarkBody(kind);
+    final facePaint = Paint()
+      ..color = darkBody
+          ? Colors.black.withValues(alpha: 0.96)
+          : Colors.white.withValues(alpha: 0.90);
+    final edgePaint = Paint()
+      ..color = darkBody
+          ? Colors.white.withValues(alpha: 0.88)
+          : Colors.black.withValues(alpha: 0.78)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
     for (final item in visible) {
       final face = item.face;
       final path = Path();
@@ -945,17 +957,8 @@ class _DiceBubblePainter extends CustomPainter {
         }
       }
       path.close();
-      canvas.drawPath(
-        path,
-        Paint()..color = Colors.white.withValues(alpha: 0.90),
-      );
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.78)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0,
-      );
+      canvas.drawPath(path, facePaint);
+      canvas.drawPath(path, edgePaint);
       _paintFaceMark(canvas, center, scale, rotation, face, kind);
     }
   }
