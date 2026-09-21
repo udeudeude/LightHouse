@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'pyramid_love_lightning_paths.dart';
 
-enum ArcadeDieKind { standard, lightning, pyramid, treehouse, color }
+enum ArcadeDieKind { standard, lightning, pyramid, treehouse, color, fate }
 
 bool arcadeDieUsesDarkBody(ArcadeDieKind kind) =>
     kind == ArcadeDieKind.lightning || kind == ArcadeDieKind.treehouse;
@@ -29,6 +29,31 @@ String pyramidDieFaceSymbol(int face) => switch (face % 6) {
   _ => 'medium-large',
 };
 
+String fateDieFaceSymbol(int face) => switch (face % 6) {
+  0 || 1 => '+',
+  2 || 3 => '-',
+  _ => '',
+};
+
+int nextArcadeDieCount({
+  required int current,
+  required int otherSelected,
+}) {
+  final maximum = (3 - otherSelected).clamp(0, 3);
+  if (maximum == 0 || current >= maximum) return 0;
+  return current + 1;
+}
+
+const pyramidDieHeightToBaseRatio = 1.75;
+
+Offset diceBubbleSpiderPoint(int serial) {
+  if (serial <= 0) return Offset.zero;
+  final angle = (serial * 2.399963229728653) % (2 * math.pi);
+  final radiusStep = ((serial * 37) % 100) / 100;
+  final radius = 0.17 + radiusStep * 0.30;
+  return Offset(math.cos(angle) * radius, math.sin(angle) * radius);
+}
+
 class ArcadeDieChoice {
   const ArcadeDieChoice(this.id, this.kind, this.label);
 
@@ -43,6 +68,7 @@ const arcadeDiceChoices = <ArcadeDieChoice>[
   ArcadeDieChoice('pyramid', ArcadeDieKind.pyramid, 'Pyramid die'),
   ArcadeDieChoice('treehouse', ArcadeDieKind.treehouse, 'Treehouse die'),
   ArcadeDieChoice('color', ArcadeDieKind.color, 'Color die'),
+  ArcadeDieChoice('fate', ArcadeDieKind.fate, 'Fudge / Fate die'),
 ];
 
 String arcadeDieBaseId(String instanceId) {
@@ -319,28 +345,49 @@ class _DiceBubbleState extends State<DiceBubble>
   int _choiceCount(String baseId) =>
       _selectedIds.where((id) => arcadeDieBaseId(id) == baseId).length;
 
-  void _addChoice(ArcadeDieChoice choice) {
-    if (_selectedIds.length >= 3 || _choiceCount(choice.id) >= 3) return;
-    final id = '${choice.id}#${_nextInstanceSerial++}';
+  int _maximumChoiceCount(ArcadeDieChoice choice) {
+    final current = _choiceCount(choice.id);
+    final otherSelected = _selectedIds.length - current;
+    return (3 - otherSelected).clamp(0, 3);
+  }
+
+  void _setChoiceCount(ArcadeDieChoice choice, int target) {
+    final maximum = _maximumChoiceCount(choice);
+    final desired = target.clamp(0, maximum);
+    final current = _choiceCount(choice.id);
+    if (current == desired) return;
     setState(() {
-      _selectedIds.add(id);
-      _faces[id] = _random.nextInt(6);
+      while (_choiceCount(choice.id) > desired) {
+        final index = _selectedIds.lastIndexWhere(
+          (id) => arcadeDieBaseId(id) == choice.id,
+        );
+        if (index < 0) break;
+        final id = _selectedIds.removeAt(index);
+        _faces.remove(id);
+        _plans.remove(id);
+      }
+      while (_choiceCount(choice.id) < desired && _selectedIds.length < 3) {
+        final id = '${choice.id}#${_nextInstanceSerial++}';
+        _selectedIds.add(id);
+        _faces[id] = _random.nextInt(6);
+      }
     });
     _emitSnapshot();
   }
 
-  void _removeChoice(ArcadeDieChoice choice) {
-    final index = _selectedIds.lastIndexWhere(
-      (id) => arcadeDieBaseId(id) == choice.id,
+  void _addChoice(ArcadeDieChoice choice) =>
+      _setChoiceCount(choice, _choiceCount(choice.id) + 1);
+
+  void _removeChoice(ArcadeDieChoice choice) =>
+      _setChoiceCount(choice, _choiceCount(choice.id) - 1);
+
+  void _cycleChoice(ArcadeDieChoice choice) {
+    final current = _choiceCount(choice.id);
+    final otherSelected = _selectedIds.length - current;
+    _setChoiceCount(
+      choice,
+      nextArcadeDieCount(current: current, otherSelected: otherSelected),
     );
-    if (index < 0) return;
-    final id = _selectedIds[index];
-    setState(() {
-      _selectedIds.removeAt(index);
-      _faces.remove(id);
-      _plans.remove(id);
-    });
-    _emitSnapshot();
   }
 
   double _normalize(double radians) =>
@@ -362,7 +409,13 @@ class _DiceBubbleState extends State<DiceBubble>
   }
 
   void _roll() {
-    if (_selectedIds.isEmpty) return;
+    if (_selectedIds.isEmpty) {
+      _rollSerial += 1;
+      HapticFeedback.lightImpact();
+      _rollController.forward(from: 0);
+      _emitSnapshot();
+      return;
+    }
     for (final id in _selectedIds) {
       final old = _plans[id]?.rotationAt(1) ?? _targetForFace(_faces[id] ?? 0);
       final start = _Rotation3(
@@ -420,12 +473,16 @@ class _DiceBubbleState extends State<DiceBubble>
         mark = Icon(Icons.change_history, color: foreground, size: 35);
       case ArcadeDieKind.treehouse:
         mark = Center(
-          child: Text(
-            'AIM',
-            style: TextStyle(
-              color: foreground,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
+          child: Transform.rotate(
+            angle: math.pi / 4,
+            child: Text(
+              'AIM',
+              style: TextStyle(
+                color: foreground,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.6,
+              ),
             ),
           ),
         );
@@ -442,6 +499,17 @@ class _DiceBubbleState extends State<DiceBubble>
               Text('♣', style: TextStyle(color: Colors.green, fontSize: 17)),
               Text('★', style: TextStyle(color: Colors.yellow, fontSize: 15)),
             ],
+          ),
+        );
+      case ArcadeDieKind.fate:
+        mark = Center(
+          child: Text(
+            '±',
+            style: TextStyle(
+              color: foreground,
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         );
     }
@@ -498,88 +566,95 @@ class _DiceBubbleState extends State<DiceBubble>
                     itemBuilder: (context, index) {
                       final choice = arcadeDiceChoices[index];
                       final count = _choiceCount(choice.id);
-                      final canAdd = !atLimit && count < 3;
+                      final canAdd = count < _maximumChoiceCount(choice);
                       return Tooltip(
                         message: choice.label,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: count > 0
-                                ? Colors.white.withValues(alpha: 0.10)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: count > 0 ? Colors.white : Colors.white24,
-                              width: count > 0 ? 2 : 1,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () {
+                            _cycleChoice(choice);
+                            setSheetState(() {});
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: count > 0
+                                  ? Colors.white.withValues(alpha: 0.10)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: count > 0 ? Colors.white : Colors.white24,
+                                width: count > 0 ? 2 : 1,
+                              ),
                             ),
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              _selectorImage(choice),
-                              Positioned(
-                                top: 4,
-                                right: 4,
-                                child: Container(
-                                  constraints: const BoxConstraints(
-                                    minWidth: 20,
-                                    minHeight: 20,
-                                  ),
-                                  alignment: Alignment.center,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    '$count',
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                _selectorImage(choice),
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: Container(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 20,
+                                      minHeight: 20,
+                                    ),
+                                    alignment: Alignment.center,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      '$count',
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              Positioned(
-                                left: 2,
-                                bottom: 2,
-                                child: IconButton(
-                                  tooltip: 'Remove one ${choice.label}',
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 30,
-                                    minHeight: 30,
+                                Positioned(
+                                  left: 2,
+                                  bottom: 2,
+                                  child: IconButton(
+                                    tooltip: 'Remove one ${choice.label}',
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 30,
+                                      minHeight: 30,
+                                    ),
+                                    onPressed: count == 0
+                                        ? null
+                                        : () {
+                                            _removeChoice(choice);
+                                            setSheetState(() {});
+                                          },
+                                    icon: const Icon(Icons.remove, size: 18),
                                   ),
-                                  onPressed: count == 0
-                                      ? null
-                                      : () {
-                                          _removeChoice(choice);
-                                          setSheetState(() {});
-                                        },
-                                  icon: const Icon(Icons.remove, size: 18),
                                 ),
-                              ),
-                              Positioned(
-                                right: 2,
-                                bottom: 2,
-                                child: IconButton(
-                                  tooltip: 'Add one ${choice.label}',
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 30,
-                                    minHeight: 30,
+                                Positioned(
+                                  right: 2,
+                                  bottom: 2,
+                                  child: IconButton(
+                                    tooltip: 'Add one ${choice.label}',
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 30,
+                                      minHeight: 30,
+                                    ),
+                                    onPressed: canAdd
+                                        ? () {
+                                            _addChoice(choice);
+                                            setSheetState(() {});
+                                          }
+                                        : null,
+                                    icon: const Icon(Icons.add, size: 18),
                                   ),
-                                  onPressed: canAdd
-                                      ? () {
-                                          _addChoice(choice);
-                                          setSheetState(() {});
-                                        }
-                                      : null,
-                                  icon: const Icon(Icons.add, size: 18),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -666,6 +741,7 @@ class _DiceBubbleState extends State<DiceBubble>
                       faces: Map<String, int>.unmodifiable(_faces),
                       plans: Map<String, _SpinPlan>.unmodifiable(_plans),
                       progress: _rollController.value,
+                      rollSerial: _rollSerial,
                       pressed: _pressed,
                     ),
                   ),
@@ -743,6 +819,7 @@ class _DiceBubblePainter extends CustomPainter {
     required this.faces,
     required this.plans,
     required this.progress,
+    required this.rollSerial,
     required this.pressed,
   });
 
@@ -751,6 +828,7 @@ class _DiceBubblePainter extends CustomPainter {
   final Map<String, int> faces;
   final Map<String, _SpinPlan> plans;
   final double progress;
+  final int rollSerial;
   final bool pressed;
 
   static const _vertices = <_V3>[
@@ -880,6 +958,10 @@ class _DiceBubblePainter extends CustomPainter {
     );
 
     final visualScale = math.min(size.width, size.height) / 140;
+    if (choices.isEmpty) {
+      _paintSpider(canvas, center, baseRadius, visualScale);
+      return;
+    }
     final offsets = _dieOffsets(choices.length)
         .map((offset) => offset * visualScale)
         .toList(growable: false);
@@ -908,6 +990,80 @@ class _DiceBubblePainter extends CustomPainter {
         rotation,
       );
     }
+  }
+
+  void _paintSpider(
+    Canvas canvas,
+    Offset center,
+    double bubbleRadius,
+    double visualScale,
+  ) {
+    final from = diceBubbleSpiderPoint(math.max(0, rollSerial - 1));
+    final to = diceBubbleSpiderPoint(rollSerial);
+    final eased = 1 - math.pow(1 - progress.clamp(0.0, 1.0), 3).toDouble();
+    final base = Offset.lerp(from, to, eased)! * (bubbleRadius * 0.82);
+    final skitterEnvelope = math.sin(math.pi * progress.clamp(0.0, 1.0));
+    final skitterAngle = rollSerial * 1.7 + progress * math.pi * 14;
+    final jitter = Offset(
+          math.cos(skitterAngle),
+          math.sin(skitterAngle * 1.13),
+        ) *
+        (bubbleRadius * 0.065 * skitterEnvelope);
+    final position = center + base + jitter;
+    final motion = to - from;
+    final heading = motion.distance < 0.001
+        ? -math.pi / 2
+        : math.atan2(motion.dy, motion.dx);
+    final bodyScale = visualScale * (pressed ? 0.82 : 1.0);
+    final white = Paint()
+      ..color = Colors.white.withValues(alpha: 0.94)
+      ..style = PaintingStyle.fill;
+    final leg = Paint()
+      ..color = Colors.white.withValues(alpha: 0.88)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.0, 1.25 * visualScale)
+      ..strokeCap = StrokeCap.round;
+
+    canvas.save();
+    canvas.translate(position.dx, position.dy);
+    canvas.rotate(heading);
+    final legSwing = math.sin(progress * math.pi * 18 + rollSerial) *
+        2.3 *
+        visualScale *
+        skitterEnvelope;
+    for (var side = -1; side <= 1; side += 2) {
+      for (var i = 0; i < 4; i += 1) {
+        final y = (-7.2 + i * 4.8) * bodyScale;
+        final root = Offset(side * 2.5 * bodyScale, y * 0.68);
+        final knee = Offset(
+          side * (7.0 + i * 0.55) * bodyScale,
+          y + (i.isEven ? legSwing : -legSwing),
+        );
+        final foot = Offset(
+          side * (11.5 + i * 0.7) * bodyScale,
+          y + (i.isEven ? -2.2 : 2.2) * bodyScale,
+        );
+        final path = Path()
+          ..moveTo(root.dx, root.dy)
+          ..lineTo(knee.dx, knee.dy)
+          ..lineTo(foot.dx, foot.dy);
+        canvas.drawPath(path, leg);
+      }
+    }
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(0, 1.5 * bodyScale),
+        width: 8.0 * bodyScale,
+        height: 12.5 * bodyScale,
+      ),
+      white,
+    );
+    canvas.drawCircle(
+      Offset(0, -6.0 * bodyScale),
+      3.4 * bodyScale,
+      white,
+    );
+    canvas.restore();
   }
 
   void _paintDie(
@@ -1075,9 +1231,25 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           labels[face.index],
           mark.color,
+          diagonal: true,
+          sizeFactor: 1.28,
         );
       case ArcadeDieKind.color:
         _paintColorMark(canvas, center, scale, rotation, face, mark);
+      case ArcadeDieKind.fate:
+        final symbol = fateDieFaceSymbol(face.index);
+        if (symbol.isNotEmpty) {
+          _paintFaceText(
+            canvas,
+            center,
+            scale,
+            rotation,
+            face,
+            symbol,
+            mark.color,
+            sizeFactor: 1.55,
+          );
+        }
     }
   }
 
@@ -1298,17 +1470,26 @@ class _DiceBubblePainter extends CustomPainter {
     bool inverted = false,
     bool filled = true,
   }) {
+    // The real Looney Pyramid side profile is tall and isosceles, not an
+    // equilateral triangle. LightHouse's measured flat-length/base ratio is
+    // about 1.75, so the die mark uses that same silhouette ratio.
+    final halfHeight = radius * 0.72;
+    final halfBase = halfHeight / pyramidDieHeightToBaseRatio;
+    final direction = inverted ? -1.0 : 1.0;
+    final points = <Offset>[
+      Offset(x, y - halfHeight * direction),
+      Offset(x + halfBase, y + halfHeight * direction),
+      Offset(x - halfBase, y + halfHeight * direction),
+    ];
     final path = Path();
-    final startAngle = inverted ? math.pi / 2 : -math.pi / 2;
-    for (var i = 0; i < 3; i += 1) {
-      final angle = startAngle + i * 2 * math.pi / 3;
+    for (var i = 0; i < points.length; i += 1) {
       final p = _facePoint(
         center,
         scale,
         rotation,
         face,
-        x + math.cos(angle) * radius,
-        y + math.sin(angle) * radius,
+        points[i].dx,
+        points[i].dy,
       );
       if (i == 0) {
         path.moveTo(p.dx, p.dy);
@@ -1357,8 +1538,10 @@ class _DiceBubblePainter extends CustomPainter {
       inverted: inverted,
       filled: false,
     );
-    final pipY = y + (inverted ? -radius * 0.12 : radius * 0.19);
-    final spacing = radius * 0.30;
+    final halfHeight = radius * 0.72;
+    final halfBase = halfHeight / pyramidDieHeightToBaseRatio;
+    final pipY = y + (inverted ? -halfHeight * 0.16 : halfHeight * 0.16);
+    final spacing = halfBase * 0.62;
     final startX = x - spacing * (pips - 1) / 2;
     for (var i = 0; i < pips; i += 1) {
       _projectedDisc(
@@ -1369,7 +1552,7 @@ class _DiceBubblePainter extends CustomPainter {
         face,
         startX + i * spacing,
         pipY,
-        math.max(0.055, radius * 0.105),
+        math.max(0.045, halfBase * 0.18),
         paint,
       );
     }
@@ -1511,25 +1694,39 @@ class _DiceBubblePainter extends CustomPainter {
     _Rotation3 rotation,
     _Face face,
     String text,
-    Color color,
-  ) {
+    Color color, {
+    bool diagonal = false,
+    double sizeFactor = 1,
+  }) {
     final c = _facePoint(center, scale, rotation, face, 0, 0);
     final painter = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
           color: color,
-          fontSize: math.max(5.5, scale * (text.length > 3 ? 0.32 : 0.38)),
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.35,
+          fontSize:
+              math.max(5.5, scale * (text.length > 3 ? 0.42 : 0.50)) *
+              sizeFactor,
+          fontWeight: FontWeight.w900,
+          letterSpacing: text.length > 3 ? -0.65 : -0.35,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
+
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    if (diagonal) {
+      final px = _facePoint(center, scale, rotation, face, 0.45, 0);
+      final py = _facePoint(center, scale, rotation, face, 0, 0.45);
+      final diagonalVector = (px - c) + (py - c);
+      canvas.rotate(math.atan2(diagonalVector.dy, diagonalVector.dx));
+    }
     painter.paint(
       canvas,
-      Offset(c.dx - painter.width / 2, c.dy - painter.height / 2),
+      Offset(-painter.width / 2, -painter.height / 2),
     );
+    canvas.restore();
   }
 
   @override
@@ -1539,5 +1736,6 @@ class _DiceBubblePainter extends CustomPainter {
       !mapEquals(oldDelegate.faces, faces) ||
       !mapEquals(oldDelegate.plans, plans) ||
       oldDelegate.progress != progress ||
+      oldDelegate.rollSerial != rollSerial ||
       oldDelegate.pressed != pressed;
 }
