@@ -512,7 +512,7 @@ class _DiceBubbleState extends State<DiceBubble>
                             crossAxisCount: 3,
                             mainAxisSpacing: 9,
                             crossAxisSpacing: 9,
-                            childAspectRatio: 1,
+                            mainAxisExtent: 112,
                           ),
                       itemCount: arcadeDiceChoices.length,
                       itemBuilder: (context, index) {
