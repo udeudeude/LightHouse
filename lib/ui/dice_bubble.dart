@@ -1867,7 +1867,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.04,
-          radius: 0.42,
+          radius: 0.33,
           pips: 1,
           paint: paint,
         );
@@ -1880,7 +1880,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.04,
-          radius: 0.50,
+          radius: 0.46,
           pips: 2,
           paint: paint,
         );
@@ -1906,7 +1906,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.28,
           y: -0.12,
-          radius: 0.31,
+          radius: 0.24,
           pips: 1,
           paint: paint,
           inverted: true,
@@ -1919,7 +1919,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0.26,
           y: 0.18,
-          radius: 0.39,
+          radius: 0.34,
           pips: 2,
           paint: paint,
         );
@@ -1932,7 +1932,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.31,
           y: -0.14,
-          radius: 0.30,
+          radius: 0.24,
           pips: 1,
           paint: paint,
           inverted: true,
@@ -1945,7 +1945,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0.23,
           y: 0.18,
-          radius: 0.47,
+          radius: 0.44,
           pips: 3,
           paint: paint,
         );
