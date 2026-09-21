@@ -107,6 +107,16 @@ const zendoCommunityRules = <ZendoCommunityRule>[
         'https://boardgamegeek.com/thread/3111857/what-are-some-rules-you-came-up-with-as-master-tha',
   ),
   ZendoCommunityRule(
+    id: 'boxed-five-points',
+    text:
+        'Count a pyramid as 1, a wedge as 2, and a block as 4; the structure totals exactly 5.',
+    difficulty: ZendoRuleDifficulty.hard,
+    universe: ZendoRuleUniverse.boxed,
+    sourceLabel: 'BoardGameGeek · Geekway 2023 recap',
+    sourceUrl:
+        'https://boardgamegeek.com/blog/9268/blogpost/148014/geekway-2023-recap-to-feel-the-warm-thrill-of-conf',
+  ),
+  ZendoCommunityRule(
     id: 'set-like',
     text:
         'Using exactly three pyramids, each chosen attribute is either all the same or all different.',
