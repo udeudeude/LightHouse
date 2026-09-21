@@ -3747,11 +3747,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         Icons.psychology_alt_outlined,
         rule == null ? 'Community Secret Rule…' : 'Change Secret Rule…',
       ),
-      _compactMenuItem(
-        'randomRule',
-        Icons.shuffle,
-        'Random Community Rule',
-      ),
+      _compactMenuItem('randomRule', Icons.shuffle, 'Random Community Rule'),
       _compactMenuItem(
         'browseRules',
         Icons.open_in_new,
