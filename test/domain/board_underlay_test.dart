@@ -5,12 +5,20 @@ import 'package:lighthouse/domain/board_underlay.dart';
 import 'package:lighthouse/domain/physical_point.dart';
 
 void main() {
-  test('wheel exposes forty snap locations', () {
+  test('Wheel exposes the thirty source-board regions', () {
     final points = BoardUnderlay.wheel.snapPoints(
       boardWidthMm: 300,
       boardHeightMm: 300,
     );
-    expect(points, hasLength(40));
+    expect(points, hasLength(30));
+
+    // WheelBoard.svg is slightly taller/narrower than a regular decagon. Keep
+    // that source asymmetry rather than drifting back to a synthetic wheel.
+    final xs = points.map((point) => point.xMm);
+    final ys = points.map((point) => point.yMm);
+    final xSpan = xs.reduce(math.max) - xs.reduce(math.min);
+    final ySpan = ys.reduce(math.max) - ys.reduce(math.min);
+    expect(ySpan, greaterThan(xSpan));
   });
 
   test('Launchpad 23 exposes a centered 3 by 3 snap grid', () {

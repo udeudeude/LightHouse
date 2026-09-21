@@ -6,6 +6,27 @@ import 'package:flutter/services.dart';
 
 enum ArcadeDieKind { standard, lightning, pyramid, treehouse, color }
 
+bool arcadeDieUsesDarkBody(ArcadeDieKind kind) =>
+    kind == ArcadeDieKind.lightning || kind == ArcadeDieKind.treehouse;
+
+String lightningDieFaceSymbol(int face) => switch (face % 6) {
+  0 => 'bolt',
+  1 => 'atom',
+  2 => 'split-circle',
+  3 => 'arrow',
+  4 => 'pyramids',
+  _ => 'recycle',
+};
+
+String pyramidDieFaceSymbol(int face) => switch (face % 6) {
+  0 => 'small',
+  1 => 'medium',
+  2 => 'large',
+  3 => 'small-medium',
+  4 => 'small-large',
+  _ => 'medium-large',
+};
+
 class ArcadeDieChoice {
   const ArcadeDieChoice(this.id, this.kind, this.label);
 
@@ -377,28 +398,30 @@ class _DiceBubbleState extends State<DiceBubble>
   );
 
   Widget _selectorImage(ArcadeDieChoice choice) {
+    final darkBody = arcadeDieUsesDarkBody(choice.kind);
+    final foreground = darkBody ? Colors.white : Colors.black;
     Widget mark;
     switch (choice.kind) {
       case ArcadeDieKind.standard:
-        mark = const Stack(
+        mark = Stack(
           children: [
-            Positioned(left: 11, top: 11, child: _SelectorPip()),
-            Positioned(right: 11, top: 11, child: _SelectorPip()),
-            Center(child: _SelectorPip()),
-            Positioned(left: 11, bottom: 11, child: _SelectorPip()),
-            Positioned(right: 11, bottom: 11, child: _SelectorPip()),
+            Positioned(left: 11, top: 11, child: _SelectorPip(foreground)),
+            Positioned(right: 11, top: 11, child: _SelectorPip(foreground)),
+            Center(child: _SelectorPip(foreground)),
+            Positioned(left: 11, bottom: 11, child: _SelectorPip(foreground)),
+            Positioned(right: 11, bottom: 11, child: _SelectorPip(foreground)),
           ],
         );
       case ArcadeDieKind.lightning:
-        mark = const Icon(Icons.bolt, color: Colors.black, size: 35);
+        mark = Icon(Icons.bolt, color: foreground, size: 35);
       case ArcadeDieKind.pyramid:
-        mark = const Icon(Icons.change_history, color: Colors.black, size: 35);
+        mark = Icon(Icons.change_history, color: foreground, size: 35);
       case ArcadeDieKind.treehouse:
-        mark = const Center(
+        mark = Center(
           child: Text(
             'AIM',
             style: TextStyle(
-              color: Colors.black,
+              color: foreground,
               fontSize: 13,
               fontWeight: FontWeight.w900,
             ),
@@ -413,7 +436,7 @@ class _DiceBubbleState extends State<DiceBubble>
             children: const [
               Text('♠', style: TextStyle(color: Colors.purple, fontSize: 17)),
               Text('♥', style: TextStyle(color: Colors.red, fontSize: 17)),
-              Text('♦', style: TextStyle(color: Colors.cyan, fontSize: 17)),
+              Text('♦', style: TextStyle(color: Colors.blue, fontSize: 17)),
               Text('♣', style: TextStyle(color: Colors.green, fontSize: 17)),
               Text('★', style: TextStyle(color: Colors.yellow, fontSize: 15)),
             ],
@@ -424,9 +447,9 @@ class _DiceBubbleState extends State<DiceBubble>
       width: 58,
       height: 58,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: darkBody ? Colors.black : Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black87),
+        border: Border.all(color: darkBody ? Colors.white70 : Colors.black87),
       ),
       child: mark,
     );
@@ -672,16 +695,15 @@ class _DiceBubbleState extends State<DiceBubble>
 }
 
 class _SelectorPip extends StatelessWidget {
-  const _SelectorPip();
+  const _SelectorPip(this.color);
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) => Container(
     width: 7,
     height: 7,
-    decoration: const BoxDecoration(
-      color: Colors.black,
-      shape: BoxShape.circle,
-    ),
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
   );
 }
 
@@ -910,6 +932,18 @@ class _DiceBubblePainter extends CustomPainter {
     }
     visible.sort((a, b) => a.depth.compareTo(b.depth));
 
+    final darkBody = arcadeDieUsesDarkBody(kind);
+    final facePaint = Paint()
+      ..color = darkBody
+          ? Colors.black.withValues(alpha: 0.96)
+          : Colors.white.withValues(alpha: 0.90);
+    final edgePaint = Paint()
+      ..color = darkBody
+          ? Colors.white.withValues(alpha: 0.88)
+          : Colors.black.withValues(alpha: 0.78)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
     for (final item in visible) {
       final face = item.face;
       final path = Path();
@@ -922,17 +956,8 @@ class _DiceBubblePainter extends CustomPainter {
         }
       }
       path.close();
-      canvas.drawPath(
-        path,
-        Paint()..color = Colors.white.withValues(alpha: 0.90),
-      );
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.78)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0,
-      );
+      canvas.drawPath(path, facePaint);
+      canvas.drawPath(path, edgePaint);
       _paintFaceMark(canvas, center, scale, rotation, face, kind);
     }
   }
@@ -1015,8 +1040,9 @@ class _DiceBubblePainter extends CustomPainter {
     _Face face,
     ArcadeDieKind kind,
   ) {
-    final black = Paint()
-      ..color = Colors.black.withValues(alpha: 0.90)
+    final darkBody = arcadeDieUsesDarkBody(kind);
+    final mark = Paint()
+      ..color = (darkBody ? Colors.white : Colors.black).withValues(alpha: 0.92)
       ..style = PaintingStyle.fill;
     switch (kind) {
       case ArcadeDieKind.standard:
@@ -1030,15 +1056,15 @@ class _DiceBubblePainter extends CustomPainter {
             pip.dx,
             pip.dy,
             0.145,
-            black,
+            mark,
           );
         }
       case ArcadeDieKind.lightning:
-        _paintLightningMark(canvas, center, scale, rotation, face, black);
+        _paintLightningMark(canvas, center, scale, rotation, face, mark);
       case ArcadeDieKind.pyramid:
-        _paintPyramidMark(canvas, center, scale, rotation, face, black);
+        _paintPyramidMark(canvas, center, scale, rotation, face, mark);
       case ArcadeDieKind.treehouse:
-        const labels = ['AIM', 'DIG', 'SWAP', 'HOP', 'TIP', 'WILD'];
+        const labels = ['AIM', 'DIG', 'HOP', 'SWAP', 'TIP', 'WILD'];
         _paintFaceText(
           canvas,
           center,
@@ -1046,9 +1072,10 @@ class _DiceBubblePainter extends CustomPainter {
           rotation,
           face,
           labels[face.index],
+          mark.color,
         );
       case ArcadeDieKind.color:
-        _paintColorMark(canvas, center, scale, rotation, face, black);
+        _paintColorMark(canvas, center, scale, rotation, face, mark);
     }
   }
 
@@ -1090,38 +1117,39 @@ class _DiceBubblePainter extends CustomPainter {
     Paint black,
   ) {
     switch (face.index) {
-      case 0: // purple spade
-        final purple = Paint()..color = Colors.purple;
+      case 0: // Pyramid Love: purple spade.
         _projectedPolygon(canvas, center, scale, rotation, face, const [
-          Offset(0, -0.58),
-          Offset(-0.50, 0.08),
-          Offset(-0.34, 0.36),
+          Offset(0, -0.60),
+          Offset(-0.48, -0.02),
+          Offset(-0.46, 0.22),
+          Offset(-0.28, 0.36),
           Offset(-0.10, 0.29),
-          Offset(-0.16, 0.58),
-          Offset(0.16, 0.58),
+          Offset(-0.16, 0.60),
+          Offset(0.16, 0.60),
           Offset(0.10, 0.29),
-          Offset(0.34, 0.36),
-          Offset(0.50, 0.08),
-        ], purple);
-      case 1: // red heart
+          Offset(0.28, 0.36),
+          Offset(0.46, 0.22),
+          Offset(0.48, -0.02),
+        ], Paint()..color = Colors.purple);
+      case 1: // Pyramid Love: red heart.
         _projectedPolygon(canvas, center, scale, rotation, face, const [
-          Offset(0, 0.58),
-          Offset(-0.47, 0.05),
-          Offset(-0.46, -0.25),
-          Offset(-0.25, -0.45),
-          Offset(0, -0.25),
-          Offset(0.25, -0.45),
-          Offset(0.46, -0.25),
-          Offset(0.47, 0.05),
+          Offset(0, 0.60),
+          Offset(-0.48, 0.08),
+          Offset(-0.46, -0.26),
+          Offset(-0.25, -0.46),
+          Offset(0, -0.26),
+          Offset(0.25, -0.46),
+          Offset(0.46, -0.26),
+          Offset(0.48, 0.08),
         ], Paint()..color = Colors.red);
-      case 2: // cyan diamond
+      case 2: // Pyramid Love: blue diamond.
         _projectedPolygon(canvas, center, scale, rotation, face, const [
-          Offset(0, -0.58),
-          Offset(0.42, 0),
-          Offset(0, 0.58),
-          Offset(-0.42, 0),
-        ], Paint()..color = Colors.cyan);
-      case 3: // green club
+          Offset(0, -0.62),
+          Offset(0.43, 0),
+          Offset(0, 0.62),
+          Offset(-0.43, 0),
+        ], Paint()..color = Colors.blue);
+      case 3: // Pyramid Love: green club.
         final green = Paint()..color = Colors.green;
         _projectedDisc(
           canvas,
@@ -1130,7 +1158,7 @@ class _DiceBubblePainter extends CustomPainter {
           rotation,
           face,
           0,
-          -0.29,
+          -0.30,
           0.25,
           green,
         );
@@ -1140,7 +1168,7 @@ class _DiceBubblePainter extends CustomPainter {
           scale,
           rotation,
           face,
-          -0.24,
+          -0.25,
           0.02,
           0.25,
           green,
@@ -1151,7 +1179,7 @@ class _DiceBubblePainter extends CustomPainter {
           scale,
           rotation,
           face,
-          0.24,
+          0.25,
           0.02,
           0.25,
           green,
@@ -1159,14 +1187,14 @@ class _DiceBubblePainter extends CustomPainter {
         _projectedPolygon(canvas, center, scale, rotation, face, const [
           Offset(-0.11, 0.08),
           Offset(0.11, 0.08),
-          Offset(0.18, 0.58),
-          Offset(-0.18, 0.58),
+          Offset(0.18, 0.60),
+          Offset(-0.18, 0.60),
         ], green);
-      case 4: // yellow star
+      case 4: // Pyramid Love: yellow star.
         final star = <Offset>[];
         for (var i = 0; i < 10; i += 1) {
           final angle = -math.pi / 2 + i * math.pi / 5;
-          final radius = i.isEven ? 0.58 : 0.25;
+          final radius = i.isEven ? 0.60 : 0.26;
           star.add(Offset(math.cos(angle) * radius, math.sin(angle) * radius));
         }
         _projectedPolygon(
@@ -1178,8 +1206,8 @@ class _DiceBubblePainter extends CustomPainter {
           star,
           Paint()..color = Colors.yellow,
         );
-      case 5:
-        _paintAtom(canvas, center, scale, rotation, face, black);
+      case 5: // Pyramid Love: wild atom.
+        _paintHubAtom(canvas, center, scale, rotation, face, black);
     }
   }
 
@@ -1200,6 +1228,196 @@ class _DiceBubblePainter extends CustomPainter {
     );
   }
 
+  void _paintHubAtom(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face,
+    Paint fill,
+  ) {
+    final stroke = Paint()
+      ..color = fill.color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(0.9, scale * 0.075)
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 8; i += 1) {
+      final angle = -math.pi / 2 + i * math.pi / 4;
+      final inner = Offset(math.cos(angle) * 0.15, math.sin(angle) * 0.15);
+      final outer = Offset(math.cos(angle) * 0.49, math.sin(angle) * 0.49);
+      _lineOnFace(canvas, center, scale, rotation, face, inner, outer, stroke);
+      _projectedDisc(
+        canvas,
+        center,
+        scale,
+        rotation,
+        face,
+        outer.dx,
+        outer.dy,
+        0.105,
+        fill,
+      );
+    }
+    _projectedDisc(canvas, center, scale, rotation, face, 0, 0, 0.18, fill);
+  }
+
+  void _paintSplitCircle(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face,
+    Paint fill,
+  ) {
+    List<Offset> half(double startAngle, double endAngle, double shift) {
+      final points = <Offset>[];
+      for (var i = 0; i <= 16; i += 1) {
+        final t = i / 16;
+        final angle = startAngle + (endAngle - startAngle) * t;
+        points.add(
+          Offset(shift + math.cos(angle) * 0.53, math.sin(angle) * 0.53),
+        );
+      }
+      points.add(Offset(shift, 0));
+      return points;
+    }
+
+    _projectedPolygon(
+      canvas,
+      center,
+      scale,
+      rotation,
+      face,
+      half(math.pi / 2, 3 * math.pi / 2, -0.055),
+      fill,
+    );
+    _projectedPolygon(
+      canvas,
+      center,
+      scale,
+      rotation,
+      face,
+      half(-math.pi / 2, math.pi / 2, 0.055),
+      fill,
+    );
+  }
+
+  void _drawFaceArc(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face,
+    double startAngle,
+    double sweep,
+    double radius,
+    Paint paint,
+  ) {
+    Offset? previous;
+    const segments = 14;
+    for (var i = 0; i <= segments; i += 1) {
+      final angle = startAngle + sweep * i / segments;
+      final current = Offset(
+        math.cos(angle) * radius,
+        math.sin(angle) * radius,
+      );
+      if (previous != null) {
+        _lineOnFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          previous,
+          current,
+          paint,
+        );
+      }
+      previous = current;
+    }
+  }
+
+  void _paintFaceArrowhead(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face,
+    Offset tip,
+    double direction,
+    Paint fill,
+  ) {
+    const length = 0.27;
+    const half = 0.18;
+    final back =
+        tip - Offset(math.cos(direction), math.sin(direction)) * length;
+    final normal = Offset(-math.sin(direction), math.cos(direction));
+    _projectedPolygon(canvas, center, scale, rotation, face, <Offset>[
+      tip,
+      back + normal * half,
+      back - normal * half,
+    ], fill);
+  }
+
+  void _paintRecycle(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face,
+    Paint fill,
+  ) {
+    final stroke = Paint()
+      ..color = fill.color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.2, scale * 0.13)
+      ..strokeCap = StrokeCap.round;
+    _drawFaceArc(
+      canvas,
+      center,
+      scale,
+      rotation,
+      face,
+      -2.75,
+      2.45,
+      0.38,
+      stroke,
+    );
+    _drawFaceArc(
+      canvas,
+      center,
+      scale,
+      rotation,
+      face,
+      0.39,
+      2.45,
+      0.38,
+      stroke,
+    );
+    final firstTip = Offset(math.cos(-0.30) * 0.38, math.sin(-0.30) * 0.38);
+    final secondTip = Offset(math.cos(2.84) * 0.38, math.sin(2.84) * 0.38);
+    _paintFaceArrowhead(
+      canvas,
+      center,
+      scale,
+      rotation,
+      face,
+      firstTip,
+      1.27,
+      fill,
+    );
+    _paintFaceArrowhead(
+      canvas,
+      center,
+      scale,
+      rotation,
+      face,
+      secondTip,
+      -1.87,
+      fill,
+    );
+  }
+
   void _paintLightningMark(
     Canvas canvas,
     Offset center,
@@ -1208,191 +1426,60 @@ class _DiceBubblePainter extends CustomPainter {
     _Face face,
     Paint fill,
   ) {
-    final stroke = Paint()
-      ..color = fill.color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.0, scale * 0.09)
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
     switch (face.index) {
-      case 0:
-        final points = [
-          const Offset(-0.10, -0.62),
-          const Offset(0.22, -0.12),
-          const Offset(0.02, -0.12),
-          const Offset(0.18, 0.62),
-          const Offset(-0.26, 0.08),
-          const Offset(-0.04, 0.08),
-        ];
-        final path = Path();
-        for (var i = 0; i < points.length; i += 1) {
-          final p = _facePoint(
-            center,
-            scale,
-            rotation,
-            face,
-            points[i].dx,
-            points[i].dy,
-          );
-          if (i == 0) {
-            path.moveTo(p.dx, p.dy);
-          } else {
-            path.lineTo(p.dx, p.dy);
-          }
-        }
-        path.close();
-        canvas.drawPath(path, fill);
-      case 1:
-        const ring = [
-          Offset(0, -0.52),
-          Offset(0.45, 0.25),
-          Offset(-0.45, 0.25),
-          Offset(0, -0.52),
-        ];
-        for (var i = 0; i < ring.length - 1; i += 1) {
-          _lineOnFace(
-            canvas,
-            center,
-            scale,
-            rotation,
-            face,
-            ring[i],
-            ring[i + 1],
-            stroke,
-          );
-        }
-      case 2:
-        _lineOnFace(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          const Offset(0, 0.58),
-          const Offset(0, 0),
-          stroke,
-        );
-        _lineOnFace(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          const Offset(0, 0),
-          const Offset(-0.48, -0.48),
-          stroke,
-        );
-        _lineOnFace(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          const Offset(0, 0),
-          const Offset(0.48, -0.48),
-          stroke,
-        );
-      case 3:
-        _lineOnFace(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          const Offset(-0.55, 0),
-          const Offset(0.48, 0),
-          stroke,
-        );
-        _lineOnFace(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          const Offset(0.48, 0),
-          const Offset(0.18, -0.28),
-          stroke,
-        );
-        _lineOnFace(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          const Offset(0.48, 0),
-          const Offset(0.18, 0.28),
-          stroke,
-        );
-      case 4:
+      case 0: // SymbolBolt.
+        _projectedPolygon(canvas, center, scale, rotation, face, const [
+          Offset(-0.06, -0.64),
+          Offset(0.25, -0.19),
+          Offset(0.05, -0.19),
+          Offset(0.25, 0.03),
+          Offset(0.02, 0.03),
+          Offset(0.15, 0.64),
+          Offset(-0.28, 0.14),
+          Offset(-0.07, 0.14),
+          Offset(-0.28, -0.08),
+          Offset(-0.08, -0.08),
+        ], fill);
+      case 1: // SymbolWildAtom.
+        _paintHubAtom(canvas, center, scale, rotation, face, fill);
+      case 2: // SymbolSplitCircle.
+        _paintSplitCircle(canvas, center, scale, rotation, face, fill);
+      case 3: // ArrowEast.
+        _projectedPolygon(canvas, center, scale, rotation, face, const [
+          Offset(-0.58, -0.20),
+          Offset(0.12, -0.20),
+          Offset(0.12, -0.48),
+          Offset(0.62, 0),
+          Offset(0.12, 0.48),
+          Offset(0.12, 0.20),
+          Offset(-0.58, 0.20),
+        ], fill);
+      case 4: // SymbolPyramids.
         _projectedTriangle(
           canvas,
           center,
           scale,
           rotation,
           face,
-          -0.34,
-          0.12,
-          0.30,
-          fill,
-        );
-        _projectedTriangle(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          0.0,
-          -0.18,
-          0.42,
-          fill,
-        );
-        _projectedTriangle(
-          canvas,
-          center,
-          scale,
-          rotation,
-          face,
-          0.36,
-          0.12,
+          -0.33,
+          0.18,
           0.25,
           fill,
         );
-      case 5:
-        _paintAtom(canvas, center, scale, rotation, face, fill);
+        _projectedTriangle(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          0.17,
+          0.06,
+          0.51,
+          fill,
+        );
+      case 5: // SymbolRecycle.
+        _paintRecycle(canvas, center, scale, rotation, face, fill);
     }
-  }
-
-  void _paintAtom(
-    Canvas canvas,
-    Offset center,
-    double scale,
-    _Rotation3 rotation,
-    _Face face,
-    Paint fill,
-  ) {
-    final stroke = Paint()
-      ..color = fill.color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(0.9, scale * 0.07);
-    for (var ring = 0; ring < 3; ring += 1) {
-      final path = Path();
-      final ringAngle = ring * math.pi / 3;
-      for (var i = 0; i <= 24; i += 1) {
-        final a = i * 2 * math.pi / 24;
-        final x0 = math.cos(a) * 0.55;
-        final y0 = math.sin(a) * 0.22;
-        final x = x0 * math.cos(ringAngle) - y0 * math.sin(ringAngle);
-        final y = x0 * math.sin(ringAngle) + y0 * math.cos(ringAngle);
-        final p = _facePoint(center, scale, rotation, face, x, y);
-        if (i == 0) {
-          path.moveTo(p.dx, p.dy);
-        } else {
-          path.lineTo(p.dx, p.dy);
-        }
-      }
-      canvas.drawPath(path, stroke);
-    }
-    _projectedDisc(canvas, center, scale, rotation, face, 0, 0, 0.10, fill);
   }
 
   void _projectedTriangle(
@@ -1404,11 +1491,14 @@ class _DiceBubblePainter extends CustomPainter {
     double x,
     double y,
     double radius,
-    Paint paint,
-  ) {
+    Paint paint, {
+    bool inverted = false,
+    bool filled = true,
+  }) {
     final path = Path();
+    final startAngle = inverted ? math.pi / 2 : -math.pi / 2;
     for (var i = 0; i < 3; i += 1) {
-      final angle = -math.pi / 2 + i * 2 * math.pi / 3;
+      final angle = startAngle + i * 2 * math.pi / 3;
       final p = _facePoint(
         center,
         scale,
@@ -1424,7 +1514,62 @@ class _DiceBubblePainter extends CustomPainter {
       }
     }
     path.close();
-    canvas.drawPath(path, paint);
+    if (filled) {
+      canvas.drawPath(path, paint);
+    } else {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = paint.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.0, scale * 0.075)
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+  }
+
+  void _paintPyramidFace(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    _Rotation3 rotation,
+    _Face face, {
+    required double x,
+    required double y,
+    required double radius,
+    required int pips,
+    required Paint paint,
+    bool inverted = false,
+  }) {
+    _projectedTriangle(
+      canvas,
+      center,
+      scale,
+      rotation,
+      face,
+      x,
+      y,
+      radius,
+      paint,
+      inverted: inverted,
+      filled: false,
+    );
+    final pipY = y + (inverted ? -radius * 0.12 : radius * 0.19);
+    final spacing = radius * 0.30;
+    final startX = x - spacing * (pips - 1) / 2;
+    for (var i = 0; i < pips; i += 1) {
+      _projectedDisc(
+        canvas,
+        center,
+        scale,
+        rotation,
+        face,
+        startX + i * spacing,
+        pipY,
+        math.max(0.055, radius * 0.105),
+        paint,
+      );
+    }
   }
 
   void _paintPyramidMark(
@@ -1435,28 +1580,124 @@ class _DiceBubblePainter extends CustomPainter {
     _Face face,
     Paint paint,
   ) {
-    const sizes = <List<double>>[
-      [0.28],
-      [0.42],
-      [0.58],
-      [0.28, 0.42],
-      [0.28, 0.58],
-      [0.42, 0.58],
-    ];
-    final marks = sizes[face.index];
-    for (var i = 0; i < marks.length; i += 1) {
-      final x = marks.length == 1 ? 0.0 : (i == 0 ? -0.28 : 0.28);
-      _projectedTriangle(
-        canvas,
-        center,
-        scale,
-        rotation,
-        face,
-        x,
-        0.04,
-        marks[i],
-        paint,
-      );
+    switch (face.index) {
+      case 0: // Small.
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: 0,
+          y: 0.04,
+          radius: 0.42,
+          pips: 1,
+          paint: paint,
+        );
+      case 1: // Medium.
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: 0,
+          y: 0.04,
+          radius: 0.50,
+          pips: 2,
+          paint: paint,
+        );
+      case 2: // Large.
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: 0,
+          y: 0.03,
+          radius: 0.58,
+          pips: 3,
+          paint: paint,
+        );
+      case 3: // Small + Medium.
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: -0.28,
+          y: -0.12,
+          radius: 0.31,
+          pips: 1,
+          paint: paint,
+          inverted: true,
+        );
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: 0.26,
+          y: 0.18,
+          radius: 0.39,
+          pips: 2,
+          paint: paint,
+        );
+      case 4: // Small + Large.
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: -0.31,
+          y: -0.14,
+          radius: 0.30,
+          pips: 1,
+          paint: paint,
+          inverted: true,
+        );
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: 0.23,
+          y: 0.18,
+          radius: 0.47,
+          pips: 3,
+          paint: paint,
+        );
+      case 5: // Medium + Large.
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: -0.31,
+          y: -0.14,
+          radius: 0.34,
+          pips: 2,
+          paint: paint,
+          inverted: true,
+        );
+        _paintPyramidFace(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          x: 0.24,
+          y: 0.18,
+          radius: 0.47,
+          pips: 3,
+          paint: paint,
+        );
     }
   }
 
@@ -1467,13 +1708,14 @@ class _DiceBubblePainter extends CustomPainter {
     _Rotation3 rotation,
     _Face face,
     String text,
+    Color color,
   ) {
     final c = _facePoint(center, scale, rotation, face, 0, 0);
     final painter = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
-          color: Colors.black.withValues(alpha: 0.90),
+          color: color,
           fontSize: math.max(5.5, scale * (text.length > 3 ? 0.32 : 0.38)),
           fontWeight: FontWeight.w800,
           letterSpacing: -0.35,

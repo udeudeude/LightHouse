@@ -30,7 +30,6 @@ enum BoardUnderlay {
   static const double cellMm = 27;
   static const double coasterMm = 101.6;
   static const double wheelOuterRadiusMm = 127;
-  static const double wheelPlayableRadiusMm = 112;
   static const double moonRadiusMm = 48;
   static const double petalRadiusMm = 40;
 
@@ -284,39 +283,49 @@ List<PhysicalPoint> _worldWarPoints(PhysicalPoint center) {
 }
 
 List<PhysicalPoint> _wheelPoints(PhysicalPoint center) {
-  final points = <PhysicalPoint>[];
-  const count = 10;
-  final step = 2 * math.pi / count;
-  final vertices = <PhysicalPoint>[
-    for (var i = 0; i < count; i += 1)
+  // Region centroids derived from the line topology in Pyramid Love 3.1's
+  // UsefulSVG/WheelBoard.svg. The source drawing is scaled to LightHouse's
+  // existing 254 mm outer width rather than treating SVG units as millimeters.
+  const sourceCenter = PhysicalPoint(147.6495, 146.4045);
+  const sourceHalfWidth = 141.2275;
+  const sourceRegionCentroids = <PhysicalPoint>[
+    PhysicalPoint(236.159564, 173.468715),
+    PhysicalPoint(193.387726, 160.996004),
+    PhysicalPoint(255.509074, 181.359971),
+    PhysicalPoint(203.076805, 220.275369),
+    PhysicalPoint(176.075398, 185.091698),
+    PhysicalPoint(214.608130, 238.280786),
+    PhysicalPoint(148.722688, 238.574446),
+    PhysicalPoint(147.906025, 194.410607),
+    PhysicalPoint(148.008944, 259.923083),
+    PhysicalPoint(93.984964, 221.270510),
+    PhysicalPoint(81.297373, 238.759558),
+    PhysicalPoint(119.639308, 185.389094),
+    PhysicalPoint(40.311932, 182.084593),
+    PhysicalPoint(102.067394, 161.481484),
+    PhysicalPoint(60.069751, 175.112984),
+    PhysicalPoint(59.621840, 118.552678),
+    PhysicalPoint(101.912618, 131.811778),
+    PhysicalPoint(39.465759, 111.821460),
+    PhysicalPoint(92.830267, 71.858206),
+    PhysicalPoint(80.340799, 54.842708),
+    PhysicalPoint(119.224770, 107.715177),
+    PhysicalPoint(147.017949, 53.704377),
+    PhysicalPoint(147.394187, 98.396393),
+    PhysicalPoint(147.066937, 32.722905),
+    PhysicalPoint(201.374554, 70.773129),
+    PhysicalPoint(175.659878, 107.409972),
+    PhysicalPoint(214.111690, 54.251864),
+    PhysicalPoint(235.457072, 116.651759),
+    PhysicalPoint(193.224683, 131.322936),
+    PhysicalPoint(255.460011, 111.046028),
+  ];
+  final sourceToMm = BoardUnderlay.wheelOuterRadiusMm / sourceHalfWidth;
+  return [
+    for (final point in sourceRegionCentroids)
       PhysicalPoint(
-        center.xMm +
-            BoardUnderlay.wheelPlayableRadiusMm *
-                math.cos(-math.pi / 2 + i * step),
-        center.yMm +
-            BoardUnderlay.wheelPlayableRadiusMm *
-                math.sin(-math.pi / 2 + i * step),
+        center.xMm + (point.xMm - sourceCenter.xMm) * sourceToMm,
+        center.yMm + (point.yMm - sourceCenter.yMm) * sourceToMm,
       ),
   ];
-
-  for (var i = 0; i < count; i += 1) {
-    final a = vertices[i];
-    final b = vertices[(i + 1) % count];
-    final ca = _midpoint(center, a);
-    final cb = _midpoint(center, b);
-    final ab = _midpoint(a, b);
-
-    points
-      ..add(_centroid(center, ca, cb))
-      ..add(_centroid(ca, a, ab))
-      ..add(_centroid(cb, ab, b))
-      ..add(_centroid(ca, ab, cb));
-  }
-  return points;
 }
-
-PhysicalPoint _midpoint(PhysicalPoint a, PhysicalPoint b) =>
-    PhysicalPoint((a.xMm + b.xMm) / 2, (a.yMm + b.yMm) / 2);
-
-PhysicalPoint _centroid(PhysicalPoint a, PhysicalPoint b, PhysicalPoint c) =>
-    PhysicalPoint((a.xMm + b.xMm + c.xMm) / 3, (a.yMm + b.yMm + c.yMm) / 3);

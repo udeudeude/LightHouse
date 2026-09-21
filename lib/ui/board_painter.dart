@@ -614,49 +614,91 @@ class BoardPainter extends CustomPainter {
   }
 
   void _paintWheel(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final outerRadius = BoardUnderlay.wheelOuterRadiusMm * logicalPixelsPerMm;
-    final playableRadius =
-        BoardUnderlay.wheelPlayableRadiusMm * logicalPixelsPerMm;
-    const count = 10;
-    final step = 2 * math.pi / count;
-
-    Offset point(double radius, int index) {
-      final angle = -math.pi / 2 + index * step;
-      return Offset(
-        center.dx + radius * math.cos(angle),
-        center.dy + radius * math.sin(angle),
-      );
-    }
-
-    final outer = Path();
-    for (var i = 0; i < count; i += 1) {
-      final p = point(outerRadius, i);
-      if (i == 0) {
-        outer.moveTo(p.dx, p.dy);
-      } else {
-        outer.lineTo(p.dx, p.dy);
-      }
-    }
-    outer.close();
-    canvas.drawPath(outer, _linePaint(0.24));
-
-    final paint = _linePaint(0.38);
-    final vertices = [
-      for (var i = 0; i < count; i += 1) point(playableRadius, i),
+    // Topology transcribed from Pyramid Love 3.1's WheelBoard.svg and scaled
+    // to LightHouse's existing physical outer radius. SVG coordinates are
+    // reference geometry only, not physical measurements.
+    const sourceCenter = Offset(147.6495, 146.4045);
+    const sourceHalfWidth = 141.2275;
+    const outer = <Offset>[
+      Offset(192.044, 280.474),
+      Offset(104.760, 280.964),
+      Offset(33.858, 230.056),
+      Offset(6.422, 147.194),
+      Offset(32.930, 64.032),
+      Offset(103.256, 12.333),
+      Offset(190.540, 11.845),
+      Offset(261.441, 62.753),
+      Offset(288.877, 145.614),
+      Offset(262.369, 228.774),
     ];
-    for (var i = 0; i < count; i += 1) {
-      final a = vertices[i];
-      final b = vertices[(i + 1) % count];
-      final ca = Offset((center.dx + a.dx) / 2, (center.dy + a.dy) / 2);
-      final cb = Offset((center.dx + b.dx) / 2, (center.dy + b.dy) / 2);
-      final ab = Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
+    const inner = <Offset>[
+      Offset(123.665, 74.585),
+      Offset(170.458, 74.203),
+      Offset(208.540, 101.397),
+      Offset(223.366, 145.784),
+      Offset(209.271, 190.407),
+      Offset(171.636, 218.221),
+      Offset(124.843, 218.604),
+      Offset(86.759, 191.410),
+      Offset(71.933, 147.022),
+      Offset(86.030, 102.400),
+    ];
+    const star = <Offset>[
+      Offset(86.030, 102.400),
+      Offset(68.483, 38.823),
+      Offset(123.743, 74.203),
+      Offset(146.487, 12.333),
+      Offset(170.798, 73.778),
+      Offset(225.163, 36.751),
+      Offset(208.604, 101.585),
+      Offset(274.461, 102.751),
+      Offset(223.310, 145.614),
+      Offset(275.551, 185.125),
+      Offset(209.526, 189.596),
+      Offset(228.017, 252.406),
+      Offset(171.431, 218.223),
+      Offset(150.013, 278.896),
+      Offset(124.674, 218.485),
+      Offset(71.334, 254.477),
+      Offset(86.194, 189.712),
+      Offset(22.037, 188.476),
+      Offset(71.933, 147.194),
+      Offset(20.948, 106.104),
+    ];
+    const diameters = <(Offset, Offset)>[
+      (Offset(103.256, 12.333), Offset(192.044, 280.474)),
+      (Offset(190.540, 11.845), Offset(104.760, 280.964)),
+      (Offset(33.858, 230.056), Offset(262.639, 61.858)),
+      (Offset(288.877, 145.614), Offset(6.422, 147.194)),
+      (Offset(262.369, 228.774), Offset(32.930, 64.032)),
+    ];
 
-      canvas.drawLine(center, a, paint);
-      canvas.drawLine(a, b, paint);
-      canvas.drawLine(ca, cb, paint);
-      canvas.drawLine(ca, ab, paint);
-      canvas.drawLine(cb, ab, paint);
+    final center = Offset(size.width / 2, size.height / 2);
+    final sourceToPixels =
+        BoardUnderlay.wheelOuterRadiusMm * logicalPixelsPerMm / sourceHalfWidth;
+
+    Offset mapPoint(Offset point) =>
+        center + (point - sourceCenter) * sourceToPixels;
+
+    Path polygon(List<Offset> points) {
+      final path = Path();
+      for (var i = 0; i < points.length; i += 1) {
+        final point = mapPoint(points[i]);
+        if (i == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      return path..close();
+    }
+
+    canvas.drawPath(polygon(outer), _linePaint(0.24));
+    canvas.drawPath(polygon(inner), _linePaint(0.38));
+    canvas.drawPath(polygon(star), _linePaint(0.38));
+    final diameterPaint = _linePaint(0.38);
+    for (final line in diameters) {
+      canvas.drawLine(mapPoint(line.$1), mapPoint(line.$2), diameterPaint);
     }
   }
 

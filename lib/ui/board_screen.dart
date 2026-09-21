@@ -33,6 +33,7 @@ import 'credits_overlay.dart';
 import 'dice_bubble.dart';
 import 'remote_board_viewport.dart';
 import 'ripple_overlay.dart';
+import 'pyramid_love_board_icon.dart';
 import 'toy_overlay.dart';
 import 'zendo_stones.dart';
 
@@ -3257,6 +3258,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     String label, {
     bool enabled = true,
     bool checked = false,
+    Widget? leading,
   }) => PopupMenuItem<String>(
     value: value,
     enabled: enabled,
@@ -3264,7 +3266,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(checked ? Icons.check : icon, size: 19),
+        if (checked)
+          const Icon(Icons.check, size: 19)
+        else
+          leading ?? Icon(icon, size: 19),
         const SizedBox(width: 10),
         Text(label),
       ],
@@ -3518,6 +3523,24 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
   }
 
+  PyramidLoveBoardIconKind? _boardMenuArtwork(BoardUnderlay underlay) =>
+      switch (underlay) {
+        BoardUnderlay.wheel => PyramidLoveBoardIconKind.wheel,
+        BoardUnderlay.launchpad23 => PyramidLoveBoardIconKind.launchpad,
+        BoardUnderlay.twinWin => PyramidLoveBoardIconKind.twinWin,
+        BoardUnderlay.looneyLudo1 ||
+        BoardUnderlay.looneyLudo4 => PyramidLoveBoardIconKind.ludo,
+        BoardUnderlay.volcano => PyramidLoveBoardIconKind.volcano,
+        BoardUnderlay.lunarInvaders1 ||
+        BoardUnderlay.lunarInvaders2 => PyramidLoveBoardIconKind.lunar,
+        BoardUnderlay.petalBattle => PyramidLoveBoardIconKind.petal,
+        BoardUnderlay.worldWar5 => PyramidLoveBoardIconKind.worldWar,
+        BoardUnderlay.martianChessHalf ||
+        BoardUnderlay.martianChess2 ||
+        BoardUnderlay.chess8x8 => PyramidLoveBoardIconKind.martianChess,
+        _ => null,
+      };
+
   Future<void> _showBoardGroup(BoardUnderlayGroup group) async {
     final boards = BoardUnderlay.values
         .where((underlay) => underlay.group == group)
@@ -3533,6 +3556,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               : Icons.dashboard_outlined,
           underlay.menuLabel,
           checked: _controller.state.underlay == underlay,
+          leading: _boardMenuArtwork(underlay) == null
+              ? null
+              : PyramidLoveBoardIcon(_boardMenuArtwork(underlay)!),
         ),
     ]);
     if (!mounted || choice == null) return;
