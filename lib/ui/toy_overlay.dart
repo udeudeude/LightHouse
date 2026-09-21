@@ -538,10 +538,10 @@ class ToyOverlayPainter extends CustomPainter {
     for (var i = 0; i < visible; i += 1) {
       final delta = (i - (visible - 1) / 2) * 6.2 * scale;
       final point = switch (gunIndex) {
-        0 => gunCenter + Offset(18 * scale, 26 * scale + delta),
-        1 => gunCenter + Offset(-18 * scale, 26 * scale + delta),
-        2 => gunCenter + Offset(26 * scale + delta, 18 * scale),
-        _ => gunCenter + Offset(26 * scale + delta, -18 * scale),
+        0 => gunCenter + Offset(20 * scale + delta, 22 * scale),
+        1 => gunCenter + Offset(-20 * scale + delta, 22 * scale),
+        2 => gunCenter + Offset(20 * scale + delta, -22 * scale),
+        _ => gunCenter + Offset(-20 * scale + delta, -22 * scale),
       };
       canvas.drawCircle(point, 2.15 * scale, paint);
     }
@@ -550,12 +550,12 @@ class ToyOverlayPainter extends CustomPainter {
   void _paintGuns(Canvas canvas, Size size) {
     final scale = uiScale.clamp(0.25, 4.0);
     if (sideGunsVisible && sideGunAnglesDegrees.length >= 4) {
-      final inset = 14 * scale;
+      final inset = 16 * scale;
       final centers = <Offset>[
-        Offset(inset, size.height / 2),
-        Offset(size.width - inset, size.height / 2),
-        Offset(size.width / 2, inset),
-        Offset(size.width / 2, size.height - inset),
+        Offset(inset, inset),
+        Offset(size.width - inset, inset),
+        Offset(inset, size.height - inset),
+        Offset(size.width - inset, size.height - inset),
       ];
       for (var i = 0; i < 4; i += 1) {
         _paintGun(canvas, centers[i], sideGunAnglesDegrees[i]);
