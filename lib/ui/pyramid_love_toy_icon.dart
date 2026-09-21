@@ -29,6 +29,25 @@ class _Glyph {
   final double width;
   final double height;
   final List<List<Offset>> contours;
+
+  Rect get paintedBounds {
+    var left = double.infinity;
+    var top = double.infinity;
+    var right = double.negativeInfinity;
+    var bottom = double.negativeInfinity;
+    for (final contour in contours) {
+      for (final point in contour) {
+        left = math.min(left, point.dx);
+        top = math.min(top, point.dy);
+        right = math.max(right, point.dx);
+        bottom = math.max(bottom, point.dy);
+      }
+    }
+    if (!left.isFinite || !top.isFinite || !right.isFinite || !bottom.isFinite) {
+      return Rect.fromLTWH(0, 0, width, height);
+    }
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
 }
 
 class _PyramidLoveToyIconPainter extends CustomPainter {
@@ -60,11 +79,12 @@ class _PyramidLoveToyIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final glyph = _glyph;
+    final bounds = glyph.paintedBounds;
     final scale =
-        math.min(size.width / glyph.width, size.height / glyph.height) * 0.92;
+        math.min(size.width / bounds.width, size.height / bounds.height) * 0.88;
     final offset = Offset(
-      (size.width - glyph.width * scale) / 2,
-      (size.height - glyph.height * scale) / 2,
+      (size.width - bounds.width * scale) / 2 - bounds.left * scale,
+      (size.height - bounds.height * scale) / 2 - bounds.top * scale,
     );
     final path = Path()..fillType = PathFillType.nonZero;
     for (final contour in glyph.contours) {
