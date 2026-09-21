@@ -198,6 +198,7 @@ class RemoteSession extends ChangeNotifier {
   bool _closed = false;
   int _signalSequence = 0;
   Future<void>? _relayConnectFuture;
+  Timer? _pairingAnnouncementTimer;
   final Set<String> _knownControllerIds = <String>{};
   String? _directPeerId;
 
@@ -290,6 +291,16 @@ class RemoteSession extends ChangeNotifier {
           ? RemoteConnectionPhase.connected
           : RemoteConnectionPhase.waiting;
       notifyListeners();
+      if (!peerSeen) {
+        _startPairingAnnouncements();
+      }
+      unawaited(_announceOnSignalChannel());
+    };
+    client.onSubscribed = (topic) {
+      if (_closed || topic != _topic) return;
+      if (!peerSeen) {
+        _startPairingAnnouncements();
+      }
       unawaited(_announceOnSignalChannel());
     };
 
@@ -326,7 +337,28 @@ class RemoteSession extends ChangeNotifier {
     }
     phase = RemoteConnectionPhase.waiting;
     notifyListeners();
+    _startPairingAnnouncements();
     await _announceOnSignalChannel();
+  }
+
+  void _startPairingAnnouncements() {
+    _pairingAnnouncementTimer?.cancel();
+    if (_closed || peerSeen || !_mqttConnected) return;
+    _pairingAnnouncementTimer = Timer.periodic(
+      const Duration(milliseconds: 1400),
+      (_) {
+        if (_closed || peerSeen || !_mqttConnected) {
+          _stopPairingAnnouncements();
+          return;
+        }
+        unawaited(_announceOnSignalChannel());
+      },
+    );
+  }
+
+  void _stopPairingAnnouncements() {
+    _pairingAnnouncementTimer?.cancel();
+    _pairingAnnouncementTimer = null;
   }
 
   Future<void> _announceOnSignalChannel() async {
@@ -339,6 +371,7 @@ class RemoteSession extends ChangeNotifier {
   }
 
   void _handleMqttDisconnected() {
+    _stopPairingAnnouncements();
     if (_closed) return;
     if (!directConnected) {
       phase = RemoteConnectionPhase.disconnected;
@@ -456,12 +489,14 @@ class RemoteSession extends ChangeNotifier {
       await _rememberRelayPeer(sender, payload);
       if (peerRole == role.other && !peerSeen) {
         peerSeen = true;
+        _stopPairingAnnouncements();
         phase = RemoteConnectionPhase.connected;
         errorMessage = null;
         notifyListeners();
       }
     } else if (!peerSeen) {
       peerSeen = true;
+      _stopPairingAnnouncements();
       phase = RemoteConnectionPhase.connected;
       errorMessage = null;
       notifyListeners();
@@ -492,12 +527,9 @@ class RemoteSession extends ChangeNotifier {
   }
 
   Future<void> _makeOffer() async {
-    if (_closed ||
-        multipleControllers ||
-        _peerConnection != null && directConnected) {
+    if (_closed || multipleControllers || _peerConnection != null) {
       return;
     }
-    await _resetPeerConnection();
     final pc = await _createPeerConnection();
     _peerConnection = pc;
     final channel = await pc.createDataChannel(
@@ -589,11 +621,15 @@ class RemoteSession extends ChangeNotifier {
     };
     pc.onDataChannel = _attachDataChannel;
     pc.onConnectionState = (state) {
-      if (_closed) return;
+      if (_closed || !identical(_peerConnection, pc)) return;
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateClosed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-        _handleDirectUnavailable();
+        if (directConnected) {
+          _handleDirectUnavailable();
+        } else {
+          unawaited(_resetPeerConnection());
+        }
       }
     };
     return pc;
@@ -608,6 +644,7 @@ class RemoteSession extends ChangeNotifier {
       if (open) {
         directConnected = true;
         peerSeen = true;
+        _stopPairingAnnouncements();
         phase = RemoteConnectionPhase.connected;
         notifyListeners();
         unawaited(_suspendRelayForDirect());
@@ -816,6 +853,7 @@ class RemoteSession extends ChangeNotifier {
       // Best-effort notification.
     }
     _closed = true;
+    _stopPairingAnnouncements();
     phase = RemoteConnectionPhase.disconnected;
     peerSeen = false;
     await _resetPeerConnection();
