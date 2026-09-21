@@ -1041,8 +1041,9 @@ class _DiceBubblePainter extends CustomPainter {
     _Face face,
     ArcadeDieKind kind,
   ) {
-    final black = Paint()
-      ..color = Colors.black.withValues(alpha: 0.90)
+    final darkBody = arcadeDieUsesDarkBody(kind);
+    final mark = Paint()
+      ..color = (darkBody ? Colors.white : Colors.black).withValues(alpha: 0.92)
       ..style = PaintingStyle.fill;
     switch (kind) {
       case ArcadeDieKind.standard:
@@ -1056,15 +1057,15 @@ class _DiceBubblePainter extends CustomPainter {
             pip.dx,
             pip.dy,
             0.145,
-            black,
+            mark,
           );
         }
       case ArcadeDieKind.lightning:
-        _paintLightningMark(canvas, center, scale, rotation, face, black);
+        _paintLightningMark(canvas, center, scale, rotation, face, mark);
       case ArcadeDieKind.pyramid:
-        _paintPyramidMark(canvas, center, scale, rotation, face, black);
+        _paintPyramidMark(canvas, center, scale, rotation, face, mark);
       case ArcadeDieKind.treehouse:
-        const labels = ['AIM', 'DIG', 'SWAP', 'HOP', 'TIP', 'WILD'];
+        const labels = ['AIM', 'DIG', 'HOP', 'SWAP', 'TIP', 'WILD'];
         _paintFaceText(
           canvas,
           center,
@@ -1072,9 +1073,10 @@ class _DiceBubblePainter extends CustomPainter {
           rotation,
           face,
           labels[face.index],
+          mark.color,
         );
       case ArcadeDieKind.color:
-        _paintColorMark(canvas, center, scale, rotation, face, black);
+        _paintColorMark(canvas, center, scale, rotation, face, mark);
     }
   }
 
