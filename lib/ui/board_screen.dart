@@ -3533,7 +3533,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxHeight: math.max(
-                      120,
+                      120.0,
                       MediaQuery.sizeOf(sheetContext).height - 80,
                     ),
                   ),
