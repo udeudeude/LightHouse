@@ -3556,9 +3556,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               : Icons.dashboard_outlined,
           underlay.menuLabel,
           checked: _controller.state.underlay == underlay,
-          leading: _boardMenuArtwork(underlay) case final artwork?
-              ? PyramidLoveBoardIcon(artwork)
-              : null,
+          leading: _boardMenuArtwork(underlay) == null
+              ? null
+              : PyramidLoveBoardIcon(_boardMenuArtwork(underlay)!),
         ),
     ]);
     if (!mounted || choice == null) return;
