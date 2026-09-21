@@ -6,6 +6,28 @@ import 'package:flutter/services.dart';
 
 enum ArcadeDieKind { standard, lightning, pyramid, treehouse, color }
 
+bool arcadeDieUsesDarkBody(ArcadeDieKind kind) =>
+    kind == ArcadeDieKind.lightning || kind == ArcadeDieKind.treehouse;
+
+String lightningDieFaceSymbol(int face) => switch (face % 6) {
+  0 => 'bolt',
+  1 => 'atom',
+  2 => 'split-circle',
+  3 => 'arrow',
+  4 => 'pyramids',
+  _ => 'recycle',
+};
+
+String pyramidDieFaceSymbol(int face) => switch (face % 6) {
+  0 => 'small',
+  1 => 'medium',
+  2 => 'large',
+  3 => 'small-medium',
+  4 => 'small-large',
+  _ => 'medium-large',
+};
+
+
 class ArcadeDieChoice {
   const ArcadeDieChoice(this.id, this.kind, this.label);
 
@@ -377,28 +399,30 @@ class _DiceBubbleState extends State<DiceBubble>
   );
 
   Widget _selectorImage(ArcadeDieChoice choice) {
+    final darkBody = arcadeDieUsesDarkBody(choice.kind);
+    final foreground = darkBody ? Colors.white : Colors.black;
     Widget mark;
     switch (choice.kind) {
       case ArcadeDieKind.standard:
-        mark = const Stack(
+        mark = Stack(
           children: [
-            Positioned(left: 11, top: 11, child: _SelectorPip()),
-            Positioned(right: 11, top: 11, child: _SelectorPip()),
-            Center(child: _SelectorPip()),
-            Positioned(left: 11, bottom: 11, child: _SelectorPip()),
-            Positioned(right: 11, bottom: 11, child: _SelectorPip()),
+            Positioned(left: 11, top: 11, child: _SelectorPip(foreground)),
+            Positioned(right: 11, top: 11, child: _SelectorPip(foreground)),
+            Center(child: _SelectorPip(foreground)),
+            Positioned(left: 11, bottom: 11, child: _SelectorPip(foreground)),
+            Positioned(right: 11, bottom: 11, child: _SelectorPip(foreground)),
           ],
         );
       case ArcadeDieKind.lightning:
-        mark = const Icon(Icons.bolt, color: Colors.black, size: 35);
+        mark = Icon(Icons.bolt, color: foreground, size: 35);
       case ArcadeDieKind.pyramid:
-        mark = const Icon(Icons.change_history, color: Colors.black, size: 35);
+        mark = Icon(Icons.change_history, color: foreground, size: 35);
       case ArcadeDieKind.treehouse:
-        mark = const Center(
+        mark = Center(
           child: Text(
             'AIM',
             style: TextStyle(
-              color: Colors.black,
+              color: foreground,
               fontSize: 13,
               fontWeight: FontWeight.w900,
             ),
@@ -413,7 +437,7 @@ class _DiceBubbleState extends State<DiceBubble>
             children: const [
               Text('♠', style: TextStyle(color: Colors.purple, fontSize: 17)),
               Text('♥', style: TextStyle(color: Colors.red, fontSize: 17)),
-              Text('♦', style: TextStyle(color: Colors.cyan, fontSize: 17)),
+              Text('♦', style: TextStyle(color: Colors.blue, fontSize: 17)),
               Text('♣', style: TextStyle(color: Colors.green, fontSize: 17)),
               Text('★', style: TextStyle(color: Colors.yellow, fontSize: 15)),
             ],
@@ -424,9 +448,9 @@ class _DiceBubbleState extends State<DiceBubble>
       width: 58,
       height: 58,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: darkBody ? Colors.black : Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black87),
+        border: Border.all(color: darkBody ? Colors.white70 : Colors.black87),
       ),
       child: mark,
     );
@@ -672,16 +696,15 @@ class _DiceBubbleState extends State<DiceBubble>
 }
 
 class _SelectorPip extends StatelessWidget {
-  const _SelectorPip();
+  const _SelectorPip(this.color);
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) => Container(
     width: 7,
     height: 7,
-    decoration: const BoxDecoration(
-      color: Colors.black,
-      shape: BoxShape.circle,
-    ),
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
   );
 }
 
