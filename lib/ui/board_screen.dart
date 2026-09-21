@@ -3519,7 +3519,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                     IconButton(
                       tooltip: 'Hide rule',
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => setState(() => _zendoRuleVisible = false),
+                      onPressed: () =>
+                          setState(() => _zendoRuleVisible = false),
                       icon: const Icon(Icons.visibility_off, size: 18),
                     ),
                   ],
@@ -3777,8 +3778,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         (_ToyKind.nestCycle, true) => 27.0,
         (_ToyKind.nestCycle, false) => 36.0,
         (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 13.0,
-        (_ToyKind.zendoStones, false) || (_ToyKind.triangleBounce, false) =>
-          15.0,
+        (_ToyKind.zendoStones, false) ||
+        (_ToyKind.triangleBounce, false) => 15.0,
         _ => 21.0,
       };
       final icon = PyramidLoveToyIcon(artwork, color: color, size: size);

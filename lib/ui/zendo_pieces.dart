@@ -366,8 +366,10 @@ class _ZendoPiecesWidgetState extends State<ZendoPiecesWidget> {
       (ZendoPieceKind.pyramid, _) => Size(base, height),
       (ZendoPieceKind.block, _) => Size(base, height),
       (ZendoPieceKind.wedge, ZendoPiecePose.cheesecake) => Size(base, height),
-      (ZendoPieceKind.wedge, ZendoPiecePose.doorstop) =>
-        Size(base, zendoWedgeSlopedLengthMm * _ppm),
+      (ZendoPieceKind.wedge, ZendoPiecePose.doorstop) => Size(
+        base,
+        zendoWedgeSlopedLengthMm * _ppm,
+      ),
       _ => Size(base, base),
     };
   }
