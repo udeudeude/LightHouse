@@ -36,7 +36,6 @@ import 'ripple_overlay.dart';
 import 'pyramid_love_board_icon.dart';
 import 'pyramid_love_toy_icon.dart';
 import 'toy_overlay.dart';
-import 'zendo_pieces.dart';
 import 'zendo_rule_library.dart';
 import 'zendo_stones.dart';
 
@@ -196,10 +195,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
   ZendoStonesSnapshot _zendoSnapshot = ZendoStonesSnapshot.initial;
-  ZendoPiecesSnapshot _zendoPiecesSnapshot = ZendoPiecesSnapshot.initial;
-  ZendoPieceSet? _zendoPieceSet;
+  ZendoPieceSetMode _zendoPieceSetMode = ZendoPieceSetMode.classic;
   int _zendoRuleIndex = -1;
   bool _zendoRuleVisible = false;
+  bool _zendoRulesEnabled = false;
+  bool _zendoComplexRulesEnabled = false;
+  ZendoRuleDifficulty _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
   bool _applyingRemoteState = false;
   bool _remoteSeedReceived = false;
   double? _remoteDisplayWidthMm;
@@ -1711,8 +1712,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     'roundedTriangleTips': _roundedTriangleTips,
     'dice': _diceSnapshot.toJson(),
     'zendo': _zendoSnapshot.toJson(),
-    'zendoPieces': _zendoPiecesSnapshot.toJson(),
-    'zendoPieceSet': _zendoPieceSet?.name,
   };
 
   void _startRemoteRuntimePublisher() {
@@ -1745,11 +1744,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleZendoSnapshot(ZendoStonesSnapshot snapshot) {
     _zendoSnapshot = snapshot;
-    unawaited(_sendRemoteRuntimeIfChanged());
-  }
-
-  void _handleZendoPiecesSnapshot(ZendoPiecesSnapshot snapshot) {
-    _zendoPiecesSnapshot = snapshot;
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
@@ -1838,11 +1832,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         const <String>[];
     final dice = DiceBubbleSnapshot.fromJson(payload['dice']);
     final zendo = ZendoStonesSnapshot.fromJson(payload['zendo']);
-    final zendoPieces = ZendoPiecesSnapshot.fromJson(payload['zendoPieces']);
-    final zendoPieceSetName = payload['zendoPieceSet'];
-    final zendoPieceSet = ZendoPieceSet.values
-        .where((value) => value.name == zendoPieceSetName)
-        .firstOrNull;
 
     _toyTicker?.cancel();
     _toyTicker = null;
@@ -1885,8 +1874,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _roundedTriangleTips = payload['roundedTriangleTips'] == true;
       if (dice != null) _diceSnapshot = dice;
       if (zendo != null) _zendoSnapshot = zendo;
-      if (zendoPieces != null) _zendoPiecesSnapshot = zendoPieces;
-      _zendoPieceSet = zendoPieceSet;
     });
     _toyRevision.value += 1;
   }
@@ -2451,9 +2438,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       return;
     }
     if (target == null) {
-      _controller.createAt(point);
+      _controller.createAt(point, pieceSet: _zendoPieceSetMode);
     } else {
-      _controller.cycleSizeOrDelete(target);
+      _controller.cycleSizeOrDelete(target, pieceSet: _zendoPieceSetMode);
     }
     HapticFeedback.selectionClick();
   }
@@ -2584,7 +2571,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
 
     if (exact != null &&
-        exact.pose == PyramidPose.flat &&
+        exact.pose != PyramidPose.upright &&
         displacement >= _minimumLineGestureMm &&
         _crossesFlatBaseEdge(exact, start, end)) {
       // Stand: begin inside the actual triangle and cross its short base
@@ -2622,7 +2609,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       end - triangle.position,
       -triangle.headingDegrees,
     );
-    final halfLength = _controller.geometry.flatLengthMm(triangle.size) / 2;
+    final halfLength =
+        _controller.geometry.footprintLengthMm(triangle) / 2;
     final halfBase = _controller.geometry.baseMm(triangle.size) / 2;
     final deltaY = localEnd.yMm - localStart.yMm;
     if (deltaY <= 0 || localEnd.yMm <= halfLength) return false;
@@ -3775,16 +3763,20 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     };
     if (artwork != null) {
       final size = switch ((toy, inMenu)) {
-        (_ToyKind.nestCycle, true) => 27.0,
-        (_ToyKind.nestCycle, false) => 36.0,
-        (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 13.0,
+        (_ToyKind.nestCycle, true) => 46.0,
+        (_ToyKind.nestCycle, false) => 46.0,
+        (_ToyKind.zendoStones, true) ||
+        (_ToyKind.triangleBounce, true) => 11.0,
         (_ToyKind.zendoStones, false) ||
-        (_ToyKind.triangleBounce, false) => 15.0,
+        (_ToyKind.triangleBounce, false) => 21.0,
         _ => 21.0,
       };
       final icon = PyramidLoveToyIcon(artwork, color: color, size: size);
-      if (toy == _ToyKind.nestCycle && inMenu) {
-        return Transform.translate(offset: const Offset(0, -5.5), child: icon);
+      if (toy == _ToyKind.nestCycle) {
+        return Transform.translate(
+          offset: Offset(0, inMenu ? -9 : -5),
+          child: icon,
+        );
       }
       return icon;
     }
@@ -4383,23 +4375,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 snapshot: _zendoSnapshot,
                 onChanged: _remoteDisplayMode ? null : _handleZendoSnapshot,
                 scale: _remoteUiScale,
-              ),
-            ),
-          ),
-        if (_zendoPieceSet != null)
-          Padding(
-            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
-            child: IgnorePointer(
-              ignoring: _remoteDisplayMode,
-              child: ZendoPiecesWidget(
-                snapshot: _zendoPiecesSnapshot,
-                onChanged: _remoteDisplayMode
-                    ? null
-                    : _handleZendoPiecesSnapshot,
-                scale: _remoteUiScale,
-                pixelsPerMm: _pixelsPerMm,
-                pieceSet: _zendoPieceSet!,
-                showTray: !_remoteDisplayMode,
               ),
             ),
           ),
