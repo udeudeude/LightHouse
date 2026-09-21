@@ -163,7 +163,7 @@ class _PyramidLoveBoardIconPainter extends CustomPainter {
       canvas.translate(petalCenter.dx, petalCenter.dy);
       canvas.rotate(angle + math.pi / 2);
       canvas.drawOval(
-        const Rect.fromCenter(center: Offset.zero, width: 3.6, height: 7.2),
+        Rect.fromCenter(center: Offset.zero, width: 3.6, height: 7.2),
         _stroke,
       );
       canvas.restore();
