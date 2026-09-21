@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class ZendoStoneSnapshot {
@@ -207,24 +209,6 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     _ZendoStoneKind.green => const Color(0xFF31C95A),
   };
 
-  RadialGradient _glare(_ZendoStoneKind kind) {
-    final base = _fill(kind);
-    final highlight = switch (kind) {
-      _ZendoStoneKind.white => Colors.white,
-      _ZendoStoneKind.black => const Color(0xFF777777),
-      _ZendoStoneKind.green => const Color(0xFFB9FFD0),
-    };
-    return RadialGradient(
-      center: const Alignment(-0.38, -0.48),
-      radius: 0.95,
-      colors: [
-        highlight.withValues(alpha: 0.96),
-        Color.lerp(highlight, base, 0.55)!,
-        base,
-      ],
-      stops: const [0.0, 0.28, 1.0],
-    );
-  }
 
   String _label(_ZendoStoneKind kind) => switch (kind) {
     _ZendoStoneKind.white => 'White marking stone',
@@ -338,20 +322,12 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
         onPanCancel: _endTrayDrag,
         child: Padding(
           padding: EdgeInsets.all(5 * _scale),
-          child: Container(
-            width: 18 * _scale,
-            height: 18 * _scale,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: _glare(kind),
-              border: Border.all(color: Colors.white70),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black54,
-                  blurRadius: 2,
-                  spreadRadius: 1,
-                ),
-              ],
+          child: CustomPaint(
+            size: Size.square(18 * _scale),
+            painter: _ZendoStonePainter(
+              fill: _fill(kind),
+              scale: _scale,
+              whiteStone: kind == _ZendoStoneKind.white,
             ),
           ),
         ),
@@ -409,21 +385,12 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                       width: (stone.expanded ? _largeRadius : _smallRadius) * 2,
                       height:
                           (stone.expanded ? _largeRadius : _smallRadius) * 2,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: _glare(stone.kind),
-                        border: Border.all(
-                          color: stone.kind == _ZendoStoneKind.white
-                              ? Colors.black54
-                              : Colors.white70,
+                      child: CustomPaint(
+                        painter: _ZendoStonePainter(
+                          fill: _fill(stone.kind),
+                          scale: _scale,
+                          whiteStone: stone.kind == _ZendoStoneKind.white,
                         ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black54,
-                            blurRadius: 3,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
                       ),
                     ),
                   ),
@@ -434,4 +401,57 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
       );
     },
   );
+}
+
+
+class _ZendoStonePainter extends CustomPainter {
+  const _ZendoStonePainter({
+    required this.fill,
+    required this.scale,
+    required this.whiteStone,
+  });
+
+  final Color fill;
+  final double scale;
+  final bool whiteStone;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - 1;
+
+    final shadowPath = Path()
+      ..addOval(Rect.fromCircle(center: center + Offset(0, scale), radius: radius));
+    canvas.drawShadow(shadowPath, Colors.black87, 2 * scale, false);
+
+    canvas.drawCircle(center, radius, Paint()..color = fill);
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = whiteStone ? Colors.black54 : Colors.white70
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(0.8, 1.1 * scale),
+    );
+
+    // Match the Dice Bubble: a single restrained arc rather than a gradient.
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius * 0.76),
+      math.pi * 1.10,
+      math.pi * 0.58,
+      false,
+      Paint()
+        ..color = (whiteStone ? Colors.black : Colors.white)
+            .withValues(alpha: whiteStone ? 0.16 : 0.24)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1.0, 1.8 * scale)
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ZendoStonePainter oldDelegate) =>
+      oldDelegate.fill != fill ||
+      oldDelegate.scale != scale ||
+      oldDelegate.whiteStone != whiteStone;
 }
