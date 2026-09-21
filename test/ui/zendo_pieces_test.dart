@@ -51,10 +51,7 @@ void main() {
           home: SizedBox(
             width: 480,
             height: 720,
-            child: ZendoPiecesWidget(
-              pixelsPerMm: 2,
-              pieceSet: set,
-            ),
+            child: ZendoPiecesWidget(pixelsPerMm: 2, pieceSet: set),
           ),
         ),
       );
