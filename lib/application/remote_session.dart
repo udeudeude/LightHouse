@@ -122,6 +122,48 @@ class RemoteSession extends ChangeNotifier {
     isCreator: true,
   );
 
+  static const int pairingCodeLength = 6;
+  static final Pbkdf2 _pairingCodeKdf = Pbkdf2(
+    macAlgorithm: Hmac.sha256(),
+    iterations: 100000,
+    bits: 384,
+  );
+
+  static String normalizePairingCode(String value) => value
+      .toUpperCase()
+      .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+  static bool isValidPairingCode(String value) =>
+      normalizePairingCode(value).length == pairingCodeLength;
+
+  static Future<RemoteSession> fromPairingCode(
+    String code,
+    RemoteRole role,
+  ) async {
+    final normalized = normalizePairingCode(code);
+    if (normalized.length != pairingCodeLength) {
+      throw ArgumentError.value(
+        code,
+        'code',
+        'Pairing codes must contain exactly $pairingCodeLength letters or digits.',
+      );
+    }
+    final derived = await _pairingCodeKdf.deriveKeyFromPassword(
+      password: normalized,
+      nonce: utf8.encode('LightHouse Remote pairing code v1'),
+    );
+    final bytes = await derived.extractBytes();
+    final roomId = base64UrlEncode(bytes.sublist(0, 12)).replaceAll('=', '');
+    return RemoteSession._(
+      roomId: roomId,
+      keyBytes: bytes.sublist(16, 48),
+      role: role,
+      // Manual-code pairing has no link opener to establish creator status.
+      // The Board Display is the stable authority, so it initiates WebRTC.
+      isCreator: role == RemoteRole.display,
+    );
+  }
+
   factory RemoteSession.fromLaunch(RemoteLaunch launch) => RemoteSession._(
     roomId: launch.roomId,
     keyBytes: launch.keyBytes,
@@ -402,11 +444,27 @@ class RemoteSession extends ChangeNotifier {
     if (sender is! String || kind is! String || rawPayload is! Map) return;
     final payload = rawPayload.cast<String, Object?>();
     if (kind == 'presence' || kind == 'join') {
+      final roleName = payload['role'];
+      final peerRole = RemoteRole.values
+          .where((value) => value.name == roleName)
+          .firstOrNull;
+      if (peerRole == role) {
+        errorMessage =
+            'Both devices are set to ${role.label}. Choose opposite roles.';
+        notifyListeners();
+        return;
+      }
       await _rememberRelayPeer(sender, payload);
-    }
-    if (!peerSeen) {
+      if (peerRole == role.other && !peerSeen) {
+        peerSeen = true;
+        phase = RemoteConnectionPhase.connected;
+        errorMessage = null;
+        notifyListeners();
+      }
+    } else if (!peerSeen) {
       peerSeen = true;
       phase = RemoteConnectionPhase.connected;
+      errorMessage = null;
       notifyListeners();
     }
 
