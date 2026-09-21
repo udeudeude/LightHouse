@@ -734,7 +734,8 @@ class BoardPainter extends CustomPainter {
       element.position.yMm * logicalPixelsPerMm,
     );
     final base = geometry.baseMm(element.size) * logicalPixelsPerMm;
-    final flatLength = geometry.flatLengthMm(element.size) * logicalPixelsPerMm;
+    final footprintLength =
+        geometry.footprintLengthMm(element) * logicalPixelsPerMm;
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
@@ -799,30 +800,64 @@ class BoardPainter extends CustomPainter {
         );
       }
     } else {
-      final points = <Offset>[
-        Offset(0, -flatLength / 2),
-        Offset(base / 2, flatLength / 2),
-        Offset(-base / 2, flatLength / 2),
-      ];
-      final triangle = roundTriangleTips
-          ? _apexRoundedTriangle(points, math.min(base, flatLength) * 0.18)
-          : (Path()
+      final footprint = Path();
+      final isClassicTriangle = element.pose == PyramidPose.flat;
+      switch (element.pose) {
+        case PyramidPose.flat:
+          final points = <Offset>[
+            Offset(0, -footprintLength / 2),
+            Offset(base / 2, footprintLength / 2),
+            Offset(-base / 2, footprintLength / 2),
+          ];
+          if (roundTriangleTips) {
+            footprint.addPath(
+              _apexRoundedTriangle(
+                points,
+                math.min(base, footprintLength) * 0.18,
+              ),
+              Offset.zero,
+            );
+          } else {
+            footprint
               ..moveTo(points[0].dx, points[0].dy)
               ..lineTo(points[1].dx, points[1].dy)
               ..lineTo(points[2].dx, points[2].dy)
-              ..close());
-      final bounce = triangleBouncePhase;
+              ..close();
+          }
+        case PyramidPose.wedgeTriangle:
+          // Cheesecake wedge: the physical piece is resting on a right
+          // triangular end face. This is a footprint, not a picture of it.
+          footprint
+            ..moveTo(-base / 2, -footprintLength / 2)
+            ..lineTo(-base / 2, footprintLength / 2)
+            ..lineTo(base / 2, footprintLength / 2)
+            ..close();
+        case PyramidPose.blockFlat:
+        case PyramidPose.wedgeRectangle:
+          footprint.addRect(
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: base,
+              height: footprintLength,
+            ),
+          );
+        case PyramidPose.upright:
+          break;
+      }
+
+      final bounce = isClassicTriangle ? triangleBouncePhase : null;
       if (bounce == null) {
-        canvas.drawPath(triangle, Paint()..color = white);
+        canvas.drawPath(footprint, Paint()..color = white);
       } else {
         canvas.drawPath(
-          triangle,
+          footprint,
           Paint()..color = Color.fromRGBO(255, 255, 255, 0.045 * alpha),
         );
-        final y = -flatLength / 2 + flatLength * bounce.clamp(0, 1);
-        final band = math.max(3.0, flatLength * 0.16);
+        final y =
+            -footprintLength / 2 + footprintLength * bounce.clamp(0, 1);
+        final band = math.max(3.0, footprintLength * 0.16);
         canvas.save();
-        canvas.clipPath(triangle);
+        canvas.clipPath(footprint);
         canvas.drawRect(
           Rect.fromLTWH(-base, y - band / 2, base * 2, band),
           Paint()..color = white,
@@ -831,7 +866,7 @@ class BoardPainter extends CustomPainter {
       }
       if (element.id == selectedId && alpha > 0.15) {
         canvas.drawPath(
-          triangle,
+          footprint,
           Paint()
             ..color = Color.fromRGBO(255, 255, 255, 0.34 * alpha)
             ..style = PaintingStyle.stroke
