@@ -44,29 +44,91 @@ class BoardController extends ChangeNotifier {
   LightStructure? structureFor(LightElement element) =>
       _state.structureForElement(element.id);
 
-  void createAt(PhysicalPoint position) {
+  void createAt(
+    PhysicalPoint position, {
+    ZendoPieceSetMode pieceSet = ZendoPieceSetMode.classic,
+  }) {
+    final zendoOnly = pieceSet == ZendoPieceSetMode.zendo20;
     final element = LightElement(
       id: _newId(),
-      size: PyramidSize.small,
+      size: zendoOnly ? PyramidSize.medium : PyramidSize.small,
       pose: PyramidPose.upright,
       position: position,
       headingDegrees: 0,
       illumination: IlluminationPattern.full,
+      kind: LightPieceKind.pyramid,
     );
     _execute(AddElementCommand(element));
   }
 
-  void cycleSizeOrDelete(LightElement element) {
+  void cycleSizeOrDelete(
+    LightElement element, {
+    ZendoPieceSetMode pieceSet = ZendoPieceSetMode.classic,
+  }) {
     final current = _state.elementById(element.id);
     if (current == null) return;
-    switch (current.size) {
-      case PyramidSize.small:
-        _replace(current, current.copyWith(size: PyramidSize.medium));
-      case PyramidSize.medium:
-        _replace(current, current.copyWith(size: PyramidSize.large));
-      case PyramidSize.large:
-        _execute(RemoveElementCommand(current));
+
+    switch (pieceSet) {
+      case ZendoPieceSetMode.classic:
+        if (current.kind != LightPieceKind.pyramid) {
+          _execute(RemoveElementCommand(current));
+          return;
+        }
+        switch (current.size) {
+          case PyramidSize.small:
+            _replace(current, current.copyWith(size: PyramidSize.medium));
+          case PyramidSize.medium:
+            _replace(current, current.copyWith(size: PyramidSize.large));
+          case PyramidSize.large:
+            _execute(RemoveElementCommand(current));
+        }
+      case ZendoPieceSetMode.zendo20:
+        switch (current.kind) {
+          case LightPieceKind.pyramid:
+            _changePieceKind(current, LightPieceKind.wedge);
+          case LightPieceKind.wedge:
+            _changePieceKind(current, LightPieceKind.block);
+          case LightPieceKind.block:
+            _execute(RemoveElementCommand(current));
+        }
+      case ZendoPieceSetMode.both:
+        switch (current.kind) {
+          case LightPieceKind.pyramid:
+            switch (current.size) {
+              case PyramidSize.small:
+                _replace(current, current.copyWith(size: PyramidSize.medium));
+              case PyramidSize.medium:
+                _replace(current, current.copyWith(size: PyramidSize.large));
+              case PyramidSize.large:
+                _changePieceKind(current, LightPieceKind.wedge);
+            }
+          case LightPieceKind.wedge:
+            _changePieceKind(current, LightPieceKind.block);
+          case LightPieceKind.block:
+            _execute(RemoveElementCommand(current));
+        }
     }
+  }
+
+  void _changePieceKind(LightElement current, LightPieceKind nextKind) {
+    final nextPose = switch ((nextKind, current.pose)) {
+      (LightPieceKind.pyramid, PyramidPose.upright) => PyramidPose.upright,
+      (LightPieceKind.pyramid, _) => PyramidPose.flat,
+      (LightPieceKind.wedge, PyramidPose.upright) => PyramidPose.upright,
+      (LightPieceKind.wedge, _) => PyramidPose.wedgeTriangle,
+      (LightPieceKind.block, PyramidPose.upright) => PyramidPose.upright,
+      (LightPieceKind.block, _) => PyramidPose.blockFlat,
+    };
+    _commitPoseChange(
+      current,
+      current.copyWith(
+        kind: nextKind,
+        size: nextKind == LightPieceKind.pyramid
+            ? current.size
+            : PyramidSize.medium,
+        pose: nextPose,
+      ),
+    );
   }
 
   void deleteElement(LightElement element) {
@@ -91,8 +153,6 @@ class BoardController extends ChangeNotifier {
     if (distance < 4) return;
 
     final base = geometry.baseMm(current.size);
-    final length = geometry.flatLengthMm(current.size);
-    final hingeTravel = (base + length) / 2;
 
     if (current.pose == PyramidPose.upright) {
       final dragAngle = math.atan2(drag.yMm, drag.xMm) * 180 / math.pi;
@@ -101,13 +161,27 @@ class BoardController extends ChangeNotifier {
       final tipDirection = normalizeDegrees(
         current.headingDegrees + quarterTurn * 90,
       );
+      final targetPose = switch (current.kind) {
+        LightPieceKind.pyramid => PyramidPose.flat,
+        LightPieceKind.block => PyramidPose.blockFlat,
+        LightPieceKind.wedge => quarterTurn.isEven
+            ? PyramidPose.wedgeTriangle
+            : PyramidPose.wedgeRectangle,
+      };
+      final tipped = current.copyWith(
+        pose: targetPose,
+        size: current.kind == LightPieceKind.pyramid
+            ? current.size
+            : PyramidSize.medium,
+      );
+      final length = geometry.footprintLengthMm(tipped);
+      final hingeTravel = (base + length) / 2;
       final radians = tipDirection * math.pi / 180;
       final ux = math.cos(radians);
       final uy = math.sin(radians);
       _commitPoseChange(
         current,
-        current.copyWith(
-          pose: PyramidPose.flat,
+        tipped.copyWith(
           position: PhysicalPoint(
             current.position.xMm + ux * hingeTravel,
             current.position.yMm + uy * hingeTravel,
@@ -118,6 +192,8 @@ class BoardController extends ChangeNotifier {
       return;
     }
 
+    final length = geometry.footprintLengthMm(current);
+    final hingeTravel = (base + length) / 2;
     final rotation = -current.headingDegrees * math.pi / 180;
     final localX =
         drag.xMm * math.cos(rotation) - drag.yMm * math.sin(rotation);
@@ -136,6 +212,9 @@ class BoardController extends ChangeNotifier {
           current.position.xMm + shiftX,
           current.position.yMm + shiftY,
         ),
+        headingDegrees: current.kind == LightPieceKind.wedge
+            ? normalizeDegrees(current.headingDegrees - 90)
+            : current.headingDegrees,
       ),
     );
   }
@@ -409,6 +488,8 @@ class BoardController extends ChangeNotifier {
 
   bool _isAutomaticNestPair(BoardState state, LightElement a, LightElement b) {
     if (a.id == b.id ||
+        a.kind != LightPieceKind.pyramid ||
+        b.kind != LightPieceKind.pyramid ||
         a.pose != PyramidPose.upright ||
         b.pose != PyramidPose.upright ||
         a.illumination != IlluminationPattern.wall ||
@@ -428,7 +509,7 @@ class BoardController extends ChangeNotifier {
     if (element.pose == PyramidPose.upright) {
       return math.sqrt(halfBase * halfBase * 2);
     }
-    final halfLength = geometry.flatLengthMm(element.size) / 2;
+    final halfLength = geometry.footprintLengthMm(element) / 2;
     return math.sqrt(halfBase * halfBase + halfLength * halfLength);
   }
 
@@ -593,7 +674,11 @@ class BoardController extends ChangeNotifier {
     LightElement? anchor;
     for (final id in structure.memberIds) {
       final member = state.elementById(id);
-      if (member == null || member.pose != PyramidPose.upright) return false;
+      if (member == null ||
+          member.kind != LightPieceKind.pyramid ||
+          member.pose != PyramidPose.upright) {
+        return false;
+      }
       anchor ??= member;
       if (member.position.distanceTo(anchor.position) > 0.05) return false;
       final headingDifference = normalizeDegrees(
