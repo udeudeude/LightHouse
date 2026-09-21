@@ -218,6 +218,7 @@ class _DiceBubbleState extends State<DiceBubble>
   int _nextInstanceSerial = 2;
   bool _pressed = false;
   bool _pickerOpen = false;
+  bool _spiderRevealed = false;
   bool _twoFingerMove = false;
   bool _gestureMoved = false;
   double _gestureTravel = 0;
@@ -472,7 +473,12 @@ class _DiceBubbleState extends State<DiceBubble>
 
   Future<void> _showPicker() async {
     HapticFeedback.selectionClick();
-    if (mounted) setState(() => _pickerOpen = true);
+    if (mounted) {
+      setState(() {
+        _pickerOpen = true;
+        _spiderRevealed = false;
+      });
+    }
     try {
       await showModalBottomSheet<void>(
         context: context,
@@ -616,7 +622,12 @@ class _DiceBubbleState extends State<DiceBubble>
         ),
       );
     } finally {
-      if (mounted) setState(() => _pickerOpen = false);
+      if (mounted) {
+        setState(() {
+          _pickerOpen = false;
+          _spiderRevealed = _selectedIds.isEmpty;
+        });
+      }
     }
   }
 
@@ -694,7 +705,7 @@ class _DiceBubbleState extends State<DiceBubble>
                       progress: _rollController.value,
                       rollSerial: _rollSerial,
                       pressed: _pressed,
-                      showSpider: !_pickerOpen,
+                      showSpider: !_pickerOpen && _spiderRevealed,
                     ),
                   ),
                   Align(
