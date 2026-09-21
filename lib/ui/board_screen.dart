@@ -1877,7 +1877,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _toyRevision.value += 1;
   }
 
-  Future<void> _startRemoteSession(RemoteSession session) async {
+  Future<void> _startRemoteSession(
+    RemoteSession session, {
+    bool showPairingDialog = true,
+    String? pairingCode,
+  }) async {
     final old = _remoteSession;
     if (old != null && old != session) {
       await _remoteMessageSubscription?.cancel();
@@ -1901,8 +1905,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     _startRemoteRuntimePublisher();
     await _sendRemoteHello();
-    if (session.isCreator) {
-      await _showPairingDialog(session);
+    if (showPairingDialog && (session.isCreator || pairingCode != null)) {
+      await _showPairingDialog(session, pairingCode: pairingCode);
     }
   }
 
@@ -2124,8 +2128,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _showPairingDialog(RemoteSession session) async {
+  Future<void> _showPairingDialog(
+    RemoteSession session, {
+    String? pairingCode,
+  }) async {
     if (!mounted || _remoteSession != session) return;
+    final normalizedCode = pairingCode == null
+        ? null
+        : RemoteSession.normalizePairingCode(pairingCode);
     final join = session.joinUri(Uri.base).toString();
     await showDialog<void>(
       context: context,
@@ -2142,35 +2152,73 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(12),
-                  child: QrImageView(data: join, size: 230),
-                ),
-                const SizedBox(height: 14),
+                if (normalizedCode != null) ...[
+                  const Text(
+                    'Enter this same code on the other device and choose the opposite role.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    normalizedCode,
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 7,
+                    ),
+                  ),
+                ] else ...[
+                  Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.all(12),
+                    child: QrImageView(data: join, size: 230),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                const SizedBox(height: 10),
                 Text(
-                  session.role == RemoteRole.display && session.peerSeen
-                      ? '${session.controllerCount} controller${session.controllerCount == 1 ? '' : 's'} connected · ${session.transportLabel}\nScan again to add another controller.'
-                      : session.peerSeen
+                  session.peerSeen
                       ? 'Paired · ${session.transportLabel}'
-                      : 'Scan this with the other device. It will open as ${session.role.other.label}.',
+                      : session.phase == RemoteConnectionPhase.failed
+                      ? 'Pairing service unavailable.'
+                      : 'Waiting for the other device · ${session.transportLabel}',
                   textAlign: TextAlign.center,
                 ),
+                if (session.errorMessage case final error?) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    error,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.orangeAccent),
+                  ),
+                ],
               ],
             ),
           ),
           actions: [
-            TextButton.icon(
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: join));
-                if (!dialogContext.mounted) return;
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Pairing link copied.')),
-                );
-              },
-              icon: const Icon(Icons.copy),
-              label: const Text('Copy Link'),
-            ),
+            if (normalizedCode != null)
+              TextButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: normalizedCode));
+                  if (!dialogContext.mounted) return;
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(content: Text('Pairing code copied.')),
+                  );
+                },
+                icon: const Icon(Icons.copy),
+                label: const Text('Copy Code'),
+              )
+            else
+              TextButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: join));
+                  if (!dialogContext.mounted) return;
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(content: Text('Pairing link copied.')),
+                  );
+                },
+                icon: const Icon(Icons.copy),
+                label: const Text('Copy Link'),
+              ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(session.peerSeen ? 'Done' : 'Hide'),
@@ -2179,6 +2227,105 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  Future<String?> _requestRemotePairingCode(RemoteRole role) async {
+    final controller = TextEditingController();
+    String? validationError;
+    final code = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          void submit() {
+            final normalized = RemoteSession.normalizePairingCode(
+              controller.text,
+            );
+            if (!RemoteSession.isValidPairingCode(normalized)) {
+              setDialogState(() {
+                validationError = 'Enter exactly 6 letters or digits.';
+              });
+              return;
+            }
+            Navigator.pop(dialogContext, normalized);
+          }
+
+          return AlertDialog(
+            title: Text('${role.label} · Pair by Code'),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: TextField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                autocorrect: false,
+                enableSuggestions: false,
+                maxLength: RemoteSession.pairingCodeLength,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                  LengthLimitingTextInputFormatter(
+                    RemoteSession.pairingCodeLength,
+                  ),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'Pairing code',
+                  hintText: 'K7M4Q2',
+                  errorText: validationError,
+                  helperText: 'Type the same 6-character code on both devices.',
+                ),
+                onChanged: (_) {
+                  if (validationError != null) {
+                    setDialogState(() => validationError = null);
+                  }
+                },
+                onSubmitted: (_) => submit(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(onPressed: submit, child: const Text('Pair')),
+            ],
+          );
+        },
+      ),
+    );
+    controller.dispose();
+    return code;
+  }
+
+  Future<void> _startRemoteByCode(RemoteRole role) async {
+    final code = await _requestRemotePairingCode(role);
+    if (!mounted || code == null) return;
+    final session = await RemoteSession.fromPairingCode(code, role);
+    if (!mounted) {
+      await session.close();
+      return;
+    }
+    await _startRemoteSession(session, pairingCode: code);
+  }
+
+  Future<void> _showRemoteSetup(RemoteRole role) async {
+    final method = await _showCompactMenu([
+      _compactMenuItem(
+        'code',
+        Icons.pin_outlined,
+        'Pair with 6-Character Code',
+      ),
+      _compactMenuItem(
+        'qr',
+        Icons.qr_code_2,
+        'Pair with QR / Link',
+      ),
+    ]);
+    if (!mounted || method == null) return;
+    switch (method) {
+      case 'code':
+        await _startRemoteByCode(role);
+      case 'qr':
+        await _startRemoteSession(RemoteSession.create(role));
+    }
   }
 
   Future<void> _disconnectRemote() async {
@@ -2244,7 +2391,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       final role = choice == 'display'
           ? RemoteRole.display
           : RemoteRole.controller;
-      await _startRemoteSession(RemoteSession.create(role));
+      await _showRemoteSetup(role);
       return;
     }
 
@@ -2255,6 +2402,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         '${session.role.label} · ${session.transportLabel}',
         enabled: false,
       ),
+      if (!session.peerSeen)
+        _compactMenuItem(
+          'code',
+          Icons.pin_outlined,
+          'Pair with 6-Character Code',
+        ),
       if (session.role == RemoteRole.display || !session.peerSeen)
         _compactMenuItem(
           'pair',
@@ -2301,6 +2454,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final choice = await _showCompactMenu(items);
     if (!mounted || choice == null) return;
     switch (choice) {
+      case 'code':
+        await _disconnectRemote();
+        if (!mounted) return;
+        await _startRemoteByCode(session.role);
       case 'pair':
         await _showPairingDialog(session);
       case 'boardInteraction':
@@ -3359,6 +3516,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final ruleActive = _zendoRuleIndex >= 0;
     final choice = await _showCompactMenu([
       _compactMenuItem(
+        'zendoOff',
+        Icons.power_settings_new,
+        'Zendo Off · Normal LightHouse',
+      ),
+      const PopupMenuDivider(),
+      _compactMenuItem(
         'stones',
         Icons.circle_outlined,
         'Zendo Stones',
@@ -3409,6 +3572,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     ]);
     if (!mounted || choice == null) return;
     switch (choice) {
+      case 'zendoOff':
+        _turnOffZendo();
       case 'stones':
         _toggleOverlayToy(_ToyKind.zendoStones);
         unawaited(_sendRemoteRuntimeIfChanged(force: true));
@@ -3433,6 +3598,20 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         _ensureRuleStillCompatible();
       case 'ruleVisibility':
         setState(() => _zendoRuleVisible = !_zendoRuleVisible);
+    }
+  }
+
+  void _turnOffZendo() {
+    final stonesWereActive = _activeToys.remove(_ToyKind.zendoStones);
+    setState(() {
+      _zendoPieceMode = PieceCycleMode.classic;
+      _zendoRuleIndex = -1;
+      _zendoRuleVisible = false;
+      _zendoComplexRules = false;
+      _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
+    });
+    if (stonesWereActive) {
+      unawaited(_sendRemoteRuntimeIfChanged(force: true));
     }
   }
 
