@@ -130,4 +130,28 @@ void main() {
     expect(state.structureForElement('a'), structure);
     expect(state.structureForElement('missing'), isNull);
   });
+
+  test('Zendo 2.0 footprint kind survives board JSON', () {
+    final original = BoardState(
+      elements: const [
+        LightElement(
+          id: 'wedge',
+          size: PyramidSize.medium,
+          pose: PyramidPose.flat,
+          position: PhysicalPoint(20, 30),
+          headingDegrees: 90,
+          illumination: IlluminationPattern.full,
+          kind: LightPieceKind.wedge,
+          wedgeFlatFace: WedgeFlatFace.rectangle,
+        ),
+      ],
+    );
+
+    final restored = BoardState.fromJson(original.toJson());
+    expect(restored.elements.single.kind, LightPieceKind.wedge);
+    expect(
+      restored.elements.single.wedgeFlatFace,
+      WedgeFlatFace.rectangle,
+    );
+  });
 }
