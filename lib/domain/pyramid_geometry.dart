@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'light_element.dart';
 
 class PyramidGeometryProfile {
@@ -39,5 +41,19 @@ class PyramidGeometryProfile {
     PyramidSize.small => smallFlatLengthMm,
     PyramidSize.medium => mediumFlatLengthMm,
     PyramidSize.large => largeFlatLengthMm,
+  };
+
+  double get zendoHeightMm => mediumFlatLengthMm;
+
+  double get zendoWedgeSlopedLengthMm => math.sqrt(
+    mediumBaseMm * mediumBaseMm + zendoHeightMm * zendoHeightMm,
+  );
+
+  double footprintLengthMm(LightElement element) => switch (element.pose) {
+    PyramidPose.upright => baseMm(element.size),
+    PyramidPose.flat => flatLengthMm(element.size),
+    PyramidPose.blockFlat => zendoHeightMm,
+    PyramidPose.wedgeTriangle => zendoHeightMm,
+    PyramidPose.wedgeRectangle => zendoWedgeSlopedLengthMm,
   };
 }
