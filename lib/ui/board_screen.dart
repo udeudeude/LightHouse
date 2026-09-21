@@ -3463,8 +3463,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (!_zendoComplexRules && rule.difficulty != ZendoRuleDifficulty.easy) {
       return false;
     }
-    if (_zendoPieceMode == PieceCycleMode.zendo20 &&
-        !rule.suitableForZendo20) {
+    if (_zendoPieceMode == PieceCycleMode.zendo20 && !rule.suitableForZendo20) {
       return false;
     }
     return true;
@@ -3561,7 +3560,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                     IconButton(
                       tooltip: 'Hide rule',
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => setState(() => _zendoRuleVisible = false),
+                      onPressed: () =>
+                          setState(() => _zendoRuleVisible = false),
                       icon: const Icon(Icons.visibility_off, size: 18),
                     ),
                   ],

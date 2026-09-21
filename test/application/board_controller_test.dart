@@ -215,10 +215,7 @@ void main() {
 
   test('combined mode cycles classic sizes before Zendo 2.0 shapes', () {
     final controller = BoardController();
-    controller.createAt(
-      const PhysicalPoint(25, 40),
-      mode: PieceCycleMode.both,
-    );
+    controller.createAt(const PhysicalPoint(25, 40), mode: PieceCycleMode.both);
 
     controller.cycleSizeOrDelete(
       controller.state.elements.single,

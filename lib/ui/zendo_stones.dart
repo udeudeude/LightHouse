@@ -209,7 +209,6 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     _ZendoStoneKind.green => const Color(0xFF31C95A),
   };
 
-
   String _label(_ZendoStoneKind kind) => switch (kind) {
     _ZendoStoneKind.white => 'White marking stone',
     _ZendoStoneKind.black => 'Black marking stone',
@@ -337,9 +336,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                 ),
               ],
             ),
-            child: const CustomPaint(
-              painter: _ZendoStoneGlarePainter(),
-            ),
+            child: const CustomPaint(painter: _ZendoStoneGlarePainter()),
           ),
         ),
       ),

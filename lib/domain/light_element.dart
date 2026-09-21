@@ -93,15 +93,14 @@ class LightElement {
       other.wedgeFlatFace == wedgeFlatFace;
 
   @override
-  int get hashCode =>
-      Object.hash(
-        id,
-        size,
-        pose,
-        position,
-        headingDegrees,
-        illumination,
-        kind,
-        wedgeFlatFace,
-      );
+  int get hashCode => Object.hash(
+    id,
+    size,
+    pose,
+    position,
+    headingDegrees,
+    illumination,
+    kind,
+    wedgeFlatFace,
+  );
 }

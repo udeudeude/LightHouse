@@ -149,9 +149,6 @@ void main() {
 
     final restored = BoardState.fromJson(original.toJson());
     expect(restored.elements.single.kind, LightPieceKind.wedge);
-    expect(
-      restored.elements.single.wedgeFlatFace,
-      WedgeFlatFace.rectangle,
-    );
+    expect(restored.elements.single.wedgeFlatFace, WedgeFlatFace.rectangle);
   });
 }

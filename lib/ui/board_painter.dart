@@ -835,9 +835,7 @@ class BoardPainter extends CustomPainter {
             triangle,
             Paint()..color = Color.fromRGBO(255, 255, 255, 0.045 * alpha),
           );
-          final y =
-              -footprintLength / 2 +
-              footprintLength * bounce.clamp(0, 1);
+          final y = -footprintLength / 2 + footprintLength * bounce.clamp(0, 1);
           final band = math.max(3.0, footprintLength * 0.16);
           canvas.save();
           canvas.clipPath(triangle);

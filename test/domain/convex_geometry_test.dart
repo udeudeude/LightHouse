@@ -81,8 +81,7 @@ void main() {
       geometry.mediumBaseMm * geometry.mediumBaseMm +
           geometry.mediumFlatLengthMm * geometry.mediumFlatLengthMm,
     );
-    final actualLength =
-        rectanglePolygon[2].yMm - rectanglePolygon[1].yMm;
+    final actualLength = rectanglePolygon[2].yMm - rectanglePolygon[1].yMm;
     expect(actualLength.abs(), closeTo(expectedSlopedLength, 0.001));
   });
 }

@@ -143,7 +143,6 @@ class BoardController extends ChangeNotifier {
     }
   }
 
-
   void deleteElement(LightElement element) {
     final current = _state.elementById(element.id);
     if (current == null) return;
@@ -234,7 +233,6 @@ class BoardController extends ChangeNotifier {
       ),
     );
   }
-
 
   void beginTransform(LightElement element) {
     final current = _state.elementById(element.id);
