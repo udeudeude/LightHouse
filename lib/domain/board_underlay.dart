@@ -126,8 +126,8 @@ enum BoardUnderlay {
     BoardUnderlay.sandships => 'Sandships',
     BoardUnderlay.martianBackgammon => 'Martian Backgammon',
     BoardUnderlay.worldWar5 => 'World War 5',
-    BoardUnderlay.infiniteSquare => 'Infinite square grid',
-    BoardUnderlay.infiniteHex => 'Infinite hex grid',
+    BoardUnderlay.infiniteSquare => 'Infinite',
+    BoardUnderlay.infiniteHex => 'Hex grid',
   };
 
   List<PhysicalPoint> snapPoints({
