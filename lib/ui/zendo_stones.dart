@@ -207,6 +207,25 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     _ZendoStoneKind.green => const Color(0xFF31C95A),
   };
 
+  RadialGradient _glare(_ZendoStoneKind kind) {
+    final base = _fill(kind);
+    final highlight = switch (kind) {
+      _ZendoStoneKind.white => Colors.white,
+      _ZendoStoneKind.black => const Color(0xFF777777),
+      _ZendoStoneKind.green => const Color(0xFFB9FFD0),
+    };
+    return RadialGradient(
+      center: const Alignment(-0.38, -0.48),
+      radius: 0.95,
+      colors: [
+        highlight.withValues(alpha: 0.96),
+        Color.lerp(highlight, base, 0.55)!,
+        base,
+      ],
+      stops: const [0.0, 0.28, 1.0],
+    );
+  }
+
   String _label(_ZendoStoneKind kind) => switch (kind) {
     _ZendoStoneKind.white => 'White marking stone',
     _ZendoStoneKind.black => 'Black marking stone',
@@ -324,7 +343,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
             height: 18 * _scale,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _fill(kind),
+              gradient: _glare(kind),
               border: Border.all(color: Colors.white70),
               boxShadow: const [
                 BoxShadow(
@@ -392,7 +411,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                           (stone.expanded ? _largeRadius : _smallRadius) * 2,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _fill(stone.kind),
+                        gradient: _glare(stone.kind),
                         border: Border.all(
                           color: stone.kind == _ZendoStoneKind.white
                               ? Colors.black54
