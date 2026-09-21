@@ -35,10 +35,7 @@ String fateDieFaceSymbol(int face) => switch (face % 6) {
   _ => '',
 };
 
-int nextArcadeDieCount({
-  required int current,
-  required int otherSelected,
-}) {
+int nextArcadeDieCount({required int current, required int otherSelected}) {
   final maximum = (3 - otherSelected).clamp(0, 3).toInt();
   if (maximum == 0 || current >= maximum) return 0;
   return current + 1;
@@ -582,7 +579,9 @@ class _DiceBubbleState extends State<DiceBubble>
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: count > 0 ? Colors.white : Colors.white24,
+                                color: count > 0
+                                    ? Colors.white
+                                    : Colors.white24,
                                 width: count > 0 ? 2 : 1,
                               ),
                             ),
@@ -1004,10 +1003,8 @@ class _DiceBubblePainter extends CustomPainter {
     final base = Offset.lerp(from, to, eased)! * (bubbleRadius * 0.82);
     final skitterEnvelope = math.sin(math.pi * progress.clamp(0.0, 1.0));
     final skitterAngle = rollSerial * 1.7 + progress * math.pi * 14;
-    final jitter = Offset(
-          math.cos(skitterAngle),
-          math.sin(skitterAngle * 1.13),
-        ) *
+    final jitter =
+        Offset(math.cos(skitterAngle), math.sin(skitterAngle * 1.13)) *
         (bubbleRadius * 0.065 * skitterEnvelope);
     final position = center + base + jitter;
     final motion = to - from;
@@ -1027,7 +1024,8 @@ class _DiceBubblePainter extends CustomPainter {
     canvas.save();
     canvas.translate(position.dx, position.dy);
     canvas.rotate(heading);
-    final legSwing = math.sin(progress * math.pi * 18 + rollSerial) *
+    final legSwing =
+        math.sin(progress * math.pi * 18 + rollSerial) *
         2.3 *
         visualScale *
         skitterEnvelope;
@@ -1058,11 +1056,7 @@ class _DiceBubblePainter extends CustomPainter {
       ),
       white,
     );
-    canvas.drawCircle(
-      Offset(0, -6.0 * bodyScale),
-      3.4 * bodyScale,
-      white,
-    );
+    canvas.drawCircle(Offset(0, -6.0 * bodyScale), 3.4 * bodyScale, white);
     canvas.restore();
   }
 
@@ -1722,10 +1716,7 @@ class _DiceBubblePainter extends CustomPainter {
       final diagonalVector = (px - c) + (py - c);
       canvas.rotate(math.atan2(diagonalVector.dy, diagonalVector.dx));
     }
-    painter.paint(
-      canvas,
-      Offset(-painter.width / 2, -painter.height / 2),
-    );
+    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
     canvas.restore();
   }
 

@@ -43,18 +43,24 @@ void main() {
 
   test('selector tile cycle respects remaining three-die capacity', () {
     expect(
-      [for (var value = 0; value < 4; value += 1)
-        nextArcadeDieCount(current: value, otherSelected: 0)],
+      [
+        for (var value = 0; value < 4; value += 1)
+          nextArcadeDieCount(current: value, otherSelected: 0),
+      ],
       [1, 2, 3, 0],
     );
     expect(
-      [for (var value = 0; value < 3; value += 1)
-        nextArcadeDieCount(current: value, otherSelected: 1)],
+      [
+        for (var value = 0; value < 3; value += 1)
+          nextArcadeDieCount(current: value, otherSelected: 1),
+      ],
       [1, 2, 0],
     );
     expect(
-      [for (var value = 0; value < 2; value += 1)
-        nextArcadeDieCount(current: value, otherSelected: 2)],
+      [
+        for (var value = 0; value < 2; value += 1)
+          nextArcadeDieCount(current: value, otherSelected: 2),
+      ],
       [1, 0],
     );
     expect(nextArcadeDieCount(current: 0, otherSelected: 3), 0);

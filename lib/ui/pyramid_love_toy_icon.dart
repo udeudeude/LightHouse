@@ -19,9 +19,9 @@ class PyramidLoveToyIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-        dimension: size,
-        child: CustomPaint(painter: _PyramidLoveToyIconPainter(kind, color)),
-      );
+    dimension: size,
+    child: CustomPaint(painter: _PyramidLoveToyIconPainter(kind, color)),
+  );
 }
 
 class _Glyph {
@@ -41,15 +41,9 @@ class _PyramidLoveToyIconPainter extends CustomPainter {
   static final _nest = _Glyph(
     252,
     512,
-    _flattenSvg(
-      '$_nestMain $_nestDropOne $_nestDropTwo $_nestDropThree',
-    ),
+    _flattenSvg('$_nestMain $_nestDropOne $_nestDropTwo $_nestDropThree'),
   );
-  static final _zendoMarkers = _Glyph(
-    522,
-    512,
-    _flattenSvg(_zendoMarkersPath),
-  );
+  static final _zendoMarkers = _Glyph(522, 512, _flattenSvg(_zendoMarkersPath));
   static final _eastQueen = _Glyph(
     512,
     512,
@@ -59,10 +53,10 @@ class _PyramidLoveToyIconPainter extends CustomPainter {
   );
 
   _Glyph get _glyph => switch (kind) {
-        PyramidLoveToyIconKind.nest => _nest,
-        PyramidLoveToyIconKind.zendoMarkers => _zendoMarkers,
-        PyramidLoveToyIconKind.eastQueen => _eastQueen,
-      };
+    PyramidLoveToyIconKind.nest => _nest,
+    PyramidLoveToyIconKind.zendoMarkers => _zendoMarkers,
+    PyramidLoveToyIconKind.eastQueen => _eastQueen,
+  };
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -81,10 +75,7 @@ class _PyramidLoveToyIconPainter extends CustomPainter {
         offset.dy + contour.first.dy * scale,
       );
       for (final point in contour.skip(1)) {
-        path.lineTo(
-          offset.dx + point.dx * scale,
-          offset.dy + point.dy * scale,
-        );
+        path.lineTo(offset.dx + point.dx * scale, offset.dy + point.dy * scale);
       }
       path.close();
     }
@@ -97,9 +88,10 @@ class _PyramidLoveToyIconPainter extends CustomPainter {
 }
 
 List<List<Offset>> _flattenSvg(String data) {
-  final tokens = RegExp(
-    r'[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?',
-  ).allMatches(data).map((match) => match.group(0)!).toList(growable: false);
+  final tokens = RegExp(r'[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?')
+      .allMatches(data)
+      .map((match) => match.group(0)!)
+      .toList(growable: false);
   final contours = <List<Offset>>[];
   var contour = <Offset>[];
   var index = 0;
@@ -187,7 +179,8 @@ List<List<Offset>> _flattenSvg(String data) {
       case 's':
         if (!hasNumber()) continue;
         final p0 = current;
-        final p1 = (previousCommand == 'c' || previousCommand == 's') &&
+        final p1 =
+            (previousCommand == 'c' || previousCommand == 's') &&
                 previousControl != null
             ? current * 2 - previousControl!
             : current;
