@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lighthouse/ui/dice_bubble.dart';
 
@@ -72,4 +73,49 @@ void main() {
       expect(diceBubbleSpiderPoint(serial).distance, lessThanOrEqualTo(0.47));
     }
   });
+  testWidgets('Dice Bubble paints the spider and revised special dice', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 320,
+          child: DiceBubble(
+            snapshot: DiceBubbleSnapshot(
+              revision: 1,
+              rollSerial: 3,
+              selectedIds: [],
+              faces: {},
+              xFraction: 0.5,
+              yFraction: 0.5,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 320,
+          child: DiceBubble(
+            snapshot: DiceBubbleSnapshot(
+              revision: 2,
+              rollSerial: 4,
+              selectedIds: ['pyramid#1', 'treehouse#2', 'fate#3'],
+              faces: {'pyramid#1': 2, 'treehouse#2': 3, 'fate#3': 0},
+              xFraction: 0.5,
+              yFraction: 0.5,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
 }
