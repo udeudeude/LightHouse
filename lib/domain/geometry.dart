@@ -56,3 +56,4 @@ bool hitTestLightElement(
   // controls rather than forcing fingers to hit a mathematically exact edge.
   return local.xMm.abs() <= halfBase + haloMm &&
       local.yMm.abs() <= halfLength + haloMm;
+}
