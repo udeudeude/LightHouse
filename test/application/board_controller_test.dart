@@ -269,4 +269,30 @@ void main() {
       WedgeFlatFace.rectangle,
     );
   });
+
+  test('Zendo 2.0 shapes do not join classic stack or nest structures', () {
+    final controller = BoardController();
+    controller.createAt(
+      const PhysicalPoint(20, 20),
+      mode: PieceCycleMode.zendo20,
+    );
+    controller.cycleSizeOrDelete(
+      controller.state.elements.single,
+      mode: PieceCycleMode.zendo20,
+    );
+    final wedge = controller.state.elements.single;
+
+    controller.createAt(const PhysicalPoint(22, 20));
+    final classic = controller.state.elements.last;
+
+    expect(
+      controller.snapIntoNearestStructure(wedge, StructureKind.stack),
+      isFalse,
+    );
+    expect(
+      controller.snapIntoNearestStructure(classic, StructureKind.stack),
+      isFalse,
+    );
+    expect(controller.state.structures, isEmpty);
+  });
 }
