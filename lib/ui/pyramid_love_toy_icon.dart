@@ -2,7 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-enum PyramidLoveToyIconKind { nest, zendoMarkers, eastQueen }
+enum PyramidLoveToyIconKind {
+  nest,
+  zendoMarkers,
+  eastQueen,
+  zendoPyramid,
+  zendoWedge,
+  zendoBlock,
+}
 
 class PyramidLoveToyIcon extends StatelessWidget {
   const PyramidLoveToyIcon(
@@ -50,11 +57,29 @@ class _PyramidLoveToyIconPainter extends CustomPainter {
       '$_eastQueenMain $_eastQueenPipOne $_eastQueenPipTwo $_eastQueenPipThree',
     ),
   );
+  static final _zendoPyramid = _Glyph(
+    512,
+    512,
+    _flattenSvg(_zendoPyramidPath),
+  );
+  static final _zendoWedge = _Glyph(
+    512,
+    512,
+    _flattenSvg(_zendoWedgePath),
+  );
+  static final _zendoBlock = _Glyph(
+    512,
+    512,
+    _flattenSvg(_zendoBlockPath),
+  );
 
   _Glyph get _glyph => switch (kind) {
     PyramidLoveToyIconKind.nest => _nest,
     PyramidLoveToyIconKind.zendoMarkers => _zendoMarkers,
     PyramidLoveToyIconKind.eastQueen => _eastQueen,
+    PyramidLoveToyIconKind.zendoPyramid => _zendoPyramid,
+    PyramidLoveToyIconKind.zendoWedge => _zendoWedge,
+    PyramidLoveToyIconKind.zendoBlock => _zendoBlock,
   };
 
   @override
@@ -226,3 +251,15 @@ const _eastQueenPipTwo =
     'M76.758 188.098c0.071 0 0.189 0 0.249 0.024 13.032 1.244 36.975 13.008 45.837 17.534 1.433 0.758 1.433 2.82 0 3.542-8.886 4.537-32.876 16.266-45.766 17.558-0.118 0.024-0.249 0.024-0.391 0.048-0.628 0.048-1.232 0.095-1.777 0.095-10.757 0-19.465-8.72-19.465-19.453s8.696-19.465 19.465-19.465c0.581 0.012 1.197 0.059 1.848 0.119z';
 const _eastQueenPipThree =
     'M76.758 241.197c0.071 0.024 0.189 0.024 0.249 0.024 13.032 1.268 36.975 13.032 45.837 17.558 1.433 0.747 1.433 2.82 0 3.543-8.886 4.538-32.876 16.266-45.766 17.558-0.118 0.024-0.249 0.024-0.391 0.048-0.628 0.048-1.232 0.095-1.777 0.095-10.757 0-19.465-8.719-19.465-19.465s8.696-19.465 19.465-19.465c0.581 0.024 1.197 0.059 1.848 0.107z';
+
+
+// Exact path data from the Pyramid Love 3.1 Zendo-piece SVGs. These are used
+// only as menu glyphs. The board itself renders physical footprints.
+const _zendoPyramidPath =
+    'M451.52 58.549h-390.981c-6.54 0-11.847 5.295-11.847 11.847v390.957c0 6.551 5.307 11.847 11.847 11.847h390.981c6.551 0 11.847-5.296 11.847-11.847v-390.957c0-6.54-5.296-11.847-11.847-11.847zM239.017 265.614l-166.631 166.631v-333.262l166.631 166.631zM89.162 82.243h333.226l-166.619 166.619-166.607-166.619zM255.769 282.366l167.152 167.14h-334.281l167.129-167.14zM272.533 265.614l167.14-167.14v334.292l-167.14-167.152z';
+
+const _zendoWedgePath =
+    'M451.52 58.549h-390.981c-6.54 0-11.847 5.295-11.847 11.847v390.957c0 6.551 5.307 11.847 11.847 11.847h390.981c6.551 0 11.847-5.296 11.847-11.847v-390.957c0-6.54-5.296-11.847-11.847-11.847zM72.386 82.243h367.286v171.761h-367.286v-171.761zM439.673 449.506h-367.286v-171.82h367.286v171.82z';
+
+const _zendoBlockPath =
+    'M451.52 58.549h-390.981c-6.54 0-11.847 5.295-11.847 11.847v390.957c0 6.551 5.307 11.847 11.847 11.847h390.981c6.551 0 11.847-5.296 11.847-11.847v-390.957c0-6.54-5.296-11.847-11.847-11.847zM439.673 98.474v351.044h-367.286v-367.275h367.286v16.231z';
