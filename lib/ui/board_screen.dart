@@ -434,7 +434,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               .toDouble();
       _turnTimerActiveDurationSeconds = _turnTimerDurationSeconds;
       _redSweepPeriodSeconds =
-          (preferences.getDouble('lighthouse.redSweepPeriodSeconds.v1') ?? 13.33)
+          (preferences.getDouble('lighthouse.redSweepPeriodSeconds.v1') ??
+                  13.33)
               .clamp(2, 60)
               .toDouble();
       for (final toy in _ToyKind.values) {
