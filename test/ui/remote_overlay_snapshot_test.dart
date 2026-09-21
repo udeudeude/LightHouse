@@ -28,10 +28,7 @@ void main() {
       arcadeDiceChoices.map((choice) => choice.kind).toSet(),
       hasLength(6),
     );
-    expect(
-      arcadeDiceChoices.map((choice) => choice.id),
-      contains('fate'),
-    );
+    expect(arcadeDiceChoices.map((choice) => choice.id), contains('fate'));
   });
 
   test('legacy physical dice identifiers remain readable', () {
