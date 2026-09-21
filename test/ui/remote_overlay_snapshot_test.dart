@@ -23,10 +23,14 @@ void main() {
   });
 
   test('dice selector exposes each die kind once', () {
-    expect(arcadeDiceChoices, hasLength(5));
+    expect(arcadeDiceChoices, hasLength(6));
     expect(
       arcadeDiceChoices.map((choice) => choice.kind).toSet(),
-      hasLength(5),
+      hasLength(6),
+    );
+    expect(
+      arcadeDiceChoices.map((choice) => choice.id),
+      contains('fate'),
     );
   });
 
