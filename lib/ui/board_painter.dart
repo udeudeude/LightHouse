@@ -40,8 +40,14 @@ class BoardPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Offset.zero & size, Paint()..color = Colors.black);
     _paintUnderlay(canvas, size, state.underlay);
-    for (final element in state.elements) {
-      _paintElement(canvas, element, elementOpacities[element.id] ?? 1);
+    for (var index = 0; index < state.elements.length; index += 1) {
+      final element = state.elements[index];
+      _paintElement(
+        canvas,
+        element,
+        elementOpacities[element.id] ?? 1,
+        chaseIndex: index,
+      );
     }
     _paintBurst(canvas, size);
   }
@@ -787,7 +793,12 @@ class BoardPainter extends CustomPainter {
       ..close();
   }
 
-  void _paintElement(Canvas canvas, LightElement element, double opacity) {
+  void _paintElement(
+    Canvas canvas,
+    LightElement element,
+    double opacity, {
+    required int chaseIndex,
+  }) {
     if (opacity <= 0) return;
     final alpha = opacity.clamp(0.0, 1.0).toDouble();
     final white = Color.fromRGBO(255, 255, 255, alpha);
@@ -829,7 +840,7 @@ class BoardPainter extends CustomPainter {
           final metric = chasePath.computeMetrics().first;
           final seed = element.id.hashCode & 0x7fffffff;
           final offset = (seed % 1000) / 1000;
-          final clockwise = ((seed ~/ 1000) & 1) == 0;
+          final clockwise = chaseIndex.isEven;
           final localPhase = clockwise
               ? (chase + offset) % 1
               : (offset - chase) % 1;
