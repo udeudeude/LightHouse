@@ -3747,6 +3747,16 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         Icons.psychology_alt_outlined,
         rule == null ? 'Community Secret Rule…' : 'Change Secret Rule…',
       ),
+      _compactMenuItem(
+        'randomRule',
+        Icons.shuffle,
+        'Random Community Rule',
+      ),
+      _compactMenuItem(
+        'browseRules',
+        Icons.open_in_new,
+        'Browse BoardGameGeek Rule Files…',
+      ),
       if (rule != null)
         _compactMenuItem(
           'visibility',
@@ -3766,6 +3776,20 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         await _showZendoPieceSetMenu();
       case 'rule':
         await _showZendoRulePicker();
+      case 'randomRule':
+        final rules = _eligibleZendoRules;
+        if (rules.isNotEmpty) {
+          final selected = rules[_random.nextInt(rules.length)];
+          setState(() {
+            _activeZendoRuleId = selected.id;
+            _zendoRuleVisible = true;
+          });
+        }
+      case 'browseRules':
+        await launchUrl(
+          Uri.parse('https://boardgamegeek.com/boardgame/6830/zendo/files'),
+          mode: LaunchMode.externalApplication,
+        );
       case 'visibility':
         setState(() => _zendoRuleVisible = !_zendoRuleVisible);
       case 'source':
