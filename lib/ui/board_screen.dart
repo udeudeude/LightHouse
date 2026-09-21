@@ -202,6 +202,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   ZendoRuleDifficulty _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
   bool _applyingRemoteState = false;
   bool _remoteSeedReceived = false;
+  bool _remotePeerSeen = false;
   double? _remoteDisplayWidthMm;
   double? _remoteDisplayHeightMm;
   double? _remoteDisplayPixelsPerMm;
@@ -1892,6 +1893,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     setState(() {
       _remoteSession = session;
       _remoteSeedReceived = session.role == RemoteRole.display;
+      _remotePeerSeen = session.peerSeen;
       _remoteDisplayWidthMm = null;
       _remoteDisplayHeightMm = null;
       _remoteDisplayPixelsPerMm = null;
@@ -1911,7 +1913,26 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   void _remoteSessionChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final session = _remoteSession;
+    if (session == null) return;
+    final peerJustAppeared = session.peerSeen && !_remotePeerSeen;
+    _remotePeerSeen = session.peerSeen;
+    setState(() {});
+    if (peerJustAppeared) {
+      unawaited(_resendRemoteHandshake(session));
+    }
+  }
+
+  Future<void> _resendRemoteHandshake(RemoteSession session) async {
+    if (!mounted || _remoteSession != session || !session.peerSeen) return;
+    await _sendRemoteHello();
+    if (!mounted || _remoteSession != session) return;
+    if (session.role == RemoteRole.display) {
+      await _sendRemoteState('seed');
+      await session.sendApp('runtime', _remoteRuntimePayload());
+      await _broadcastRemoteControlState();
+    }
   }
 
   void _captureRemoteDisplayMetrics(
@@ -2341,6 +2362,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     setState(() {
       _remoteSession = null;
       _remoteSeedReceived = false;
+      _remotePeerSeen = false;
       _remoteDisplayWidthMm = null;
       _remoteDisplayHeightMm = null;
       _remoteDisplayPixelsPerMm = null;
