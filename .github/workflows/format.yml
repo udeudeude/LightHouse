@@ -3,7 +3,7 @@ name: Auto format
 on:
   push:
     branches:
-      - pyramid-love-integration
+      - lighthouse-2-rewrite
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: pyramid-love-integration
+          ref: lighthouse-2-rewrite
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -32,4 +32,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lib test
           git commit -m "chore: format Dart"
-          git push origin HEAD:pyramid-love-integration
+          git push origin HEAD:lighthouse-2-rewrite
