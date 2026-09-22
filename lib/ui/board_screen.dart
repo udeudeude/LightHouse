@@ -146,6 +146,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   int _effectGeneration = 0;
   int _entropyGeneration = 0;
   double _toyClock = 0;
+  int _squareChaseSeed = 0;
   double _radarAngleDegrees = 0;
   double _redSweepY = 0;
   double _redSweepPeriodSeconds = 13.33;
@@ -194,6 +195,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   RemoteBoardControlState _remoteControlState = const RemoteBoardControlState();
   bool _rippleTapEnabled = false;
   Timer? _rippleTimer;
+  Timer? _rippleTapTimer;
   DateTime? _lastRippleTickAt;
   double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
@@ -220,6 +222,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _controller = BoardController(initialState: widget.initialState)
       ..addListener(_refresh);
+    _restoreTableData(widget.initialState.tableData);
     WakelockPlus.enable();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -286,6 +289,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _remotePublishTimer?.cancel();
     _remoteRuntimeTimer?.cancel();
     _rippleTimer?.cancel();
+    _rippleTapTimer?.cancel();
     _remoteMessageSubscription?.cancel();
     unawaited(_remoteSession?.close());
     unawaited(_flushPendingSave());
@@ -306,6 +310,102 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
+  }
+
+  Map<String, Object?> _persistentTableData() => {
+    'activeToys': [for (final toy in _activeToys) toy.name],
+    'dice': _diceSnapshot.toJson(),
+    'zendo': _zendoSnapshot.toJson(),
+    'zendoPieceMode': _zendoPieceMode.name,
+    'zendoRuleIndex': _zendoRuleIndex,
+    'zendoRuleVisible': _zendoRuleVisible,
+    'zendoComplexRules': _zendoComplexRules,
+    'zendoRuleDifficulty': _zendoRuleDifficulty.name,
+    'checkerUnderlays': _checkerUnderlays,
+    'roundedTriangleTips': _roundedTriangleTips,
+    'sideGunAnglesDegrees': List<double>.from(_sideGunAnglesDegrees),
+    'sideGunAmmo': List<int>.from(_sideGunAmmo),
+    'turnTimerDurationSeconds': _turnTimerDurationSeconds,
+    'redSweepPeriodSeconds': _redSweepPeriodSeconds,
+  };
+
+  BoardState _stateForPersistence() =>
+      _controller.state.copyWith(tableData: _persistentTableData());
+
+  void _restoreTableData(Map<String, Object?> data) {
+    if (data.isEmpty) return;
+
+    final activeNames =
+        (data['activeToys'] as List?)?.whereType<String>() ?? const <String>[];
+    _activeToys
+      ..clear()
+      ..addAll([
+        for (final name in activeNames)
+          if (_ToyKind.values.where((toy) => toy.name == name).firstOrNull
+              case final toy?)
+            toy,
+      ]);
+
+    final dice = DiceBubbleSnapshot.fromJson(data['dice']);
+    if (dice != null) _diceSnapshot = dice;
+    final zendo = ZendoStonesSnapshot.fromJson(data['zendo']);
+    if (zendo != null) _zendoSnapshot = zendo;
+
+    final pieceModeName = data['zendoPieceMode'];
+    if (pieceModeName is String) {
+      _zendoPieceMode = PieceCycleMode.values
+              .where((value) => value.name == pieceModeName)
+              .firstOrNull ??
+          _zendoPieceMode;
+    }
+    _zendoRuleIndex = (data['zendoRuleIndex'] as num?)?.toInt() ?? -1;
+    _zendoRuleVisible = data['zendoRuleVisible'] == true;
+    _zendoComplexRules = data['zendoComplexRules'] == true;
+
+    final difficultyName = data['zendoRuleDifficulty'];
+    if (difficultyName is String) {
+      _zendoRuleDifficulty = ZendoRuleDifficulty.values
+              .where((value) => value.name == difficultyName)
+              .firstOrNull ??
+          _zendoRuleDifficulty;
+    }
+
+    _checkerUnderlays = data['checkerUnderlays'] == true;
+    _roundedTriangleTips = data['roundedTriangleTips'] == true;
+    _turnTimerDurationSeconds =
+        ((data['turnTimerDurationSeconds'] as num?)?.toDouble() ??
+                _turnTimerDurationSeconds)
+            .clamp(10.0, 300.0)
+            .toDouble();
+    _turnTimerActiveDurationSeconds = _turnTimerDurationSeconds;
+    _redSweepPeriodSeconds =
+        ((data['redSweepPeriodSeconds'] as num?)?.toDouble() ??
+                _redSweepPeriodSeconds)
+            .clamp(2.0, 60.0)
+            .toDouble();
+
+    final angles = (data['sideGunAnglesDegrees'] as List?)
+        ?.whereType<num>()
+        .map((value) => value.toDouble())
+        .toList();
+    if (angles != null && angles.length == _sideGunAnglesDegrees.length) {
+      for (var i = 0; i < angles.length; i += 1) {
+        _sideGunAnglesDegrees[i] = angles[i];
+      }
+    }
+    final ammo = (data['sideGunAmmo'] as List?)
+        ?.whereType<num>()
+        .map((value) => value.toInt())
+        .toList();
+    if (ammo != null && ammo.length == _sideGunAmmo.length) {
+      for (var i = 0; i < ammo.length; i += 1) {
+        _sideGunAmmo[i] = ammo[i];
+      }
+    }
+
+    if (_activeToys.contains(_ToyKind.squareChase)) {
+      _squareChaseSeed = _random.nextInt(0x7fffffff);
+    }
   }
 
   Future<void> _applyBrightness() async {
