@@ -61,7 +61,8 @@ enum BoardUnderlay {
     BoardUnderlay.martianChessHalf ||
     BoardUnderlay.martianChess2 ||
     BoardUnderlay.chess8x8 ||
-    BoardUnderlay.volcano => true,
+    BoardUnderlay.volcano ||
+    BoardUnderlay.infiniteSquare => true,
     _ => false,
   };
 
