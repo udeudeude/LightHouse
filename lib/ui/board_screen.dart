@@ -3292,7 +3292,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
     if (confirmed != true || !mounted) return;
     _controller.restoreState(backup);
-    setState(() => _activeSavedId = null);
+    setState(() {
+      _restoreTableData(backup.tableData);
+      _activeSavedId = null;
+    });
+    if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Previous autosave restored. Undo can reverse it.'),
@@ -3300,12 +3304,29 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
   }
 
+  String _defaultTableTitle([DateTime? timestamp]) {
+    final now = timestamp ?? DateTime.now();
+    String two(int value) => value.toString().padLeft(2, '0');
+    return 'Table ${two(now.hour)}:${two(now.minute)} '
+        '${two(now.month)}/${two(now.day)}/${now.year}';
+  }
+
+  bool _isUntitledTableName(String value) {
+    final title = value.trim();
+    return title.isEmpty || title == 'Untitled Board' || title == 'Untitled Table';
+  }
+
   Future<void> _saveBoard({bool asCopy = false}) async {
-    final title = await _askForTitle(_controller.state.title);
+    final currentTitle = _controller.state.title;
+    final title = await _askForTitle(
+      _isUntitledTableName(currentTitle)
+          ? _defaultTableTitle()
+          : currentTitle,
+    );
     if (title == null || title.trim().isEmpty) return;
     _controller.renameBoard(title);
     final id = await _store.saveNamed(
-      _controller.state,
+      _stateForPersistence(),
       id: asCopy ? null : _activeSavedId,
     );
     if (!mounted) return;
@@ -3338,7 +3359,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                           final board = await _store.loadNamed(item.id);
                           if (board == null || !mounted) return;
                           _controller.replaceState(board);
-                          setState(() => _activeSavedId = item.id);
+                          setState(() {
+                            _restoreTableData(board.tableData);
+                            _activeSavedId = item.id;
+                          });
+                          if (_needsToyTicker && !_remoteDisplayMode) {
+                            _ensureToyTicker();
+                          }
                           if (sheetContext.mounted) {
                             Navigator.pop(sheetContext);
                           }
@@ -3362,7 +3389,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _exportTableFile() async {
-    final raw = _store.exportJson(_controller.state);
+    final raw = _store.exportJson(_stateForPersistence());
     final cleaned = _controller.state.title
         .trim()
         .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
@@ -3396,7 +3423,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         return;
       }
       _controller.replaceState(table);
-      setState(() => _activeSavedId = null);
+      setState(() {
+        _restoreTableData(table.tableData);
+        _activeSavedId = null;
+      });
+      if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
