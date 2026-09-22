@@ -3683,34 +3683,48 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         isDismissible: true,
         enableDrag: true,
         useSafeArea: true,
-        builder: (sheetContext) => Align(
-          alignment: Alignment.bottomLeft,
-          heightFactor: 1,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 50),
-            child: Material(
-              color: const Color(0xFF202020),
-              elevation: 10,
-              borderRadius: BorderRadius.circular(8),
-              clipBehavior: Clip.antiAlias,
-              child: IntrinsicWidth(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: math.max(
-                      120.0,
-                      MediaQuery.sizeOf(sheetContext).height - 80,
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: items,
+        isScrollControlled: true,
+        builder: (sheetContext) => Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.pop(sheetContext),
+              child: const SizedBox.expand(),
+            ),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 50),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: Material(
+                    color: const Color(0xFF202020),
+                    elevation: 10,
+                    borderRadius: BorderRadius.circular(8),
+                    clipBehavior: Clip.antiAlias,
+                    child: IntrinsicWidth(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: math.max(
+                            120.0,
+                            MediaQuery.sizeOf(sheetContext).height - 80,
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: items,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       );
 
@@ -3811,6 +3825,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       switch (choice) {
         case 'zendoOff':
           _turnOffZendo();
+          _scheduleSave();
+          return;
         case 'stones':
           _toggleOverlayToy(_ToyKind.zendoStones);
           unawaited(_sendRemoteRuntimeIfChanged(force: true));
@@ -3836,6 +3852,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         case 'ruleVisibility':
           setState(() => _zendoRuleVisible = !_zendoRuleVisible);
       }
+      _scheduleSave();
     }
   }
 
