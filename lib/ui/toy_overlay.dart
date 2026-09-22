@@ -536,12 +536,13 @@ class ToyOverlayPainter extends CustomPainter {
     final visible = math.min(5, count);
     final paint = Paint()..color = Colors.white.withValues(alpha: 0.68);
     for (var i = 0; i < visible; i += 1) {
-      final delta = (i - (visible - 1) / 2) * 6.2 * scale;
+      final alongEdge = (10 + i * 6.2) * scale;
+      final edgeOffset = 11 * scale;
       final point = switch (gunIndex) {
-        0 => gunCenter + Offset(20 * scale + delta, 22 * scale),
-        1 => gunCenter + Offset(-20 * scale + delta, 22 * scale),
-        2 => gunCenter + Offset(20 * scale + delta, -22 * scale),
-        _ => gunCenter + Offset(-20 * scale + delta, -22 * scale),
+        0 => gunCenter + Offset(alongEdge, -edgeOffset),
+        1 => gunCenter + Offset(-alongEdge, -edgeOffset),
+        2 => gunCenter + Offset(alongEdge, edgeOffset),
+        _ => gunCenter + Offset(-alongEdge, edgeOffset),
       };
       canvas.drawCircle(point, 2.15 * scale, paint);
     }

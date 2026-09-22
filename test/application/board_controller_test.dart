@@ -190,6 +190,37 @@ void main() {
     expect(controller.state.elements, orderedEquals(before.elements));
   });
 
+  test('snapAllHeadings rounds every shape to the active increment', () {
+    final controller = BoardController(
+      initialState: BoardState(
+        elements: const [
+          LightElement(
+            id: 'a',
+            size: PyramidSize.small,
+            pose: PyramidPose.upright,
+            position: PhysicalPoint(10, 10),
+            headingDegrees: 22,
+            illumination: IlluminationPattern.full,
+          ),
+          LightElement(
+            id: 'b',
+            size: PyramidSize.medium,
+            pose: PyramidPose.upright,
+            position: PhysicalPoint(40, 10),
+            headingDegrees: 74,
+            illumination: IlluminationPattern.full,
+          ),
+        ],
+      ),
+    );
+
+    controller.snapAllHeadings(30);
+
+    expect(controller.state.elementById('a')!.headingDegrees, 30);
+    expect(controller.state.elementById('b')!.headingDegrees, 60);
+    expect(controller.canUndo, isTrue);
+  });
+
   test('Zendo 2.0 cycles medium pyramid, wedge, block, delete', () {
     final controller = BoardController();
     controller.createAt(

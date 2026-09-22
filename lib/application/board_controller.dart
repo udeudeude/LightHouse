@@ -458,6 +458,21 @@ class BoardController extends ChangeNotifier {
     _execute(ReplaceBoardStateCommand(before: _state, after: after));
   }
 
+  void snapAllHeadings(double degrees) {
+    if (degrees <= 0 || _state.elements.isEmpty) return;
+    final replacements = <LightElement>[
+      for (final element in _state.elements)
+        element.copyWith(
+          headingDegrees: normalizeDegrees(
+            (element.headingDegrees / degrees).roundToDouble() * degrees,
+          ),
+        ),
+    ];
+    final after = _state.replaceMany(replacements);
+    if (after == _state) return;
+    _execute(ReplaceBoardStateCommand(before: _state, after: after));
+  }
+
   void setUnderlay(BoardUnderlay underlay) {
     if (_state.underlay == underlay) return;
     _execute(
