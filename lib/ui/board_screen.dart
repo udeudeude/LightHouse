@@ -1911,11 +1911,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleDiceSnapshot(DiceBubbleSnapshot snapshot) {
     _diceSnapshot = snapshot;
+    _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
   void _handleZendoSnapshot(ZendoStonesSnapshot snapshot) {
     _zendoSnapshot = snapshot;
+    _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
@@ -2683,7 +2685,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   void _scheduleSave() {
-    _pendingSaveState = _controller.state;
+    _pendingSaveState = _stateForPersistence();
     _saveDebounceTimer?.cancel();
     _saveDebounceTimer = Timer(const Duration(milliseconds: 400), () {
       _saveDebounceTimer = null;
