@@ -193,9 +193,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Timer? _remoteRuntimeTimer;
   String? _lastRemoteRuntimeJson;
   RemoteBoardControlState _remoteControlState = const RemoteBoardControlState();
-  bool _rippleTapEnabled = false;
   Timer? _rippleTimer;
-  Timer? _rippleTapTimer;
   DateTime? _lastRippleTickAt;
   double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
@@ -289,7 +287,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _remotePublishTimer?.cancel();
     _remoteRuntimeTimer?.cancel();
     _rippleTimer?.cancel();
-    _rippleTapTimer?.cancel();
     _remoteMessageSubscription?.cancel();
     unawaited(_remoteSession?.close());
     unawaited(_flushPendingSave());
@@ -1788,16 +1785,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _cycleRipple(String elementId) async {
-    final next = _remoteControlState.cycleRipple(elementId);
-    _setRemoteControlState(next);
-    final level = next.rippleLevels[elementId];
-    await _sendRemoteControlCommand(
-      'setRipple',
-      payload: {'elementId': elementId, 'level': level?.wireValue ?? 0},
-    );
-    HapticFeedback.selectionClick();
-  }
+
 
 
   Future<void> _clearAllRipples() async {
@@ -2079,7 +2067,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _remoteDisplayHeightMm = null;
       _remoteDisplayPixelsPerMm = null;
       _remoteControlState = const RemoteBoardControlState();
-      _rippleTapEnabled = false;
     });
     _syncRippleTicker();
     session.addListener(_remoteSessionChanged);
@@ -2245,8 +2232,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           _remoteDisplayHeightMm = null;
           _remoteDisplayPixelsPerMm = null;
           _remoteControlState = const RemoteBoardControlState();
-          _rippleTapEnabled = false;
-        });
+            });
         _syncRippleTicker();
         _startRemoteRuntimePublisher();
         await _sendRemoteHello();
@@ -2553,7 +2539,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _remoteDisplayHeightMm = null;
       _remoteDisplayPixelsPerMm = null;
       _remoteControlState = const RemoteBoardControlState();
-      _rippleTapEnabled = false;
     });
     _syncRippleTicker();
   }
@@ -2568,7 +2553,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _remoteDisplayHeightMm = null;
       _remoteDisplayPixelsPerMm = null;
       _remoteControlState = const RemoteBoardControlState();
-      _rippleTapEnabled = false;
     });
     _syncRippleTicker();
     _startRemoteRuntimePublisher();
@@ -2873,7 +2857,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleDoubleTapDown(TapDownDetails details) {
     if (_creditsVisible) return;
-    _rippleTapTimer?.cancel();
     _rippleTapTimer = null;
     final point = _toPhysical(details.localPosition);
     final target = _controller.hitTest(point, haloMm: _interactionHaloMm);
