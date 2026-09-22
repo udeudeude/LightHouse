@@ -2340,7 +2340,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           title: Text(
             session.role == RemoteRole.display
                 ? (session.peerSeen ? 'Add Controller' : 'Pair Controller')
-                : 'Pair Board Display',
+                : 'Pair Table Display',
           ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 340),
@@ -2515,7 +2515,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       case 'code':
         await _startRemoteByCode(role);
       case 'qr':
-        await _startRemoteSession(RemoteSession.create(role));
+        final session = await RemoteSession.createShareable(role);
+        if (!mounted) {
+          await session.close();
+          return;
+        }
+        await _startRemoteSession(session);
     }
   }
 
@@ -2568,6 +2573,28 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _showAddControllerPairing(RemoteSession session) async {
+    final code = session.pairingCode;
+    if (code == null) {
+      await _showPairingDialog(session);
+      return;
+    }
+    final method = await _showCompactMenu([
+      _compactMenuItem(
+        'code',
+        Icons.pin_outlined,
+        '6-Character Code',
+      ),
+      _compactMenuItem('qr', Icons.qr_code_2, 'QR / Link'),
+    ]);
+    if (!mounted || method == null) return;
+    if (method == 'code') {
+      await _showPairingDialog(session, pairingCode: code);
+    } else {
+      await _showPairingDialog(session);
+    }
+  }
+
   Future<void> _showRemoteMenu() async {
     final session = _remoteSession;
     if (session == null) {
@@ -2575,7 +2602,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         _compactMenuItem(
           'display',
           Icons.desktop_windows_outlined,
-          'This Device: Board Display',
+          'This Device: Table Display',
         ),
         _compactMenuItem('controller', Icons.tune, 'This Device: Controller'),
       ]);
@@ -2651,7 +2678,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         if (!mounted) return;
         await _startRemoteByCode(session.role);
       case 'pair':
-        await _showPairingDialog(session);
+        if (session.role == RemoteRole.display && session.peerSeen) {
+          await _showAddControllerPairing(session);
+        } else {
+          await _showPairingDialog(
+            session,
+            pairingCode: session.pairingCode,
+          );
+        }
       case 'boardInteraction':
         await _setBoardUnitInteractions(
           !_remoteControlState.displayInteractionsEnabled,
@@ -2674,12 +2708,90 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Widget _remoteStatusButton() {
     final session = _remoteSession;
     if (session == null) return const SizedBox.shrink();
-    return IconButton(
+    final status = IconButton(
       tooltip: '${session.role.label} · ${session.transportLabel}',
       onPressed: _showRemoteMenu,
       icon: Icon(
         session.peerSeen ? Icons.link : Icons.link_off,
         color: session.peerSeen ? Colors.white70 : Colors.orangeAccent,
+      ),
+    );
+    if (session.role != RemoteRole.display) return status;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        status,
+        IconButton(
+          tooltip: 'Disconnect Table Display',
+          visualDensity: VisualDensity.compact,
+          onPressed: _disconnectRemote,
+          icon: const Icon(Icons.link_off, color: Colors.white70),
+        ),
+      ],
+    );
+  }
+
+  Widget _remoteControllerQuickControls() {
+    if (!_remoteControllerMode || _remoteSession?.peerSeen != true) {
+      return const SizedBox.shrink();
+    }
+    return Material(
+      color: const Color(0xAA171717),
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Table Display shape interaction',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => unawaited(
+              _setBoardUnitInteractions(
+                !_remoteControlState.displayInteractionsEnabled,
+              ),
+            ),
+            icon: Icon(
+              Icons.touch_app_outlined,
+              color: _remoteControlState.displayInteractionsEnabled
+                  ? Colors.white
+                  : Colors.white54,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Table Display shapes visible',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => unawaited(
+              _setBoardUnitShapesVisible(
+                !_remoteControlState.displayShapesVisible,
+              ),
+            ),
+            icon: Icon(
+              _remoteControlState.displayShapesVisible
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
+              color: _remoteControlState.displayShapesVisible
+                  ? Colors.white
+                  : Colors.white54,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Tap shapes to cycle ripples',
+            visualDensity: VisualDensity.compact,
+            onPressed: () =>
+                setState(() => _rippleTapEnabled = !_rippleTapEnabled),
+            icon: Icon(
+              Icons.radio_button_checked,
+              color: _rippleTapEnabled ? Colors.white : Colors.white54,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Turn off all ripples',
+            visualDensity: VisualDensity.compact,
+            onPressed: _remoteControlState.rippleLevels.isEmpty
+                ? null
+                : () => unawaited(_clearAllRipples()),
+            icon: const Icon(Icons.waves_outlined),
+          ),
+        ],
       ),
     );
   }
