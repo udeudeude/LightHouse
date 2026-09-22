@@ -125,6 +125,16 @@ class RemoteSession extends ChangeNotifier {
   );
 
   static const int pairingCodeLength = 6;
+  static const String _pairingAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+  static String generatePairingCode() => List<String>.generate(
+    pairingCodeLength,
+    (_) => _pairingAlphabet[_random.nextInt(_pairingAlphabet.length)],
+  ).join();
+
+  static Future<RemoteSession> createShareable(RemoteRole role) =>
+      fromPairingCode(generatePairingCode(), role);
+
   static final Pbkdf2 _pairingCodeKdf = Pbkdf2(
     macAlgorithm: Hmac.sha256(),
     iterations: 100000,
