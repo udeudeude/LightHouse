@@ -543,6 +543,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             preferences.getBool(toy.preferenceKey) ?? toy.defaultVisible;
       }
     });
+    if (widget.initialState.tableData.isNotEmpty && mounted) {
+      setState(() => _restoreTableData(widget.initialState.tableData));
+      if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
+    }
   }
 
   Future<void> _setRotationSnap(double? degrees) async {
@@ -571,6 +575,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       'lighthouse.checkerUnderlays.v1',
       _checkerUnderlays,
     );
+    _scheduleSave();
   }
 
   Future<void> _toggleRoundedTriangleTips() async {
@@ -580,6 +585,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       'lighthouse.roundedTriangleTips.v1',
       _roundedTriangleTips,
     );
+    _scheduleSave();
   }
 
   Future<void> _saveTurnTimerDuration() async {
@@ -663,6 +669,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     _maybeStopToyTicker();
     if (mounted) setState(() {});
+    _scheduleSave();
   }
 
   void _activateToy(_ToyKind toy) {
@@ -698,6 +705,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       case _ToyKind.zendoStones:
         _toggleOverlayToy(toy);
     }
+    _scheduleSave();
   }
 
   bool _toyIsActive(_ToyKind toy) {
@@ -792,9 +800,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       if (!_randomizerRunning) _effectOpacities = const {};
       _maybeStopToyTicker();
       setState(() {});
+      _scheduleSave();
       return;
     }
     _activeToys.add(toy);
+    if (toy == _ToyKind.squareChase) {
+      _squareChaseSeed = _random.nextInt(0x7fffffff);
+    }
     if (toy == _ToyKind.heartbeat) {
       final elements = _controller.state.elements;
       _heartbeatOddId = elements.isEmpty
@@ -804,6 +816,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     _ensureToyTicker();
     setState(() {});
+    _scheduleSave();
   }
 
   void _toggleGhostPaths() {
@@ -878,6 +891,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   void _endTimerAdjustment(LongPressEndDetails details) {
     setState(() => _timerNeedleVisible = false);
     unawaited(_saveTurnTimerDuration());
+    _scheduleSave();
+  }
+
+  void _cancelTimerAdjustment() {
+    if (!_timerNeedleVisible) return;
+    setState(() => _timerNeedleVisible = false);
+    unawaited(_saveTurnTimerDuration());
+    _scheduleSave();
   }
 
   void _beginRedSweepAdjustment(LongPressStartDetails details) {
@@ -898,6 +919,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   void _endRedSweepAdjustment(LongPressEndDetails details) {
     setState(() => _redSweepNeedleVisible = false);
     unawaited(_saveRedSweepPeriod());
+    _scheduleSave();
+  }
+
+  void _cancelRedSweepAdjustment() {
+    if (!_redSweepNeedleVisible) return;
+    setState(() => _redSweepNeedleVisible = false);
+    unawaited(_saveRedSweepPeriod());
+    _scheduleSave();
   }
 
   void _toggleOverlayToy(_ToyKind toy) {
@@ -960,6 +989,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     HapticFeedback.lightImpact();
     _ensureToyTicker();
     setState(() {});
+    _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged(force: true));
   }
 
