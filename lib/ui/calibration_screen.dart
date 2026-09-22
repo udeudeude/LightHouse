@@ -38,9 +38,10 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: Alignment.bottomCenter,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),
               child: Column(
@@ -76,7 +77,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                   const SizedBox(height: 32),
                   Container(
                     width: double.infinity,
-                    alignment: Alignment.centerLeft,
+                    height: _largeBaseMm * 8 + 32,
+                    alignment: Alignment.bottomLeft,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: const Color(0xFF111111),
@@ -84,16 +86,23 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                     ),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: _usePyramid
-                          ? SizedBox.square(
-                              dimension: pyramidWidth,
-                              child: const ColoredBox(color: Colors.white),
-                            )
-                          : SizedBox(
-                              width: referenceWidth,
-                              height: 8,
-                              child: const ColoredBox(color: Colors.white),
-                            ),
+                      reverse: false,
+                      child: SizedBox(
+                        height: _largeBaseMm * 8,
+                        child: Align(
+                          alignment: Alignment.bottomLeft,
+                          child: _usePyramid
+                              ? SizedBox.square(
+                                  dimension: pyramidWidth,
+                                  child: const ColoredBox(color: Colors.white),
+                                )
+                              : SizedBox(
+                                  width: referenceWidth,
+                                  height: 8,
+                                  child: const ColoredBox(color: Colors.white),
+                                ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
