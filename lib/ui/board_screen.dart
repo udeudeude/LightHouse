@@ -1786,8 +1786,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
 
-
-
   Future<void> _clearAllRipples() async {
     _setRemoteControlState(_remoteControlState.clearRipples());
     await _sendRemoteControlCommand('clearRipples');
@@ -2232,7 +2230,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           _remoteDisplayHeightMm = null;
           _remoteDisplayPixelsPerMm = null;
           _remoteControlState = const RemoteBoardControlState();
-            });
+        });
         _syncRippleTicker();
         _startRemoteRuntimePublisher();
         await _sendRemoteHello();
@@ -3266,8 +3264,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
   }
 
-
-
   void _finishDesktopScrollTransform() {
     _desktopScrollEndTimer?.cancel();
     _desktopScrollEndTimer = null;
@@ -3497,8 +3493,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (title == null) return;
     _controller.renameBoard(title);
   }
-
-
 
   void _selectUnderlay(BoardUnderlay underlay) {
     _controller.setUnderlay(underlay);
@@ -4309,10 +4303,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       };
       final icon = PyramidLoveToyIcon(artwork, color: color, size: size);
       if (toy == _ToyKind.nestCycle) {
-        return Transform.translate(
-          offset: const Offset(0, -6),
-          child: icon,
-        );
+        return Transform.translate(offset: const Offset(0, -6), child: icon);
       }
       return icon;
     }
@@ -4858,8 +4849,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onDoubleTapDown: _handleDoubleTapDown,
-                onLongPressStart: (details) =>
-                    unawaited(_toggleRippleFromLongPress(details.localPosition)),
+                onLongPressStart: (details) => unawaited(
+                  _toggleRippleFromLongPress(details.localPosition),
+                ),
                 onScaleStart: _onScaleStart,
                 onScaleUpdate: _onScaleUpdate,
                 onScaleEnd: _onScaleEnd,
