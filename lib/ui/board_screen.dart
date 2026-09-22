@@ -4801,7 +4801,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     ),
   );
 
-
   Widget _gunAimHandle(int index, Alignment alignment) {
     final size = 132.0 * _remoteUiScale;
     return Align(
