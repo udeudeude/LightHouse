@@ -970,12 +970,17 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     final table = _physicalBoardSize();
     const speed = 85.0;
-    final inset = 14 * _remoteUiScale / _pixelsPerMm;
+    final scale = _remoteUiScale;
+    final topInset = 18 * scale / _pixelsPerMm;
+    final bottomInset = 68 * scale / _pixelsPerMm;
     final position = switch (index) {
-      0 => PhysicalPoint(inset, inset),
-      1 => PhysicalPoint(table.width - inset, inset),
-      2 => PhysicalPoint(inset, table.height - inset),
-      _ => PhysicalPoint(table.width - inset, table.height - inset),
+      0 => PhysicalPoint(topInset, topInset),
+      1 => PhysicalPoint(table.width - topInset, topInset),
+      2 => PhysicalPoint(topInset, table.height - bottomInset),
+      _ => PhysicalPoint(
+        table.width - topInset,
+        table.height - bottomInset,
+      ),
     };
     _sideGunAmmo[index] -= 1;
     _projectiles = [
@@ -995,13 +1000,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _aimGunFromLocal(int gunIndex, Offset localPosition) {
     final scale = _remoteUiScale;
-    final box = 48.0 * scale;
-    final inset = 14.0 * scale;
+    final box = 132.0 * scale;
+    final topInset = 18.0 * scale;
+    final bottomInset = 68.0 * scale;
     final center = switch (gunIndex) {
-      0 => Offset(inset, inset),
-      1 => Offset(box - inset, inset),
-      2 => Offset(inset, box - inset),
-      _ => Offset(box - inset, box - inset),
+      0 => Offset(topInset, topInset),
+      1 => Offset(box - topInset, topInset),
+      2 => Offset(topInset, box - bottomInset),
+      _ => Offset(box - topInset, box - bottomInset),
     };
     final base = <double>[45, 135, 315, 225][gunIndex];
     final raw = normalizeDegrees(
@@ -4674,6 +4680,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   onLongPressStart: _beginTimerAdjustment,
                   onLongPressMoveUpdate: _updateTimerAdjustment,
                   onLongPressEnd: _endTimerAdjustment,
+                  onLongPressCancel: _cancelTimerAdjustment,
                   child: SizedBox(
                     width: 40,
                     height: 40,
@@ -4726,6 +4733,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   onLongPressStart: _beginRedSweepAdjustment,
                   onLongPressMoveUpdate: _updateRedSweepAdjustment,
                   onLongPressEnd: _endRedSweepAdjustment,
+                  onLongPressCancel: _cancelRedSweepAdjustment,
                   child: SizedBox(
                     width: 40,
                     height: 40,
@@ -4783,12 +4791,35 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       runSpacing: 0,
       children: [
         for (final toy in _ToyKind.values)
-          if (_toyVisible[toy] ?? toy.defaultVisible) _toyControl(toy),
+          if ((_toyVisible[toy] ?? toy.defaultVisible) &&
+              toy != _ToyKind.turnTimer &&
+              toy != _ToyKind.redSweep)
+            _toyControl(toy),
       ],
     ),
   );
+
+  Widget _adjustableToyControls() {
+    final toys = [
+      if (_toyVisible[_ToyKind.turnTimer] ??
+          _ToyKind.turnTimer.defaultVisible)
+        _ToyKind.turnTimer,
+      if (_toyVisible[_ToyKind.redSweep] ?? _ToyKind.redSweep.defaultVisible)
+        _ToyKind.redSweep,
+    ];
+    if (toys.isEmpty) return const SizedBox.shrink();
+    return Material(
+      color: const Color(0x55171717),
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [for (final toy in toys) _toyControl(toy)],
+      ),
+    );
+  }
+
   Widget _gunAimHandle(int index, Alignment alignment) {
-    final size = 48.0 * _remoteUiScale;
+    final size = 132.0 * _remoteUiScale;
     return Align(
       alignment: alignment,
       child: SizedBox(
