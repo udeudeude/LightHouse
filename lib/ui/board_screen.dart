@@ -1799,6 +1799,20 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     HapticFeedback.selectionClick();
   }
 
+  void _queueRippleTap(String elementId) {
+    _rippleTapTimer?.cancel();
+    _rippleTapTimer = Timer(kDoubleTapTimeout, () {
+      _rippleTapTimer = null;
+      if (!mounted ||
+          !_remoteControllerMode ||
+          !_rippleTapEnabled ||
+          _controller.state.elementById(elementId) == null) {
+        return;
+      }
+      unawaited(_cycleRipple(elementId));
+    });
+  }
+
   Future<void> _clearAllRipples() async {
     _setRemoteControlState(_remoteControlState.clearRipples());
     await _sendRemoteControlCommand('clearRipples');
@@ -2645,13 +2659,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         _compactMenuItem(
           'boardInteraction',
           Icons.touch_app_outlined,
-          'Board Unit Shape Interaction',
+          'Table Display Shape Interaction',
           checked: _remoteControlState.displayInteractionsEnabled,
         ),
         _compactMenuItem(
           'shapeVisibility',
           Icons.visibility_outlined,
-          'Board Unit Shapes Visible',
+          'Table Display Shapes Visible',
           checked: _remoteControlState.displayShapesVisible,
         ),
         _compactMenuItem(
@@ -2897,12 +2911,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleDoubleTapDown(TapDownDetails details) {
     if (_creditsVisible) return;
+    _rippleTapTimer?.cancel();
+    _rippleTapTimer = null;
     final point = _toPhysical(details.localPosition);
     final target = _controller.hitTest(point, haloMm: _interactionHaloMm);
-    if (_remoteControllerMode && _rippleTapEnabled) {
-      if (target != null) unawaited(_cycleRipple(target.id));
-      return;
-    }
     if (target == null) {
       _controller.createAt(point, mode: _zendoPieceMode);
     } else {
@@ -3051,7 +3063,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (displacement <= _tapTravelMm) {
       final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
       if (_remoteControllerMode && _rippleTapEnabled) {
-        if (tapped != null) unawaited(_cycleRipple(tapped.id));
+        if (tapped != null) _queueRippleTap(tapped.id);
       } else {
         setState(() => _selectedId = tapped?.id);
       }
@@ -3223,7 +3235,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         } else if (displacement <= _tapTravelMm) {
           final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
           if (_remoteControllerMode && _rippleTapEnabled) {
-            if (tapped != null) unawaited(_cycleRipple(tapped.id));
+            if (tapped != null) _queueRippleTap(tapped.id);
           } else {
             setState(() => _selectedId = tapped?.id);
           }
@@ -4957,6 +4969,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                             _activeToys.contains(_ToyKind.squareChase)
                             ? (_toyClock * 0.24) % 1
                             : null,
+                        squareChaseSeed: _squareChaseSeed,
                         roundTriangleTips: _roundedTriangleTips,
                         checkerUnderlays: _checkerUnderlays,
                         burstProgress: _burstProgress,
@@ -4982,6 +4995,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                       levels: _remoteControlState.rippleLevels,
                       logicalPixelsPerMm: _pixelsPerMm,
                       phaseSeconds: _rippleClock,
+                      geometry: _controller.geometry,
                     ),
                     child: const SizedBox.expand(),
                   ),
@@ -5062,6 +5076,26 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
         if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)
           Padding(padding: safePadding, child: _sideGunAimHandles()),
+        if (!_remoteDisplayMode)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_remoteControllerMode &&
+                        _remoteSession?.peerSeen == true) ...[
+                      _remoteControllerQuickControls(),
+                      const SizedBox(width: 8),
+                    ],
+                    _adjustableToyControls(),
+                  ],
+                ),
+              ),
+            ),
+          ),
         SafeArea(
           child: Align(
             alignment: Alignment.bottomLeft,
