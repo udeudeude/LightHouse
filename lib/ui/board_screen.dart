@@ -353,7 +353,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
     final pieceModeName = data['zendoPieceMode'];
     if (pieceModeName is String) {
-      _zendoPieceMode = PieceCycleMode.values
+      _zendoPieceMode =
+          PieceCycleMode.values
               .where((value) => value.name == pieceModeName)
               .firstOrNull ??
           _zendoPieceMode;
@@ -364,7 +365,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
     final difficultyName = data['zendoRuleDifficulty'];
     if (difficultyName is String) {
-      _zendoRuleDifficulty = ZendoRuleDifficulty.values
+      _zendoRuleDifficulty =
+          ZendoRuleDifficulty.values
               .where((value) => value.name == difficultyName)
               .firstOrNull ??
           _zendoRuleDifficulty;
@@ -977,10 +979,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       0 => PhysicalPoint(topInset, topInset),
       1 => PhysicalPoint(table.width - topInset, topInset),
       2 => PhysicalPoint(topInset, table.height - bottomInset),
-      _ => PhysicalPoint(
-        table.width - topInset,
-        table.height - bottomInset,
-      ),
+      _ => PhysicalPoint(table.width - topInset, table.height - bottomInset),
     };
     _sideGunAmmo[index] -= 1;
     _projectiles = [
@@ -2601,11 +2600,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       return;
     }
     final method = await _showCompactMenu([
-      _compactMenuItem(
-        'code',
-        Icons.pin_outlined,
-        '6-Character Code',
-      ),
+      _compactMenuItem('code', Icons.pin_outlined, '6-Character Code'),
       _compactMenuItem('qr', Icons.qr_code_2, 'QR / Link'),
     ]);
     if (!mounted || method == null) return;
@@ -2702,10 +2697,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         if (session.role == RemoteRole.display && session.peerSeen) {
           await _showAddControllerPairing(session);
         } else {
-          await _showPairingDialog(
-            session,
-            pairingCode: session.pairingCode,
-          );
+          await _showPairingDialog(session, pairingCode: session.pairingCode);
         }
       case 'boardInteraction':
         await _setBoardUnitInteractions(
@@ -3454,9 +3446,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Future<void> _saveBoard({bool asCopy = false}) async {
     final currentTitle = _controller.state.title;
     final title = await _askForTitle(
-      _isUntitledTableName(currentTitle)
-          ? _defaultTableTitle()
-          : currentTitle,
+      _isUntitledTableName(currentTitle) ? _defaultTableTitle() : currentTitle,
     );
     if (title == null || title.trim().isEmpty) return;
     _controller.renameBoard(title);
@@ -4816,8 +4806,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   Widget _adjustableToyControls() {
     final toys = [
-      if (_toyVisible[_ToyKind.turnTimer] ??
-          _ToyKind.turnTimer.defaultVisible)
+      if (_toyVisible[_ToyKind.turnTimer] ?? _ToyKind.turnTimer.defaultVisible)
         _ToyKind.turnTimer,
       if (_toyVisible[_ToyKind.redSweep] ?? _ToyKind.redSweep.defaultVisible)
         _ToyKind.redSweep,
