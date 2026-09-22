@@ -550,12 +550,13 @@ class ToyOverlayPainter extends CustomPainter {
   void _paintGuns(Canvas canvas, Size size) {
     final scale = uiScale.clamp(0.25, 4.0);
     if (sideGunsVisible && sideGunAnglesDegrees.length >= 4) {
-      final inset = 16 * scale;
+      final topInset = 18 * scale;
+      final bottomInset = 68 * scale;
       final centers = <Offset>[
-        Offset(inset, inset),
-        Offset(size.width - inset, inset),
-        Offset(inset, size.height - inset),
-        Offset(size.width - inset, size.height - inset),
+        Offset(topInset, topInset),
+        Offset(size.width - topInset, topInset),
+        Offset(topInset, size.height - bottomInset),
+        Offset(size.width - topInset, size.height - bottomInset),
       ];
       for (var i = 0; i < 4; i += 1) {
         _paintGun(canvas, centers[i], sideGunAnglesDegrees[i]);

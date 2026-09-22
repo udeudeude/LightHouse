@@ -146,6 +146,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   int _effectGeneration = 0;
   int _entropyGeneration = 0;
   double _toyClock = 0;
+  int _squareChaseSeed = 0;
   double _radarAngleDegrees = 0;
   double _redSweepY = 0;
   double _redSweepPeriodSeconds = 13.33;
@@ -194,6 +195,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   RemoteBoardControlState _remoteControlState = const RemoteBoardControlState();
   bool _rippleTapEnabled = false;
   Timer? _rippleTimer;
+  Timer? _rippleTapTimer;
   DateTime? _lastRippleTickAt;
   double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
@@ -220,6 +222,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _controller = BoardController(initialState: widget.initialState)
       ..addListener(_refresh);
+    _restoreTableData(widget.initialState.tableData);
     WakelockPlus.enable();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -286,6 +289,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _remotePublishTimer?.cancel();
     _remoteRuntimeTimer?.cancel();
     _rippleTimer?.cancel();
+    _rippleTapTimer?.cancel();
     _remoteMessageSubscription?.cancel();
     unawaited(_remoteSession?.close());
     unawaited(_flushPendingSave());
@@ -306,6 +310,104 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
+  }
+
+  Map<String, Object?> _persistentTableData() => {
+    'activeToys': [for (final toy in _activeToys) toy.name],
+    'dice': _diceSnapshot.toJson(),
+    'zendo': _zendoSnapshot.toJson(),
+    'zendoPieceMode': _zendoPieceMode.name,
+    'zendoRuleIndex': _zendoRuleIndex,
+    'zendoRuleVisible': _zendoRuleVisible,
+    'zendoComplexRules': _zendoComplexRules,
+    'zendoRuleDifficulty': _zendoRuleDifficulty.name,
+    'checkerUnderlays': _checkerUnderlays,
+    'roundedTriangleTips': _roundedTriangleTips,
+    'sideGunAnglesDegrees': List<double>.from(_sideGunAnglesDegrees),
+    'sideGunAmmo': List<int>.from(_sideGunAmmo),
+    'turnTimerDurationSeconds': _turnTimerDurationSeconds,
+    'redSweepPeriodSeconds': _redSweepPeriodSeconds,
+  };
+
+  BoardState _stateForPersistence() =>
+      _controller.state.copyWith(tableData: _persistentTableData());
+
+  void _restoreTableData(Map<String, Object?> data) {
+    if (data.isEmpty) return;
+
+    final activeNames =
+        (data['activeToys'] as List?)?.whereType<String>() ?? const <String>[];
+    _activeToys
+      ..clear()
+      ..addAll([
+        for (final name in activeNames)
+          if (_ToyKind.values.where((toy) => toy.name == name).firstOrNull
+              case final toy?)
+            toy,
+      ]);
+
+    final dice = DiceBubbleSnapshot.fromJson(data['dice']);
+    if (dice != null) _diceSnapshot = dice;
+    final zendo = ZendoStonesSnapshot.fromJson(data['zendo']);
+    if (zendo != null) _zendoSnapshot = zendo;
+
+    final pieceModeName = data['zendoPieceMode'];
+    if (pieceModeName is String) {
+      _zendoPieceMode =
+          PieceCycleMode.values
+              .where((value) => value.name == pieceModeName)
+              .firstOrNull ??
+          _zendoPieceMode;
+    }
+    _zendoRuleIndex = (data['zendoRuleIndex'] as num?)?.toInt() ?? -1;
+    _zendoRuleVisible = data['zendoRuleVisible'] == true;
+    _zendoComplexRules = data['zendoComplexRules'] == true;
+
+    final difficultyName = data['zendoRuleDifficulty'];
+    if (difficultyName is String) {
+      _zendoRuleDifficulty =
+          ZendoRuleDifficulty.values
+              .where((value) => value.name == difficultyName)
+              .firstOrNull ??
+          _zendoRuleDifficulty;
+    }
+
+    _checkerUnderlays = data['checkerUnderlays'] == true;
+    _roundedTriangleTips = data['roundedTriangleTips'] == true;
+    _turnTimerDurationSeconds =
+        ((data['turnTimerDurationSeconds'] as num?)?.toDouble() ??
+                _turnTimerDurationSeconds)
+            .clamp(10.0, 300.0)
+            .toDouble();
+    _turnTimerActiveDurationSeconds = _turnTimerDurationSeconds;
+    _redSweepPeriodSeconds =
+        ((data['redSweepPeriodSeconds'] as num?)?.toDouble() ??
+                _redSweepPeriodSeconds)
+            .clamp(2.0, 60.0)
+            .toDouble();
+
+    final angles = (data['sideGunAnglesDegrees'] as List?)
+        ?.whereType<num>()
+        .map((value) => value.toDouble())
+        .toList();
+    if (angles != null && angles.length == _sideGunAnglesDegrees.length) {
+      for (var i = 0; i < angles.length; i += 1) {
+        _sideGunAnglesDegrees[i] = angles[i];
+      }
+    }
+    final ammo = (data['sideGunAmmo'] as List?)
+        ?.whereType<num>()
+        .map((value) => value.toInt())
+        .toList();
+    if (ammo != null && ammo.length == _sideGunAmmo.length) {
+      for (var i = 0; i < ammo.length; i += 1) {
+        _sideGunAmmo[i] = ammo[i];
+      }
+    }
+
+    if (_activeToys.contains(_ToyKind.squareChase)) {
+      _squareChaseSeed = _random.nextInt(0x7fffffff);
+    }
   }
 
   Future<void> _applyBrightness() async {
@@ -443,6 +545,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             preferences.getBool(toy.preferenceKey) ?? toy.defaultVisible;
       }
     });
+    if (widget.initialState.tableData.isNotEmpty && mounted) {
+      setState(() => _restoreTableData(widget.initialState.tableData));
+      if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
+    }
   }
 
   Future<void> _setRotationSnap(double? degrees) async {
@@ -471,6 +577,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       'lighthouse.checkerUnderlays.v1',
       _checkerUnderlays,
     );
+    _scheduleSave();
   }
 
   Future<void> _toggleRoundedTriangleTips() async {
@@ -480,6 +587,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       'lighthouse.roundedTriangleTips.v1',
       _roundedTriangleTips,
     );
+    _scheduleSave();
   }
 
   Future<void> _saveTurnTimerDuration() async {
@@ -563,6 +671,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     _maybeStopToyTicker();
     if (mounted) setState(() {});
+    _scheduleSave();
   }
 
   void _activateToy(_ToyKind toy) {
@@ -598,6 +707,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       case _ToyKind.zendoStones:
         _toggleOverlayToy(toy);
     }
+    _scheduleSave();
   }
 
   bool _toyIsActive(_ToyKind toy) {
@@ -692,9 +802,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       if (!_randomizerRunning) _effectOpacities = const {};
       _maybeStopToyTicker();
       setState(() {});
+      _scheduleSave();
       return;
     }
     _activeToys.add(toy);
+    if (toy == _ToyKind.squareChase) {
+      _squareChaseSeed = _random.nextInt(0x7fffffff);
+    }
     if (toy == _ToyKind.heartbeat) {
       final elements = _controller.state.elements;
       _heartbeatOddId = elements.isEmpty
@@ -704,6 +818,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     _ensureToyTicker();
     setState(() {});
+    _scheduleSave();
   }
 
   void _toggleGhostPaths() {
@@ -778,6 +893,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   void _endTimerAdjustment(LongPressEndDetails details) {
     setState(() => _timerNeedleVisible = false);
     unawaited(_saveTurnTimerDuration());
+    _scheduleSave();
+  }
+
+  void _cancelTimerAdjustment() {
+    if (!_timerNeedleVisible) return;
+    setState(() => _timerNeedleVisible = false);
+    unawaited(_saveTurnTimerDuration());
+    _scheduleSave();
   }
 
   void _beginRedSweepAdjustment(LongPressStartDetails details) {
@@ -798,6 +921,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   void _endRedSweepAdjustment(LongPressEndDetails details) {
     setState(() => _redSweepNeedleVisible = false);
     unawaited(_saveRedSweepPeriod());
+    _scheduleSave();
+  }
+
+  void _cancelRedSweepAdjustment() {
+    if (!_redSweepNeedleVisible) return;
+    setState(() => _redSweepNeedleVisible = false);
+    unawaited(_saveRedSweepPeriod());
+    _scheduleSave();
   }
 
   void _toggleOverlayToy(_ToyKind toy) {
@@ -841,12 +972,14 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     final table = _physicalBoardSize();
     const speed = 85.0;
-    final inset = 14 * _remoteUiScale / _pixelsPerMm;
+    final scale = _remoteUiScale;
+    final topInset = 18 * scale / _pixelsPerMm;
+    final bottomInset = 68 * scale / _pixelsPerMm;
     final position = switch (index) {
-      0 => PhysicalPoint(inset, inset),
-      1 => PhysicalPoint(table.width - inset, inset),
-      2 => PhysicalPoint(inset, table.height - inset),
-      _ => PhysicalPoint(table.width - inset, table.height - inset),
+      0 => PhysicalPoint(topInset, topInset),
+      1 => PhysicalPoint(table.width - topInset, topInset),
+      2 => PhysicalPoint(topInset, table.height - bottomInset),
+      _ => PhysicalPoint(table.width - topInset, table.height - bottomInset),
     };
     _sideGunAmmo[index] -= 1;
     _projectiles = [
@@ -860,18 +993,20 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     HapticFeedback.lightImpact();
     _ensureToyTicker();
     setState(() {});
+    _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged(force: true));
   }
 
   void _aimGunFromLocal(int gunIndex, Offset localPosition) {
     final scale = _remoteUiScale;
-    final box = 48.0 * scale;
-    final inset = 14.0 * scale;
+    final box = 132.0 * scale;
+    final topInset = 18.0 * scale;
+    final bottomInset = 68.0 * scale;
     final center = switch (gunIndex) {
-      0 => Offset(inset, inset),
-      1 => Offset(box - inset, inset),
-      2 => Offset(inset, box - inset),
-      _ => Offset(box - inset, box - inset),
+      0 => Offset(topInset, topInset),
+      1 => Offset(box - topInset, topInset),
+      2 => Offset(topInset, box - bottomInset),
+      _ => Offset(box - topInset, box - bottomInset),
     };
     final base = <double>[45, 135, 315, 225][gunIndex];
     final raw = normalizeDegrees(
@@ -885,6 +1020,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         base + offset.clamp(-72, 72).toDouble(),
       );
     });
+    _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
@@ -1663,6 +1799,20 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     HapticFeedback.selectionClick();
   }
 
+  void _queueRippleTap(String elementId) {
+    _rippleTapTimer?.cancel();
+    _rippleTapTimer = Timer(kDoubleTapTimeout, () {
+      _rippleTapTimer = null;
+      if (!mounted ||
+          !_remoteControllerMode ||
+          !_rippleTapEnabled ||
+          _controller.state.elementById(elementId) == null) {
+        return;
+      }
+      unawaited(_cycleRipple(elementId));
+    });
+  }
+
   Future<void> _clearAllRipples() async {
     _setRemoteControlState(_remoteControlState.clearRipples());
     await _sendRemoteControlCommand('clearRipples');
@@ -1781,11 +1931,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleDiceSnapshot(DiceBubbleSnapshot snapshot) {
     _diceSnapshot = snapshot;
+    _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
   void _handleZendoSnapshot(ZendoStonesSnapshot snapshot) {
     _zendoSnapshot = snapshot;
+    _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
@@ -2208,7 +2360,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           title: Text(
             session.role == RemoteRole.display
                 ? (session.peerSeen ? 'Add Controller' : 'Pair Controller')
-                : 'Pair Board Display',
+                : 'Pair Table Display',
           ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 340),
@@ -2383,7 +2535,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       case 'code':
         await _startRemoteByCode(role);
       case 'qr':
-        await _startRemoteSession(RemoteSession.create(role));
+        final session = await RemoteSession.createShareable(role);
+        if (!mounted) {
+          await session.close();
+          return;
+        }
+        await _startRemoteSession(session);
     }
   }
 
@@ -2436,6 +2593,24 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _showAddControllerPairing(RemoteSession session) async {
+    final code = session.pairingCode;
+    if (code == null) {
+      await _showPairingDialog(session);
+      return;
+    }
+    final method = await _showCompactMenu([
+      _compactMenuItem('code', Icons.pin_outlined, '6-Character Code'),
+      _compactMenuItem('qr', Icons.qr_code_2, 'QR / Link'),
+    ]);
+    if (!mounted || method == null) return;
+    if (method == 'code') {
+      await _showPairingDialog(session, pairingCode: code);
+    } else {
+      await _showPairingDialog(session);
+    }
+  }
+
   Future<void> _showRemoteMenu() async {
     final session = _remoteSession;
     if (session == null) {
@@ -2443,7 +2618,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         _compactMenuItem(
           'display',
           Icons.desktop_windows_outlined,
-          'This Device: Board Display',
+          'This Device: Table Display',
         ),
         _compactMenuItem('controller', Icons.tune, 'This Device: Controller'),
       ]);
@@ -2480,13 +2655,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         _compactMenuItem(
           'boardInteraction',
           Icons.touch_app_outlined,
-          'Board Unit Shape Interaction',
+          'Table Display Shape Interaction',
           checked: _remoteControlState.displayInteractionsEnabled,
         ),
         _compactMenuItem(
           'shapeVisibility',
           Icons.visibility_outlined,
-          'Board Unit Shapes Visible',
+          'Table Display Shapes Visible',
           checked: _remoteControlState.displayShapesVisible,
         ),
         _compactMenuItem(
@@ -2519,7 +2694,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         if (!mounted) return;
         await _startRemoteByCode(session.role);
       case 'pair':
-        await _showPairingDialog(session);
+        if (session.role == RemoteRole.display && session.peerSeen) {
+          await _showAddControllerPairing(session);
+        } else {
+          await _showPairingDialog(session, pairingCode: session.pairingCode);
+        }
       case 'boardInteraction':
         await _setBoardUnitInteractions(
           !_remoteControlState.displayInteractionsEnabled,
@@ -2542,7 +2721,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Widget _remoteStatusButton() {
     final session = _remoteSession;
     if (session == null) return const SizedBox.shrink();
-    return IconButton(
+    final status = IconButton(
       tooltip: '${session.role.label} · ${session.transportLabel}',
       onPressed: _showRemoteMenu,
       icon: Icon(
@@ -2550,10 +2729,88 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         color: session.peerSeen ? Colors.white70 : Colors.orangeAccent,
       ),
     );
+    if (session.role != RemoteRole.display) return status;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        status,
+        IconButton(
+          tooltip: 'Disconnect Table Display',
+          visualDensity: VisualDensity.compact,
+          onPressed: _disconnectRemote,
+          icon: const Icon(Icons.link_off, color: Colors.white70),
+        ),
+      ],
+    );
+  }
+
+  Widget _remoteControllerQuickControls() {
+    if (!_remoteControllerMode || _remoteSession?.peerSeen != true) {
+      return const SizedBox.shrink();
+    }
+    return Material(
+      color: const Color(0xAA171717),
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Table Display shape interaction',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => unawaited(
+              _setBoardUnitInteractions(
+                !_remoteControlState.displayInteractionsEnabled,
+              ),
+            ),
+            icon: Icon(
+              Icons.touch_app_outlined,
+              color: _remoteControlState.displayInteractionsEnabled
+                  ? Colors.white
+                  : Colors.white54,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Table Display shapes visible',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => unawaited(
+              _setBoardUnitShapesVisible(
+                !_remoteControlState.displayShapesVisible,
+              ),
+            ),
+            icon: Icon(
+              _remoteControlState.displayShapesVisible
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
+              color: _remoteControlState.displayShapesVisible
+                  ? Colors.white
+                  : Colors.white54,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Tap shapes to cycle ripples',
+            visualDensity: VisualDensity.compact,
+            onPressed: () =>
+                setState(() => _rippleTapEnabled = !_rippleTapEnabled),
+            icon: Icon(
+              Icons.radio_button_checked,
+              color: _rippleTapEnabled ? Colors.white : Colors.white54,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Turn off all ripples',
+            visualDensity: VisualDensity.compact,
+            onPressed: _remoteControlState.rippleLevels.isEmpty
+                ? null
+                : () => unawaited(_clearAllRipples()),
+            icon: const Icon(Icons.waves_outlined),
+          ),
+        ],
+      ),
+    );
   }
 
   void _scheduleSave() {
-    _pendingSaveState = _controller.state;
+    _pendingSaveState = _stateForPersistence();
     _saveDebounceTimer?.cancel();
     _saveDebounceTimer = Timer(const Duration(milliseconds: 400), () {
       _saveDebounceTimer = null;
@@ -2647,12 +2904,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleDoubleTapDown(TapDownDetails details) {
     if (_creditsVisible) return;
+    _rippleTapTimer?.cancel();
+    _rippleTapTimer = null;
     final point = _toPhysical(details.localPosition);
     final target = _controller.hitTest(point, haloMm: _interactionHaloMm);
-    if (_remoteControllerMode && _rippleTapEnabled) {
-      if (target != null) unawaited(_cycleRipple(target.id));
-      return;
-    }
     if (target == null) {
       _controller.createAt(point, mode: _zendoPieceMode);
     } else {
@@ -2801,7 +3056,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (displacement <= _tapTravelMm) {
       final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
       if (_remoteControllerMode && _rippleTapEnabled) {
-        if (tapped != null) unawaited(_cycleRipple(tapped.id));
+        if (tapped != null) _queueRippleTap(tapped.id);
       } else {
         setState(() => _selectedId = tapped?.id);
       }
@@ -2973,7 +3228,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         } else if (displacement <= _tapTravelMm) {
           final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
           if (_remoteControllerMode && _rippleTapEnabled) {
-            if (tapped != null) unawaited(_cycleRipple(tapped.id));
+            if (tapped != null) _queueRippleTap(tapped.id);
           } else {
             setState(() => _selectedId = tapped?.id);
           }
@@ -3162,7 +3417,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
     if (confirmed != true || !mounted) return;
     _controller.restoreState(backup);
-    setState(() => _activeSavedId = null);
+    setState(() {
+      _restoreTableData(backup.tableData);
+      _activeSavedId = null;
+    });
+    if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Previous autosave restored. Undo can reverse it.'),
@@ -3170,12 +3429,29 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
   }
 
+  String _defaultTableTitle([DateTime? timestamp]) {
+    final now = timestamp ?? DateTime.now();
+    String two(int value) => value.toString().padLeft(2, '0');
+    return 'Table ${two(now.hour)}:${two(now.minute)} '
+        '${two(now.month)}/${two(now.day)}/${now.year}';
+  }
+
+  bool _isUntitledTableName(String value) {
+    final title = value.trim();
+    return title.isEmpty ||
+        title == 'Untitled Board' ||
+        title == 'Untitled Table';
+  }
+
   Future<void> _saveBoard({bool asCopy = false}) async {
-    final title = await _askForTitle(_controller.state.title);
+    final currentTitle = _controller.state.title;
+    final title = await _askForTitle(
+      _isUntitledTableName(currentTitle) ? _defaultTableTitle() : currentTitle,
+    );
     if (title == null || title.trim().isEmpty) return;
     _controller.renameBoard(title);
     final id = await _store.saveNamed(
-      _controller.state,
+      _stateForPersistence(),
       id: asCopy ? null : _activeSavedId,
     );
     if (!mounted) return;
@@ -3208,7 +3484,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                           final board = await _store.loadNamed(item.id);
                           if (board == null || !mounted) return;
                           _controller.replaceState(board);
-                          setState(() => _activeSavedId = item.id);
+                          setState(() {
+                            _restoreTableData(board.tableData);
+                            _activeSavedId = item.id;
+                          });
+                          if (_needsToyTicker && !_remoteDisplayMode) {
+                            _ensureToyTicker();
+                          }
                           if (sheetContext.mounted) {
                             Navigator.pop(sheetContext);
                           }
@@ -3232,7 +3514,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _exportTableFile() async {
-    final raw = _store.exportJson(_controller.state);
+    final raw = _store.exportJson(_stateForPersistence());
     final cleaned = _controller.state.title
         .trim()
         .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
@@ -3266,7 +3548,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         return;
       }
       _controller.replaceState(table);
-      setState(() => _activeSavedId = null);
+      setState(() {
+        _restoreTableData(table.tableData);
+        _activeSavedId = null;
+      });
+      if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3423,10 +3709,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('This bar should measure exactly 25 mm:'),
-            const SizedBox(height: 12),
-            Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
-            const SizedBox(height: 24),
             const Text('A Large upright pyramid should fit this square:'),
             const SizedBox(height: 12),
             SingleChildScrollView(
@@ -3437,6 +3719,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 child: const ColoredBox(color: Colors.white),
               ),
             ),
+            const SizedBox(height: 24),
+            const Text('Cross-check: this bar should measure exactly 25 mm:'),
+            const SizedBox(height: 12),
+            Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
             const SizedBox(height: 12),
             Text(widget.calibrationLabel),
           ],
@@ -3520,34 +3806,48 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         isDismissible: true,
         enableDrag: true,
         useSafeArea: true,
-        builder: (sheetContext) => Align(
-          alignment: Alignment.bottomLeft,
-          heightFactor: 1,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 50),
-            child: Material(
-              color: const Color(0xFF202020),
-              elevation: 10,
-              borderRadius: BorderRadius.circular(8),
-              clipBehavior: Clip.antiAlias,
-              child: IntrinsicWidth(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: math.max(
-                      120.0,
-                      MediaQuery.sizeOf(sheetContext).height - 80,
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: items,
+        isScrollControlled: true,
+        builder: (sheetContext) => Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.pop(sheetContext),
+              child: const SizedBox.expand(),
+            ),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 50),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: Material(
+                    color: const Color(0xFF202020),
+                    elevation: 10,
+                    borderRadius: BorderRadius.circular(8),
+                    clipBehavior: Clip.antiAlias,
+                    child: IntrinsicWidth(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: math.max(
+                            120.0,
+                            MediaQuery.sizeOf(sheetContext).height - 80,
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: items,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       );
 
@@ -3648,6 +3948,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       switch (choice) {
         case 'zendoOff':
           _turnOffZendo();
+          _scheduleSave();
+          return;
         case 'stones':
           _toggleOverlayToy(_ToyKind.zendoStones);
           unawaited(_sendRemoteRuntimeIfChanged(force: true));
@@ -3673,6 +3975,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         case 'ruleVisibility':
           setState(() => _zendoRuleVisible = !_zendoRuleVisible);
       }
+      _scheduleSave();
     }
   }
 
@@ -4382,6 +4685,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   onLongPressStart: _beginTimerAdjustment,
                   onLongPressMoveUpdate: _updateTimerAdjustment,
                   onLongPressEnd: _endTimerAdjustment,
+                  onLongPressCancel: _cancelTimerAdjustment,
                   child: SizedBox(
                     width: 40,
                     height: 40,
@@ -4434,6 +4738,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   onLongPressStart: _beginRedSweepAdjustment,
                   onLongPressMoveUpdate: _updateRedSweepAdjustment,
                   onLongPressEnd: _endRedSweepAdjustment,
+                  onLongPressCancel: _cancelRedSweepAdjustment,
                   child: SizedBox(
                     width: 40,
                     height: 40,
@@ -4491,12 +4796,34 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       runSpacing: 0,
       children: [
         for (final toy in _ToyKind.values)
-          if (_toyVisible[toy] ?? toy.defaultVisible) _toyControl(toy),
+          if ((_toyVisible[toy] ?? toy.defaultVisible) &&
+              toy != _ToyKind.turnTimer &&
+              toy != _ToyKind.redSweep)
+            _toyControl(toy),
       ],
     ),
   );
+
+  Widget _adjustableToyControls() {
+    final toys = [
+      if (_toyVisible[_ToyKind.turnTimer] ?? _ToyKind.turnTimer.defaultVisible)
+        _ToyKind.turnTimer,
+      if (_toyVisible[_ToyKind.redSweep] ?? _ToyKind.redSweep.defaultVisible)
+        _ToyKind.redSweep,
+    ];
+    if (toys.isEmpty) return const SizedBox.shrink();
+    return Material(
+      color: const Color(0x55171717),
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [for (final toy in toys) _toyControl(toy)],
+      ),
+    );
+  }
+
   Widget _gunAimHandle(int index, Alignment alignment) {
-    final size = 48.0 * _remoteUiScale;
+    final size = 132.0 * _remoteUiScale;
     return Align(
       alignment: alignment,
       child: SizedBox(
@@ -4634,6 +4961,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                             _activeToys.contains(_ToyKind.squareChase)
                             ? (_toyClock * 0.24) % 1
                             : null,
+                        squareChaseSeed: _squareChaseSeed,
                         roundTriangleTips: _roundedTriangleTips,
                         checkerUnderlays: _checkerUnderlays,
                         burstProgress: _burstProgress,
@@ -4659,6 +4987,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                       levels: _remoteControlState.rippleLevels,
                       logicalPixelsPerMm: _pixelsPerMm,
                       phaseSeconds: _rippleClock,
+                      geometry: _controller.geometry,
                     ),
                     child: const SizedBox.expand(),
                   ),
@@ -4739,6 +5068,26 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
         if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)
           Padding(padding: safePadding, child: _sideGunAimHandles()),
+        if (!_remoteDisplayMode)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_remoteControllerMode &&
+                        _remoteSession?.peerSeen == true) ...[
+                      _remoteControllerQuickControls(),
+                      const SizedBox(width: 8),
+                    ],
+                    _adjustableToyControls(),
+                  ],
+                ),
+              ),
+            ),
+          ),
         SafeArea(
           child: Align(
             alignment: Alignment.bottomLeft,

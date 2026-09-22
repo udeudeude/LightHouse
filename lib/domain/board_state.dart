@@ -6,10 +6,12 @@ class BoardState {
   BoardState({
     List<LightElement> elements = const [],
     List<LightStructure> structures = const [],
-    this.title = 'Untitled Board',
+    this.title = 'Untitled Table',
     this.underlay = BoardUnderlay.none,
+    Map<String, Object?> tableData = const {},
   }) : elements = List.unmodifiable(elements),
-       structures = List.unmodifiable(structures) {
+       structures = List.unmodifiable(structures),
+       tableData = Map<String, Object?>.unmodifiable(tableData) {
     _elementsById = Map<String, LightElement>.unmodifiable(
       _indexElements(this.elements),
     );
@@ -18,13 +20,14 @@ class BoardState {
     );
   }
 
-  static BoardState empty({String title = 'Untitled Board'}) =>
+  static BoardState empty({String title = 'Untitled Table'}) =>
       BoardState(title: title);
 
   final List<LightElement> elements;
   final List<LightStructure> structures;
   final String title;
   final BoardUnderlay underlay;
+  final Map<String, Object?> tableData;
 
   late final Map<String, LightElement> _elementsById;
   late final Map<String, LightStructure> _structureByElementId;
@@ -60,11 +63,13 @@ class BoardState {
     List<LightStructure>? structures,
     String? title,
     BoardUnderlay? underlay,
+    Map<String, Object?>? tableData,
   }) => BoardState(
     elements: elements ?? this.elements,
     structures: structures ?? this.structures,
     title: title ?? this.title,
     underlay: underlay ?? this.underlay,
+    tableData: tableData ?? this.tableData,
   );
 
   BoardState add(LightElement element) =>
@@ -115,9 +120,10 @@ class BoardState {
 
   Map<String, Object> toJson() => {
     'format': 'lighthouse-board',
-    'version': 3,
+    'version': 4,
     'title': title,
     'underlay': underlay.name,
+    'tableData': tableData,
     'elements': elements.map((element) => element.toJson()).toList(),
     'structures': structures.map((structure) => structure.toJson()).toList(),
   };
@@ -128,7 +134,7 @@ class BoardState {
     }
 
     final version = json['version'];
-    if (version != 1 && version != 2 && version != 3) {
+    if (version != 1 && version != 2 && version != 3 && version != 4) {
       throw const FormatException('Unsupported LightHouse board version.');
     }
 
@@ -147,10 +153,13 @@ class BoardState {
 
     final rawStructures = (json['structures'] as List?) ?? const [];
     return BoardState(
-      title: (json['title'] as String?) ?? 'Untitled Board',
-      underlay: version == 3
+      title: (json['title'] as String?) ?? 'Untitled Table',
+      underlay: version == 3 || version == 4
           ? BoardUnderlay.fromName(json['underlay'])
           : BoardUnderlay.none,
+      tableData: version == 4 && json['tableData'] is Map
+          ? (json['tableData'] as Map).cast<String, Object?>()
+          : const {},
       elements: elements,
       structures: rawStructures
           .map(

@@ -20,6 +20,7 @@ class BoardPainter extends CustomPainter {
     this.burstProgress,
     this.triangleBouncePhase,
     this.squareChasePhase,
+    this.squareChaseSeed = 0,
     this.roundTriangleTips = false,
     this.checkerUnderlays = false,
   });
@@ -33,6 +34,7 @@ class BoardPainter extends CustomPainter {
   final double? burstProgress;
   final double? triangleBouncePhase;
   final double? squareChasePhase;
+  final int squareChaseSeed;
   final bool roundTriangleTips;
   final bool checkerUnderlays;
 
@@ -124,6 +126,28 @@ class BoardPainter extends CustomPainter {
 
     final firstHorizontal =
         center.dy - (center.dy / cell).ceil() * cell - cell / 2;
+
+    if (checkerUnderlays) {
+      final shade = Paint()..color = const Color(0x18FFFFFF);
+      var row = 0;
+      for (
+        var y = firstHorizontal;
+        y <= size.height + cell;
+        y += cell, row += 1
+      ) {
+        var column = 0;
+        for (
+          var x = firstVertical;
+          x <= size.width + cell;
+          x += cell, column += 1
+        ) {
+          if ((row + column).isOdd) {
+            canvas.drawRect(Rect.fromLTWH(x, y, cell, cell), shade);
+          }
+        }
+      }
+    }
+
     for (var y = firstHorizontal; y <= size.height + cell; y += cell) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
@@ -839,9 +863,13 @@ class BoardPainter extends CustomPainter {
           );
           final chasePath = Path()..addRect(rect.deflate(band / 2));
           final metric = chasePath.computeMetrics().first;
-          final seed = element.id.hashCode & 0x7fffffff;
+          final seed =
+              (element.id.hashCode ^
+                  squareChaseSeed ^
+                  (chaseIndex * 0x45d9f3b)) &
+              0x7fffffff;
           final offset = (seed % 1000) / 1000;
-          final clockwise = chaseIndex.isEven;
+          final clockwise = ((seed ~/ 1000) & 1) == 0;
           final localPhase = clockwise
               ? (chase + offset) % 1
               : (offset - chase) % 1;

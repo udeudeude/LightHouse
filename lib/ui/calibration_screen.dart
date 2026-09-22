@@ -20,7 +20,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   static const double _referenceMm = 50;
   static const double _largeBaseMm = 25.4;
   late double _logicalPixelsPerMm;
-  bool _usePyramid = false;
+  bool _usePyramid = true;
 
   @override
   void initState() {
