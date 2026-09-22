@@ -90,10 +90,8 @@ void main() {
     expect(restored.underlay, BoardUnderlay.infiniteSquare);
     expect(restored.tableData['checkerUnderlays'], isTrue);
     expect(restored.tableData['activeToys'], ['wireDie', 'zendoStones']);
-    expect(
-      (restored.tableData['dice'] as Map)['selectedIds'],
-      ['pyramid#2'],
-    );
+    final dice = (restored.tableData['dice'] as Map).cast<String, Object?>();
+    expect(dice['selectedIds'], ['pyramid#2']);
   });
 
   test('removing a member cleans up undersized structures', () {
