@@ -62,8 +62,38 @@ void main() {
 
     expect(restored.elements, hasLength(1));
     expect(restored.structures, isEmpty);
-    expect(restored.title, 'Untitled Board');
+    expect(restored.title, 'Untitled Table');
     expect(restored.underlay, BoardUnderlay.none);
+  });
+
+  test('version 4 board documents round-trip table runtime data', () {
+    final original = BoardState(
+      title: 'Saved Table',
+      underlay: BoardUnderlay.infiniteSquare,
+      tableData: {
+        'activeToys': ['wireDie', 'zendoStones'],
+        'checkerUnderlays': true,
+        'dice': {
+          'revision': 3,
+          'rollSerial': 7,
+          'selectedIds': ['pyramid#2'],
+          'faces': {'pyramid#2': 4},
+          'xFraction': 0.25,
+          'yFraction': 0.4,
+        },
+      },
+    );
+
+    final restored = BoardState.fromJson(original.toJson());
+
+    expect(restored.title, 'Saved Table');
+    expect(restored.underlay, BoardUnderlay.infiniteSquare);
+    expect(restored.tableData['checkerUnderlays'], isTrue);
+    expect(restored.tableData['activeToys'], ['wireDie', 'zendoStones']);
+    expect(
+      (restored.tableData['dice'] as Map)['selectedIds'],
+      ['pyramid#2'],
+    );
   });
 
   test('removing a member cleans up undersized structures', () {
