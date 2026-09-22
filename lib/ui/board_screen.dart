@@ -3716,10 +3716,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('This bar should measure exactly 25 mm:'),
-            const SizedBox(height: 12),
-            Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
-            const SizedBox(height: 24),
             const Text('A Large upright pyramid should fit this square:'),
             const SizedBox(height: 12),
             SingleChildScrollView(
@@ -3730,6 +3726,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 child: const ColoredBox(color: Colors.white),
               ),
             ),
+            const SizedBox(height: 24),
+            const Text('Cross-check: this bar should measure exactly 25 mm:'),
+            const SizedBox(height: 12),
+            Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
             const SizedBox(height: 12),
             Text(widget.calibrationLabel),
           ],
