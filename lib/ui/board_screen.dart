@@ -42,13 +42,13 @@ import 'zendo_stones.dart';
 enum _ToyKind {
   lightLottery('Light Lottery', Icons.auto_awesome, true),
   entropy('Entropy Delete', Icons.hourglass_bottom, true),
+  turnTimer('Turn Timer', Icons.timer_outlined, false),
+  redSweep('Red Sweep', Icons.swap_vert, false),
   ghostPaths('Ghost Paths', Icons.timeline, false),
   eventZone('Random Event Zone', Icons.adjust, false),
-  turnTimer('Turn Timer', Icons.timer_outlined, false),
   breathing('Breathing', Icons.air, false),
   nestCycle('Nest Cycle', Icons.layers, false),
   radar('Radar', Icons.track_changes, false),
-  redSweep('Red Sweep', Icons.swap_vert, false),
   wireDie('Dice Bubble', Icons.casino, false),
   sideGuns('Side Guns', Icons.gps_fixed, false),
   cornerRicochet('Corner Ricochet', Icons.radio_button_checked, false),
@@ -4796,31 +4796,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       runSpacing: 0,
       children: [
         for (final toy in _ToyKind.values)
-          if ((_toyVisible[toy] ?? toy.defaultVisible) &&
-              toy != _ToyKind.turnTimer &&
-              toy != _ToyKind.redSweep)
-            _toyControl(toy),
+          if (_toyVisible[toy] ?? toy.defaultVisible) _toyControl(toy),
       ],
     ),
   );
-
-  Widget _adjustableToyControls() {
-    final toys = [
-      if (_toyVisible[_ToyKind.turnTimer] ?? _ToyKind.turnTimer.defaultVisible)
-        _ToyKind.turnTimer,
-      if (_toyVisible[_ToyKind.redSweep] ?? _ToyKind.redSweep.defaultVisible)
-        _ToyKind.redSweep,
-    ];
-    if (toys.isEmpty) return const SizedBox.shrink();
-    return Material(
-      color: const Color(0x55171717),
-      borderRadius: BorderRadius.circular(10),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [for (final toy in toys) _toyControl(toy)],
-      ),
-    );
-  }
 
   Widget _gunAimHandle(int index, Alignment alignment) {
     final size = 132.0 * _remoteUiScale;
@@ -5068,26 +5047,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
         if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)
           Padding(padding: safePadding, child: _sideGunAimHandles()),
-        if (!_remoteDisplayMode)
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_remoteControllerMode &&
-                        _remoteSession?.peerSeen == true) ...[
-                      _remoteControllerQuickControls(),
-                      const SizedBox(width: 8),
-                    ],
-                    _adjustableToyControls(),
-                  ],
-                ),
-              ),
-            ),
-          ),
         SafeArea(
           child: Align(
             alignment: Alignment.bottomLeft,
@@ -5102,6 +5061,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                     _menu(),
                     _historyControls(),
                     if (_remoteSession != null) _remoteStatusButton(),
+                    if (_remoteControllerMode &&
+                        _remoteSession?.peerSeen == true) ...[
+                      const SizedBox(width: 6),
+                      _remoteControllerQuickControls(),
+                    ],
                   ],
                 ],
               ),
