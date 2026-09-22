@@ -18,7 +18,7 @@ enum RemoteRole {
       this == RemoteRole.display ? RemoteRole.controller : RemoteRole.display;
 
   String get label =>
-      this == RemoteRole.display ? 'Board Display' : 'Controller';
+      this == RemoteRole.display ? 'Table Display' : 'Controller';
 }
 
 class RemoteLaunch {
@@ -96,6 +96,7 @@ class RemoteSession extends ChangeNotifier {
     required List<int> keyBytes,
     required this.role,
     required this.isCreator,
+    this.pairingCode,
   }) : _keyBytes = List<int>.unmodifiable(keyBytes),
        _clientId = _newToken(9) {
     _transportRouter = RemoteTransportRouter([
@@ -120,6 +121,7 @@ class RemoteSession extends ChangeNotifier {
     keyBytes: _randomBytes(32),
     role: role,
     isCreator: true,
+    pairingCode: null,
   );
 
   static const int pairingCodeLength = 6;
@@ -158,8 +160,9 @@ class RemoteSession extends ChangeNotifier {
       keyBytes: bytes.sublist(16, 48),
       role: role,
       // Manual-code pairing has no link opener to establish creator status.
-      // The Board Display is the stable authority, so it initiates WebRTC.
+      // The Table Display is the stable authority, so it initiates WebRTC.
       isCreator: role == RemoteRole.display,
+      pairingCode: normalized,
     );
   }
 
@@ -168,6 +171,7 @@ class RemoteSession extends ChangeNotifier {
     keyBytes: launch.keyBytes,
     role: launch.role,
     isCreator: false,
+    pairingCode: null,
   );
 
   static final math.Random _random = math.Random.secure();
@@ -177,6 +181,7 @@ class RemoteSession extends ChangeNotifier {
   final List<int> _keyBytes;
   final String _clientId;
   final bool isCreator;
+  final String? pairingCode;
   final StreamController<RemoteAppMessage> _messages =
       StreamController<RemoteAppMessage>.broadcast();
   late final RemoteTransportRouter _transportRouter;
