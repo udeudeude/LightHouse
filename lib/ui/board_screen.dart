@@ -1021,6 +1021,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         base + offset.clamp(-72, 72).toDouble(),
       );
     });
+    _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged());
   }
 
