@@ -1799,19 +1799,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     HapticFeedback.selectionClick();
   }
 
-  void _queueRippleTap(String elementId) {
-    _rippleTapTimer?.cancel();
-    _rippleTapTimer = Timer(kDoubleTapTimeout, () {
-      _rippleTapTimer = null;
-      if (!mounted ||
-          !_remoteControllerMode ||
-          !_rippleTapEnabled ||
-          _controller.state.elementById(elementId) == null) {
-        return;
-      }
-      unawaited(_cycleRipple(elementId));
-    });
-  }
 
   Future<void> _clearAllRipples() async {
     _setRemoteControlState(_remoteControlState.clearRipples());
@@ -2665,12 +2652,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           checked: _remoteControlState.displayShapesVisible,
         ),
         _compactMenuItem(
-          'rippleTap',
-          Icons.radio_button_checked,
-          'Tap Shapes to Cycle Ripples',
-          checked: _rippleTapEnabled,
-        ),
-        _compactMenuItem(
           'clearRipples',
           Icons.waves_outlined,
           'Turn Off All Ripples',
@@ -2707,8 +2688,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         await _setBoardUnitShapesVisible(
           !_remoteControlState.displayShapesVisible,
         );
-      case 'rippleTap':
-        setState(() => _rippleTapEnabled = !_rippleTapEnabled);
       case 'clearRipples':
         await _clearAllRipples();
       case 'swap':
@@ -2784,16 +2763,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               color: _remoteControlState.displayShapesVisible
                   ? Colors.white
                   : Colors.white54,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Tap shapes to cycle ripples',
-            visualDensity: VisualDensity.compact,
-            onPressed: () =>
-                setState(() => _rippleTapEnabled = !_rippleTapEnabled),
-            icon: Icon(
-              Icons.radio_button_checked,
-              color: _rippleTapEnabled ? Colors.white : Colors.white54,
             ),
           ),
           IconButton(
@@ -2929,8 +2898,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _lastRotation = 0;
     _transformStarted = false;
     _transformTranslated = false;
-    if (_transformTarget != null &&
-        !(_remoteControllerMode && _rippleTapEnabled)) {
+    if (_transformTarget != null) {
       setState(() => _selectedId = _transformTarget!.id);
     }
 
@@ -3055,11 +3023,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
     if (displacement <= _tapTravelMm) {
       final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
-      if (_remoteControllerMode && _rippleTapEnabled) {
-        if (tapped != null) _queueRippleTap(tapped.id);
-      } else {
-        setState(() => _selectedId = tapped?.id);
-      }
+      setState(() => _selectedId = tapped?.id);
     }
     _clearGesture();
   }
@@ -3227,11 +3191,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           _controller.tipOrStand(exact, drag);
         } else if (displacement <= _tapTravelMm) {
           final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
-          if (_remoteControllerMode && _rippleTapEnabled) {
-            if (tapped != null) _queueRippleTap(tapped.id);
-          } else {
-            setState(() => _selectedId = tapped?.id);
-          }
+          setState(() => _selectedId = tapped?.id);
         }
       }
     }
@@ -3323,19 +3283,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _rotateSelected(double degrees) {
-    final target = _selected;
-    if (target == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Tap a footprint first.')));
-      return;
-    }
-    _finishDesktopScrollTransform();
-    _controller.beginTransform(target);
-    _controller.transformBy(PhysicalPoint.zero, degrees * math.pi / 180);
-    _controller.endTransform(snapDegrees: _rotationSnapDegrees);
-  }
+
 
   void _finishDesktopScrollTransform() {
     _desktopScrollEndTimer?.cancel();
@@ -3567,16 +3515,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _controller.renameBoard(title);
   }
 
-  void _setHeading(double angle) {
-    final selected = _selected;
-    if (selected == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Tap a footprint first.')));
-      return;
-    }
-    _controller.setHeading(selected, angle);
-  }
+
 
   void _selectUnderlay(BoardUnderlay underlay) {
     _controller.setUnderlay(underlay);
@@ -4189,14 +4128,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         'Redo',
         enabled: _controller.canRedo,
       ),
-      _compactMenuItem('left', Icons.rotate_left, 'Rotate Left 15°'),
-      _compactMenuItem('right', Icons.rotate_right, 'Rotate Right 15°'),
-      _compactMenuItem(
-        'orientation',
-        Icons.explore_outlined,
-        'Set Orientation',
-      ),
       _compactMenuItem('snap', Icons.rotate_90_degrees_ccw, 'Rotation Snap'),
+      _compactMenuItem(
+        'free',
+        Icons.gesture,
+        'Free Rotation',
+        checked: _rotationSnapDegrees == null,
+      ),
     ]);
     if (!mounted || choice == null) return;
     switch (choice) {
@@ -4204,69 +4142,42 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         _undoFromUi();
       case 'redo':
         _redoFromUi();
-      case 'left':
-        _rotateSelected(-15);
-      case 'right':
-        _rotateSelected(15);
-      case 'orientation':
-        await _showOrientationMenu();
       case 'snap':
         await _showRotationSnapMenu();
+      case 'free':
+        await _setRotationSnap(null);
     }
-  }
-
-  PopupMenuItem<String> _angleMenuItem(double angle) => PopupMenuItem<String>(
-    value: 'a${angle.toInt()}',
-    height: 40,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 24,
-          height: 24,
-          child: Transform.rotate(
-            angle: angle * math.pi / 180,
-            child: const Icon(Icons.navigation, size: 19),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text('${angle.toInt()}°'),
-      ],
-    ),
-  );
-
-  Future<void> _showOrientationMenu() async {
-    const angles = <double>[0, 45, 90, 135, 180, 225, 270, 315];
-    final choice = await _showCompactMenu([
-      for (final angle in angles) _angleMenuItem(angle),
-    ]);
-    if (choice == null) return;
-    _setHeading(double.parse(choice.substring(1)));
   }
 
   Future<void> _showRotationSnapMenu() async {
     const options = <double>[15, 30, 45, 90];
+    final degrees = _rotationSnapDegrees;
     final choice = await _showCompactMenu([
-      _compactMenuItem(
-        'off',
-        Icons.radio_button_unchecked,
-        'Off',
-        checked: _rotationSnapDegrees == null,
-      ),
-      for (final degrees in options)
+      for (final option in options)
         _compactMenuItem(
-          's${degrees.toInt()}',
+          's${option.toInt()}',
           Icons.radio_button_unchecked,
-          '${degrees.toInt()}° increments',
-          checked: _rotationSnapDegrees == degrees,
+          '${option.toInt()}° increments',
+          checked: degrees == option,
         ),
+      const PopupMenuDivider(),
+      _compactMenuItem(
+        'now',
+        Icons.auto_fix_high,
+        'Snap Now',
+        enabled: degrees != null,
+      ),
     ]);
     if (choice == null) return;
-    if (choice == 'off') {
-      await _setRotationSnap(null);
-    } else {
-      await _setRotationSnap(double.parse(choice.substring(1)));
+    if (choice == 'now') {
+      final snap = _rotationSnapDegrees;
+      if (snap != null) {
+        _controller.snapAllHeadings(snap);
+        HapticFeedback.selectionClick();
+      }
+      return;
     }
+    await _setRotationSnap(double.parse(choice.substring(1)));
   }
 
   void _toggleUnderlaySelection(BoardUnderlay underlay) {
@@ -4276,48 +4187,50 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _showBoardsMenu() async {
-    final choice = await _showCompactMenu([
-      _compactMenuItem(
-        'games',
-        Icons.dashboard_customize_outlined,
-        'Game Boards',
-      ),
-      _compactMenuItem('grids', Icons.grid_4x4, 'Grids'),
-      _compactMenuItem('chess', Icons.grid_view, 'Martian Chess'),
-      const PopupMenuDivider(),
-      _compactMenuItem(
-        'snap',
-        Icons.center_focus_strong,
-        'Snap pieces to board',
-        checked: _gridSnapEnabled,
-      ),
-      _compactMenuItem(
-        'none',
-        Icons.layers_clear_outlined,
-        'None',
-        checked: _controller.state.underlay == BoardUnderlay.none,
-      ),
-      _compactMenuItem(
-        'checker',
-        Icons.grid_on,
-        'Checker Shading',
-        checked: _checkerUnderlays,
-      ),
-    ]);
-    if (!mounted || choice == null) return;
-    switch (choice) {
-      case 'games':
-        await _showBoardGroup(BoardUnderlayGroup.games);
-      case 'grids':
-        await _showBoardGroup(BoardUnderlayGroup.grids);
-      case 'chess':
-        await _showBoardGroup(BoardUnderlayGroup.chess);
-      case 'checker':
-        await _toggleCheckerUnderlays();
-      case 'snap':
-        await _toggleGridSnap();
-      case 'none':
-        _selectUnderlay(BoardUnderlay.none);
+    while (mounted) {
+      final choice = await _showCompactMenu([
+        _compactMenuItem(
+          'games',
+          Icons.dashboard_customize_outlined,
+          'Game Boards',
+        ),
+        _compactMenuItem('grids', Icons.grid_4x4, 'Grids'),
+        _compactMenuItem('chess', Icons.grid_view, 'Martian Chess'),
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'snap',
+          Icons.center_focus_strong,
+          'Snap pieces to board',
+          checked: _gridSnapEnabled,
+        ),
+        _compactMenuItem(
+          'none',
+          Icons.layers_clear_outlined,
+          'None',
+          checked: _controller.state.underlay == BoardUnderlay.none,
+        ),
+        _compactMenuItem(
+          'checker',
+          Icons.grid_on,
+          'Checker Shading',
+          checked: _checkerUnderlays,
+        ),
+      ]);
+      if (!mounted || choice == null) return;
+      switch (choice) {
+        case 'games':
+          await _showBoardGroup(BoardUnderlayGroup.games);
+        case 'grids':
+          await _showBoardGroup(BoardUnderlayGroup.grids);
+        case 'chess':
+          await _showBoardGroup(BoardUnderlayGroup.chess);
+        case 'checker':
+          await _toggleCheckerUnderlays();
+        case 'snap':
+          await _toggleGridSnap();
+        case 'none':
+          _selectUnderlay(BoardUnderlay.none);
+      }
     }
   }
 
@@ -4365,6 +4278,27 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Widget _toyIcon(_ToyKind toy, Color color, {required bool inMenu}) {
+    if (inMenu) {
+      switch (toy) {
+        case _ToyKind.nestCycle:
+          return Text(
+            '⧈',
+            style: TextStyle(
+              color: color,
+              fontSize: 25,
+              height: 1,
+              fontWeight: FontWeight.w500,
+            ),
+          );
+        case _ToyKind.zendoStones:
+          return Icon(Icons.circle_outlined, size: 18, color: color);
+        case _ToyKind.triangleBounce:
+          return Icon(Icons.change_history, size: 18, color: color);
+        default:
+          break;
+      }
+    }
+
     final artwork = switch (toy) {
       _ToyKind.nestCycle => PyramidLoveToyIconKind.nest,
       _ToyKind.zendoStones => PyramidLoveToyIconKind.zendoMarkers,
@@ -4372,18 +4306,15 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _ => null,
     };
     if (artwork != null) {
-      final size = switch ((toy, inMenu)) {
-        (_ToyKind.nestCycle, true) => 27.0,
-        (_ToyKind.nestCycle, false) => 36.0,
-        (_ToyKind.zendoStones, true) || (_ToyKind.triangleBounce, true) => 13.0,
-        (_ToyKind.zendoStones, false) ||
-        (_ToyKind.triangleBounce, false) => 21.0,
+      final size = switch (toy) {
+        _ToyKind.nestCycle => 36.0,
+        _ToyKind.zendoStones || _ToyKind.triangleBounce => 21.0,
         _ => 21.0,
       };
       final icon = PyramidLoveToyIcon(artwork, color: color, size: size);
       if (toy == _ToyKind.nestCycle) {
         return Transform.translate(
-          offset: Offset(0, inMenu ? -8.0 : -6.0),
+          offset: const Offset(0, -6),
           child: icon,
         );
       }
@@ -4426,6 +4357,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                             for (final toy in _ToyKind.values)
                               Tooltip(
                                 message: toy.label,
+                                preferBelow: false,
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(6),
                                   onTap: () async {
@@ -4479,17 +4411,17 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Future<void> _showDisplayMenu() async {
     final choice = await _showCompactMenu([
       _compactMenuItem('size', Icons.straighten, 'Size'),
+      _compactMenuItem(
+        'round',
+        Icons.change_history,
+        'Safety Points',
+        checked: _roundedTriangleTips,
+      ),
       _compactMenuItem('brightness', Icons.brightness_6_outlined, 'Brightness'),
       _compactMenuItem(
         'orientation',
         Icons.screen_lock_rotation,
         'Orientation Lock',
-      ),
-      _compactMenuItem(
-        'round',
-        Icons.change_history,
-        'Safety Tips',
-        checked: _roundedTriangleTips,
       ),
       if (kIsWeb)
         _compactMenuItem('fullscreen', Icons.fullscreen, 'Full-screen'),
@@ -4553,6 +4485,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ('Full / wall light', 'Draw a loop around an upright footprint'),
             ('Move', 'Two-finger scroll over a footprint'),
             ('Rotate', 'Shift + two-finger scroll'),
+            (
+              'Rotation snap',
+              'Edit > Rotation Snap; Snap Now aligns every shape immediately',
+            ),
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
@@ -4561,6 +4497,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             (
               'Zendo stones',
               'Tap or drag from tray; drag stones; double-click to remove',
+            ),
+            (
+              'Remote ripple',
+              'On a Controller, hold a shape to start its ripple; hold again to stop it',
             ),
             ('Toys', 'Toys chooses controls; hold an icon for its name'),
           ]
@@ -4791,7 +4731,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     child: Wrap(
       alignment: WrapAlignment.end,
       runAlignment: WrapAlignment.end,
-      verticalDirection: VerticalDirection.up,
+      verticalDirection: VerticalDirection.down,
       spacing: 0,
       runSpacing: 0,
       children: [
@@ -4914,6 +4854,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onDoubleTapDown: _handleDoubleTapDown,
+                onLongPressStart: (details) =>
+                    unawaited(_toggleRippleFromLongPress(details.localPosition)),
                 onScaleStart: _onScaleStart,
                 onScaleUpdate: _onScaleUpdate,
                 onScaleEnd: _onScaleEnd,
