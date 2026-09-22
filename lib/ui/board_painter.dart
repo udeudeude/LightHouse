@@ -864,7 +864,9 @@ class BoardPainter extends CustomPainter {
           final chasePath = Path()..addRect(rect.deflate(band / 2));
           final metric = chasePath.computeMetrics().first;
           final seed =
-              (element.id.hashCode ^ squareChaseSeed ^ (chaseIndex * 0x45d9f3b)) &
+              (element.id.hashCode ^
+                  squareChaseSeed ^
+                  (chaseIndex * 0x45d9f3b)) &
               0x7fffffff;
           final offset = (seed % 1000) / 1000;
           final clockwise = ((seed ~/ 1000) & 1) == 0;
