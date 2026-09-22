@@ -336,7 +336,13 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                 ),
               ],
             ),
-            child: const CustomPaint(painter: _ZendoStoneGlarePainter()),
+            child: CustomPaint(
+              painter: _ZendoStoneGlarePainter(
+                color: kind == _ZendoStoneKind.green
+                    ? Colors.white
+                    : const Color(0xFFB8B8B8),
+              ),
+            ),
           ),
         ),
       ),
@@ -409,8 +415,12 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                           ),
                         ],
                       ),
-                      child: const CustomPaint(
-                        painter: _ZendoStoneGlarePainter(),
+                      child: CustomPaint(
+                        painter: _ZendoStoneGlarePainter(
+                          color: stone.kind == _ZendoStoneKind.green
+                              ? Colors.white
+                              : const Color(0xFFB8B8B8),
+                        ),
                       ),
                     ),
                   ),
@@ -424,7 +434,9 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
 }
 
 class _ZendoStoneGlarePainter extends CustomPainter {
-  const _ZendoStoneGlarePainter();
+  const _ZendoStoneGlarePainter({required this.color});
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -437,7 +449,7 @@ class _ZendoStoneGlarePainter extends CustomPainter {
       math.pi * 0.58,
       false,
       Paint()
-        ..color = const Color(0xFFB8B8B8).withValues(alpha: 0.72)
+        ..color = color.withValues(alpha: 0.78)
         ..style = PaintingStyle.stroke
         ..strokeWidth = math.max(1.0, radius * 0.10)
         ..strokeCap = StrokeCap.round,
@@ -445,5 +457,6 @@ class _ZendoStoneGlarePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ZendoStoneGlarePainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ZendoStoneGlarePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
