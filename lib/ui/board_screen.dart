@@ -3446,7 +3446,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   bool _isUntitledTableName(String value) {
     final title = value.trim();
-    return title.isEmpty || title == 'Untitled Board' || title == 'Untitled Table';
+    return title.isEmpty ||
+        title == 'Untitled Board' ||
+        title == 'Untitled Table';
   }
 
   Future<void> _saveBoard({bool asCopy = false}) async {
