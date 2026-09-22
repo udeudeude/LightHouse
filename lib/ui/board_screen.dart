@@ -3623,42 +3623,55 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Future<void> _showCalibrationCheck() async {
     final pixelsPerMm = _pixelsPerMm;
     final largeBase = _controller.geometry.baseMm(PyramidSize.large);
-    final recalibrate = await showDialog<bool>(
+    final recalibrate = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Size'),
-        content: Column(
+      useSafeArea: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text(
+              'Size',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 14),
             const Text('A Large upright pyramid should fit this square:'),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.bottomLeft,
               child: SizedBox(
                 width: largeBase * pixelsPerMm,
                 height: largeBase * pixelsPerMm,
                 child: const ColoredBox(color: Colors.white),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             const Text('Cross-check: this bar should measure exactly 25 mm:'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(widget.calibrationLabel),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(sheetContext, true),
+                  child: const Text('Recalibrate'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () => Navigator.pop(sheetContext, false),
+                  child: const Text('Looks right'),
+                ),
+              ],
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Recalibrate'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Looks right'),
-          ),
-        ],
       ),
     );
     if (recalibrate == true) widget.onRecalibrate(_controller.state);
@@ -4492,6 +4505,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ('Tip / stand', 'Drag through the footprint edge'),
             ('Full / wall light', 'Draw a loop around an upright footprint'),
             ('Move + rotate', 'Two-finger drag and twist'),
+            (
+              'Rotation snap',
+              'Edit > Rotation Snap; Snap Now aligns every shape immediately',
+            ),
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
@@ -4500,6 +4517,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             (
               'Zendo stones',
               'Tap or drag from tray; drag stones; double-tap to remove',
+            ),
+            (
+              'Remote ripple',
+              'On a Controller, hold a shape to start its ripple; hold again to stop it',
             ),
             ('Toys', 'Toys chooses controls; hold an icon for its name'),
           ];
