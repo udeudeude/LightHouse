@@ -1785,6 +1785,33 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _toggleRippleFromLongPress(Offset localPosition) async {
+    if (!_remoteControllerMode) return;
+    final point = _toPhysical(localPosition);
+    final target = _controller.hitTest(point, haloMm: _interactionHaloMm);
+    if (target == null) return;
+    final ripples = Map<String, RemoteRippleLevel>.from(
+      _remoteControlState.rippleLevels,
+    );
+    final currentlyOn = ripples.containsKey(target.id);
+    if (currentlyOn) {
+      ripples.remove(target.id);
+    } else {
+      ripples[target.id] = RemoteRippleLevel.normal;
+    }
+    _setRemoteControlState(
+      _remoteControlState.copyWith(rippleLevels: Map.unmodifiable(ripples)),
+    );
+    await _sendRemoteControlCommand(
+      'setRipple',
+      payload: {
+        'elementId': target.id,
+        'level': currentlyOn ? 0 : RemoteRippleLevel.normal.wireValue,
+      },
+    );
+    HapticFeedback.mediumImpact();
+  }
+
   Future<void> _clearAllRipples() async {
     _setRemoteControlState(_remoteControlState.clearRipples());
     await _sendRemoteControlCommand('clearRipples');
@@ -2854,7 +2881,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _handleDoubleTapDown(TapDownDetails details) {
     if (_creditsVisible) return;
-    _rippleTapTimer = null;
     final point = _toPhysical(details.localPosition);
     final target = _controller.hitTest(point, haloMm: _interactionHaloMm);
     if (target == null) {
