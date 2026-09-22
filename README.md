@@ -70,13 +70,13 @@ Board controls:
 - Boards: choose an underlay, checker shading, and optional position snapping
 - Edit: undo/redo, 15-degree rotation steps, exact orientation, and persistent rotation snapping
 - Display: size/calibration, brightness, and orientation information
-- Remote: pair a Board Display with one or more Controllers, manage Board Unit interaction/visibility/ripple marking, show the pairing QR, swap roles for single-controller sessions, or disconnect
+- Remote: pair a Table Display with one or more Controllers, manage Table Display interaction/visibility/ripple marking, show the pairing QR, swap roles for single-controller sessions, or disconnect
 
 The user-facing Structure menu was removed. Stack/nest relationships remain an internal board concept so physically grouped footprints still move, push, save, restore, and undo correctly.
 
 ## Remote sessions
 
-A Board Display can be controlled by one or more Controller devices. Start Remote on the Board Display and scan the same QR code from each controller you want to add. With one controller LightHouse prefers a direct WebRTC data channel; when additional controllers join, the session switches to the encrypted relay so every controller shares one board-authoritative state. Controllers render the Board Display's physical board as a scaled control surface, including proportionally scaled Dice Bubble, Zendo Stones, and gun controls. Controller-only Remote controls can enable or disable direct shape interaction on the Board Display, hide/reveal its shapes without changing board state, and mark shapes with persistent normal or dim ripple pulses. Pairing secrets are carried in the URL fragment so they are not sent to the web host. The one-scan pairing flow still requires an internet connection for the initial introduction. Remote application messages use a transport boundary so local-network and Bluetooth transports can be added without changing board synchronization.
+A Table Display can be controlled by one or more Controller devices. Start Remote on the Table Display and scan the same QR code from each controller you want to add. With one controller LightHouse prefers a direct WebRTC data channel; when additional controllers join, the session switches to the encrypted relay so every controller shares one table-authoritative state. Controllers render the Table Display's physical board as a scaled control surface, including proportionally scaled Dice Bubble, Zendo Stones, and gun controls. Controller-only Remote controls can enable or disable direct shape interaction on the Table Display, hide/reveal its shapes without changing board state, and mark shapes with persistent normal or dim ripple pulses. Pairing secrets are carried in the URL fragment so they are not sent to the web host. The one-scan pairing flow still requires an internet connection for the initial introduction. Remote application messages use a transport boundary so local-network and Bluetooth transports can be added without changing board synchronization.
 
 ## Development
 
