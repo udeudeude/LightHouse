@@ -1785,7 +1785,6 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
   }
 
-
   Future<void> _clearAllRipples() async {
     _setRemoteControlState(_remoteControlState.clearRipples());
     await _sendRemoteControlCommand('clearRipples');
