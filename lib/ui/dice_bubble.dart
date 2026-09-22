@@ -1671,6 +1671,18 @@ class _DiceBubblePainter extends CustomPainter {
           star,
           Paint()..color = Colors.yellow,
         );
+        _projectedPolygon(
+          canvas,
+          center,
+          scale,
+          rotation,
+          face,
+          star,
+          Paint()
+            ..color = Colors.black87
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = math.max(0.8, scale * 0.045),
+        );
       case 5: // Pyramid Love: wild atom.
         _paintPyramidLoveContours(
           canvas,
@@ -1867,7 +1879,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.04,
-          radius: 0.33,
+          radius: 0.40,
           pips: 1,
           paint: paint,
         );
@@ -1880,7 +1892,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.04,
-          radius: 0.46,
+          radius: 0.54,
           pips: 2,
           paint: paint,
         );
@@ -1893,7 +1905,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.03,
-          radius: 0.58,
+          radius: 0.67,
           pips: 3,
           paint: paint,
         );
@@ -1906,7 +1918,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.28,
           y: -0.12,
-          radius: 0.24,
+          radius: 0.28,
           pips: 1,
           paint: paint,
           inverted: true,
@@ -1919,7 +1931,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0.26,
           y: 0.18,
-          radius: 0.34,
+          radius: 0.39,
           pips: 2,
           paint: paint,
         );
@@ -1932,7 +1944,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.31,
           y: -0.14,
-          radius: 0.24,
+          radius: 0.28,
           pips: 1,
           paint: paint,
           inverted: true,
@@ -1945,7 +1957,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0.23,
           y: 0.18,
-          radius: 0.44,
+          radius: 0.50,
           pips: 3,
           paint: paint,
         );
@@ -1958,7 +1970,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.31,
           y: -0.14,
-          radius: 0.34,
+          radius: 0.39,
           pips: 2,
           paint: paint,
           inverted: true,
@@ -1971,7 +1983,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0.24,
           y: 0.18,
-          radius: 0.47,
+          radius: 0.54,
           pips: 3,
           paint: paint,
         );
