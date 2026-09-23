@@ -1903,16 +1903,9 @@ class _DiceBubblePainter extends CustomPainter {
 
       final worldCenter = _averageVertices(mesh.vertices, face.vertices);
       final rotatedCenter = _rotate(worldCenter, rotation);
-      final projectedWorldCenter = _project(
-        rotatedCenter,
-        center,
-        meshScale,
-      );
+      final projectedWorldCenter = _project(rotatedCenter, center, meshScale);
       final labelCenter =
-          polygon.fold<Offset>(
-            Offset.zero,
-            (sum, point) => sum + point,
-          ) /
+          polygon.fold<Offset>(Offset.zero, (sum, point) => sum + point) /
           polygon.length.toDouble();
       final axisPoint = _project(
         _rotate(worldCenter + face.xAxis.scale(0.24), rotation),
@@ -1936,8 +1929,7 @@ class _DiceBubblePainter extends CustomPainter {
         final edgeVector = b - a;
         final edgeLength = edgeVector.distance;
         if (edgeLength <= 0.0001) continue;
-        final distanceToEdge =
-            (a.dx * b.dy - a.dy * b.dx).abs() / edgeLength;
+        final distanceToEdge = (a.dx * b.dy - a.dy * b.dx).abs() / edgeLength;
         labelRadius = math.min(labelRadius, distanceToEdge);
       }
       if (!labelRadius.isFinite || labelRadius <= 0) continue;
