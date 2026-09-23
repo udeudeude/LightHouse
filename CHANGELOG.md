@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Added gentle first-use onboarding: an empty-table haiku, a delayed “Tap. Tap.” creation cue, animated tip and encirclement gesture demonstrations that retire after the user performs each action, and persistent milestone memory so learned hints stay gone.
+- Changed Toys so no toy controls are visible by default on a fresh install.
 - Fixed disappearing polyhedral die numbers by fitting labels to finite projected-face edge geometry at every perspective and size.
 - Identified the iPhone/iPad Home Screen failure as truncated PNG icon assets. Regenerated a valid dedicated 180×180 Apple touch icon from the vector artwork, reintroduced only that icon first, and added a regression test that rejects incomplete PNG files before deployment.
 - Forced the language selector’s double arrow to Unicode text presentation so iOS renders a plain ↔ rather than the ↔️ emoji.
