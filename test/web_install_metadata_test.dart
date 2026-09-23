@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,49 +11,46 @@ bool _isCompletePng(File file) {
     if (bytes[index] != signature[index]) return false;
   }
 
-  final data = ByteData.sublistView(Uint8List.fromList(bytes));
+  int readUint32(int offset) =>
+      (bytes[offset] << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3];
+
   var offset = 8;
-  var sawEnd = false;
   while (offset + 12 <= bytes.length) {
-    final length = data.getUint32(offset, Endian.big);
+    final length = readUint32(offset);
     final type = ascii.decode(bytes.sublist(offset + 4, offset + 8));
-    final next = offset + 12 + length;
-    if (next > bytes.length) return false;
-    offset = next;
-    if (type == 'IEND') {
-      sawEnd = true;
-      break;
-    }
+    offset += length + 12;
+    if (offset > bytes.length) return false;
+    if (type == 'IEND') return offset == bytes.length;
   }
-  return sawEnd && offset == bytes.length;
+  return false;
 }
 
 void main() {
-  test(
-    'iOS Home Screen uses one valid dedicated icon while manifest icons stay isolated',
-    () {
-      final manifest = jsonDecode(
-        File('web/manifest.json').readAsStringSync(),
-      ) as Map<String, dynamic>;
+  test('iOS Home Screen uses one valid dedicated icon', () {
+    final manifestText = File('web/manifest.json').readAsStringSync();
+    final manifest = jsonDecode(manifestText) as Map<String, dynamic>;
 
-      expect(manifest['id'], './');
-      expect(manifest['start_url'], './');
-      expect(manifest['scope'], './');
-      expect(manifest.containsKey('icons'), isFalse);
+    expect(manifest['id'], './');
+    expect(manifest['start_url'], './');
+    expect(manifest['scope'], './');
+    expect(manifest.containsKey('icons'), isFalse);
 
-      final index = File('web/index.html').readAsStringSync();
-      expect(index, contains('rel="manifest" href="manifest.json?v=29"'));
-      expect(
-        index,
-        contains(
-          'rel="apple-touch-icon" sizes="180x180" href="icons/Icon-180.png"',
-        ),
-      );
-      expect(_isCompletePng(File('web/icons/Icon-180.png')), isTrue);
+    final index = File('web/index.html').readAsStringSync();
+    const manifestLink = 'rel="manifest" href="manifest.json?v=29"';
+    const touchIcon =
+        'rel="apple-touch-icon" sizes="180x180" '
+        'href="icons/Icon-180.png"';
+    expect(index, contains(manifestLink));
+    expect(index, contains(touchIcon));
 
-      final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
-      expect(bootstrap, contains("lighthouseBuildVersion = '29'"));
-      expect(bootstrap, isNot(contains('lighthousePrepareFreshRuntime')));
-    },
-  );
+    final icon = File('web/icons/Icon-180.png');
+    expect(_isCompletePng(icon), isTrue);
+
+    final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
+    expect(bootstrap, contains("lighthouseBuildVersion = '29'"));
+    expect(bootstrap, isNot(contains('lighthousePrepareFreshRuntime')));
+  });
 }
