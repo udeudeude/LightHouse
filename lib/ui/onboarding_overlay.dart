@@ -10,6 +10,8 @@ const onboardingHaiku =
     'Just bespoke lamps trapped in glass.\n'
     'Glowing pyramids.';
 
+const onboardingHaikuFadeDuration = Duration(milliseconds: 1500);
+
 class OnboardingOverlay extends StatelessWidget {
   const OnboardingOverlay({
     super.key,
@@ -20,6 +22,7 @@ class OnboardingOverlay extends StatelessWidget {
     required this.showTapTap,
     this.tipTarget,
     this.hollowTarget,
+    this.transformTarget,
   });
 
   final Animation<double> animation;
@@ -29,6 +32,7 @@ class OnboardingOverlay extends StatelessWidget {
   final bool showTapTap;
   final LightElement? tipTarget;
   final LightElement? hollowTarget;
+  final LightElement? transformTarget;
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
@@ -38,7 +42,7 @@ class OnboardingOverlay extends StatelessWidget {
         Center(
           child: AnimatedOpacity(
             opacity: showHaiku ? 1 : 0,
-            duration: const Duration(seconds: 3),
+            duration: onboardingHaikuFadeDuration,
             curve: Curves.easeOut,
             child: const Text(
               onboardingHaiku,
@@ -69,6 +73,7 @@ class OnboardingOverlay extends StatelessWidget {
                     phase: phase,
                     tipTarget: tipTarget,
                     hollowTarget: hollowTarget,
+                    transformTarget: transformTarget,
                   ),
                 ),
                 if (showTapTap)
@@ -102,6 +107,7 @@ class OnboardingGesturePainter extends CustomPainter {
     required this.phase,
     this.tipTarget,
     this.hollowTarget,
+    this.transformTarget,
   });
 
   final double logicalPixelsPerMm;
@@ -109,8 +115,11 @@ class OnboardingGesturePainter extends CustomPainter {
   final double phase;
   final LightElement? tipTarget;
   final LightElement? hollowTarget;
+  final LightElement? transformTarget;
 
   double get _drawProgress => (phase / 0.68).clamp(0.0, 1.0).toDouble();
+
+  double get _hollowDrawProgress => (phase / 0.42).clamp(0.0, 1.0).toDouble();
 
   double get _alpha {
     if (phase <= 0.82) return 1;
@@ -126,7 +135,8 @@ class OnboardingGesturePainter extends CustomPainter {
     ..color = Colors.white.withValues(alpha: 0.38 * _alpha)
     ..style = PaintingStyle.stroke
     ..strokeWidth = math.max(1.4, logicalPixelsPerMm * 0.48)
-    ..strokeCap = StrokeCap.round;
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -135,6 +145,9 @@ class OnboardingGesturePainter extends CustomPainter {
 
     final hollow = hollowTarget;
     if (hollow != null) _paintHollowHint(canvas, hollow);
+
+    final transform = transformTarget;
+    if (transform != null) _paintTransformHint(canvas, transform);
   }
 
   void _paintTipHint(Canvas canvas, Size size, LightElement element) {
@@ -148,37 +161,120 @@ class OnboardingGesturePainter extends CustomPainter {
     canvas.drawLine(center, end, _paint);
 
     if (_drawProgress < 0.42) return;
-    final angle = math.atan2(direction.dy, direction.dx);
-    final arrowLength = math.max(6.0, base * 0.18);
-    final arrowWidth = arrowLength * 0.48;
-    final back = end - Offset(math.cos(angle), math.sin(angle)) * arrowLength;
-    final normal = Offset(-math.sin(angle), math.cos(angle));
-    final path = Path()
-      ..moveTo(end.dx, end.dy)
-      ..lineTo(
-        back.dx + normal.dx * arrowWidth,
-        back.dy + normal.dy * arrowWidth,
-      )
-      ..moveTo(end.dx, end.dy)
-      ..lineTo(
-        back.dx - normal.dx * arrowWidth,
-        back.dy - normal.dy * arrowWidth,
-      );
-    canvas.drawPath(path, _paint);
+    _paintArrowHead(canvas, end, direction, base * 0.18);
+  }
+
+  Offset _ellipsePoint(
+    Offset center,
+    double radiusX,
+    double radiusY,
+    double rotation,
+    double angle,
+  ) {
+    final x = radiusX * math.cos(angle);
+    final y = radiusY * math.sin(angle);
+    final cosR = math.cos(rotation);
+    final sinR = math.sin(rotation);
+    return center + Offset(x * cosR - y * sinR, x * sinR + y * cosR);
+  }
+
+  Offset _ellipseTangent(
+    double radiusX,
+    double radiusY,
+    double rotation,
+    double angle,
+  ) {
+    final x = -radiusX * math.sin(angle);
+    final y = radiusY * math.cos(angle);
+    final cosR = math.cos(rotation);
+    final sinR = math.sin(rotation);
+    final rotated = Offset(x * cosR - y * sinR, x * sinR + y * cosR);
+    final length = rotated.distance;
+    return length <= 0.001 ? const Offset(1, 0) : rotated / length;
   }
 
   void _paintHollowHint(Canvas canvas, LightElement element) {
     final center = _center(element);
     final base = geometry.baseMm(element.size) * logicalPixelsPerMm;
-    final radius = base * 0.82;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      math.pi * 2 * _drawProgress,
-      false,
-      _paint,
+    final radiusX = base * 0.92;
+    final radiusY = base * 0.70;
+    const rotation = -math.pi / 9;
+    const startAngle = -math.pi * 0.72;
+    final progress = _hollowDrawProgress;
+    if (progress <= 0) return;
+
+    final path = Path();
+    const fullSteps = 48;
+    final steps = math.max(2, (fullSteps * progress).ceil());
+    for (var index = 0; index <= steps; index += 1) {
+      final fraction = progress * index / steps;
+      final angle = startAngle + math.pi * 2 * fraction;
+      final point = _ellipsePoint(center, radiusX, radiusY, rotation, angle);
+      if (index == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    canvas.drawPath(path, _paint);
+
+    final endAngle = startAngle + math.pi * 2 * progress;
+    final end = _ellipsePoint(center, radiusX, radiusY, rotation, endAngle);
+    final tangent = _ellipseTangent(radiusX, radiusY, rotation, endAngle);
+    _paintArrowHead(canvas, end, tangent, base * 0.16);
+  }
+
+  void _paintTransformHint(Canvas canvas, LightElement element) {
+    final center = _center(element);
+    final base = geometry.baseMm(element.size) * logicalPixelsPerMm;
+
+    final moveProgress = Curves.easeInOut.transform(
+      (phase / 0.48).clamp(0.0, 1.0).toDouble(),
     );
+    final twistProgress = Curves.easeInOut.transform(
+      ((phase - 0.34) / 0.44).clamp(0.0, 1.0).toDouble(),
+    );
+    final localAlpha = phase <= 0.84
+        ? 1.0
+        : ((1 - phase) / 0.16).clamp(0.0, 1.0).toDouble();
+
+    final start = center + Offset(-base * 0.24, base * 0.12);
+    final finish = center + Offset(base * 0.22, -base * 0.08);
+    final midpoint = Offset.lerp(start, finish, moveProgress)!;
+    final angle = math.pi * 0.24 + twistProgress * math.pi * 0.24;
+    final halfSeparation = base * 0.24;
+    final axis = Offset(math.cos(angle), math.sin(angle)) * halfSeparation;
+    final dotRadius = math.max(4.0, base * 0.10);
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.30 * localAlpha);
+
+    canvas.drawCircle(midpoint + axis, dotRadius, paint);
+    canvas.drawCircle(midpoint - axis, dotRadius, paint);
+  }
+
+  void _paintArrowHead(
+    Canvas canvas,
+    Offset tip,
+    Offset direction,
+    double requestedLength,
+  ) {
+    final length = math.max(6.0, requestedLength);
+    final magnitude = direction.distance;
+    final unit = magnitude <= 0.001
+        ? const Offset(1, 0)
+        : direction / magnitude;
+    final normal = Offset(-unit.dy, unit.dx);
+    final back = tip - unit * length;
+    final halfWidth = length * 0.48;
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(back.dx + normal.dx * halfWidth, back.dy + normal.dy * halfWidth)
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(
+        back.dx - normal.dx * halfWidth,
+        back.dy - normal.dy * halfWidth,
+      );
+    canvas.drawPath(path, _paint);
   }
 
   @override
@@ -187,5 +283,6 @@ class OnboardingGesturePainter extends CustomPainter {
       oldDelegate.geometry != geometry ||
       oldDelegate.phase != phase ||
       oldDelegate.tipTarget != tipTarget ||
-      oldDelegate.hollowTarget != hollowTarget;
+      oldDelegate.hollowTarget != hollowTarget ||
+      oldDelegate.transformTarget != transformTarget;
 }

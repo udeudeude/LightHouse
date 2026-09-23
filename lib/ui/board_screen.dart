@@ -94,15 +94,22 @@ class _BoardScreenState extends State<BoardScreen>
   static const double _interactionHaloMm = 7;
   static const double _tapTravelMm = 2;
   static const double _minimumLineGestureMm = 1.5;
-  static const Duration _onboardingWait = Duration(seconds: 50);
+  static const Duration _onboardingWait = Duration(seconds: 35);
   static const Duration _onboardingHintDuration = Duration(seconds: 8);
-  static const Duration _onboardingHaikuHold = Duration(seconds: 14);
+  static const Duration _onboardingHaikuHold = Duration(seconds: 7);
+  static const Duration _onboardingTransformWait = Duration(seconds: 60);
+  static const Duration _onboardingMenuWait = Duration(seconds: 90);
+  static const Duration _onboardingMenuCueDuration = Duration(seconds: 7);
   static const String _onboardingCreatedKey =
       'lighthouse.onboarding.created.v1';
   static const String _onboardingTippedKey =
       'lighthouse.onboarding.tipped.v1';
   static const String _onboardingHollowedKey =
       'lighthouse.onboarding.hollowed.v1';
+  static const String _onboardingTransformedKey =
+      'lighthouse.onboarding.transformed.v1';
+  static const String _onboardingMenuOpenedKey =
+      'lighthouse.onboarding.menuOpened.v1';
   static const MethodChannel _displayChannel = MethodChannel(
     'lighthouse/display',
   );
@@ -117,6 +124,7 @@ class _BoardScreenState extends State<BoardScreen>
   final List<PhysicalPoint> _oneFingerPath = [];
   double _lastRotation = 0;
   bool _transformStarted = false;
+  bool _transformRotated = false;
 
   String? _selectedId;
   String? _activeSavedId;
@@ -231,18 +239,27 @@ class _BoardScreenState extends State<BoardScreen>
   Timer? _onboardingCreateTimer;
   Timer? _onboardingTipTimer;
   Timer? _onboardingHollowTimer;
+  Timer? _onboardingTransformTimer;
+  Timer? _onboardingMenuTimer;
+  Timer? _onboardingMenuHideTimer;
   Timer? _onboardingHintHideTimer;
+  final List<Timer> _onboardingReplayTimers = [];
   bool _onboardingInitialized = false;
   bool _onboardingCreated = false;
   bool _onboardingTipped = false;
   bool _onboardingHollowed = false;
+  bool _onboardingTransformed = false;
+  bool _onboardingMenuOpened = false;
   bool _onboardingCreateHintShown = false;
   bool _onboardingTipHintShown = false;
   bool _onboardingHollowHintShown = false;
+  bool _onboardingTransformHintShown = false;
   bool _onboardingHaikuVisible = false;
   bool _onboardingTapTapVisible = false;
+  bool _onboardingMenuCueVisible = false;
   String? _onboardingTipTargetId;
   String? _onboardingHollowTargetId;
+  String? _onboardingTransformTargetId;
   Map<String, LightElement> _onboardingPreviousElements = const {};
 
   @override
@@ -325,7 +342,13 @@ class _BoardScreenState extends State<BoardScreen>
     _onboardingCreateTimer?.cancel();
     _onboardingTipTimer?.cancel();
     _onboardingHollowTimer?.cancel();
+    _onboardingTransformTimer?.cancel();
+    _onboardingMenuTimer?.cancel();
+    _onboardingMenuHideTimer?.cancel();
     _onboardingHintHideTimer?.cancel();
+    for (final timer in _onboardingReplayTimers) {
+      timer.cancel();
+    }
     _saveDebounceTimer?.cancel();
     _remotePublishTimer?.cancel();
     _remoteRuntimeTimer?.cancel();
@@ -470,6 +493,10 @@ class _BoardScreenState extends State<BoardScreen>
         preferences.getBool(_onboardingTippedKey) == true || hasFlat;
     _onboardingHollowed =
         preferences.getBool(_onboardingHollowedKey) == true || hasHollow;
+    _onboardingTransformed =
+        preferences.getBool(_onboardingTransformedKey) == true;
+    _onboardingMenuOpened =
+        preferences.getBool(_onboardingMenuOpenedKey) == true;
     _onboardingPreviousElements = {
       for (final element in elements) element.id: element,
     };
@@ -499,7 +526,10 @@ class _BoardScreenState extends State<BoardScreen>
       _scheduleTipHintIfPossible();
     } else if (!_onboardingHollowed) {
       _scheduleHollowHintIfPossible();
+    } else if (!_onboardingTransformed) {
+      _scheduleTransformHintIfPossible();
     }
+    _scheduleMenuCueIfNeeded();
   }
 
   LightElement? get _onboardingSquare => _controller.state.elements
@@ -579,6 +609,7 @@ class _BoardScreenState extends State<BoardScreen>
         _onboardingTapTapVisible = false;
         _onboardingTipTargetId = null;
         _onboardingHollowTargetId = null;
+        _onboardingTransformTargetId = null;
       });
       _syncOnboardingAnimation();
     });
@@ -588,7 +619,9 @@ class _BoardScreenState extends State<BoardScreen>
     final active =
         _onboardingTapTapVisible ||
         _onboardingTipTargetId != null ||
-        _onboardingHollowTargetId != null;
+        _onboardingHollowTargetId != null ||
+        _onboardingTransformTargetId != null ||
+        _onboardingMenuCueVisible;
     if (active) {
       if (!_onboardingAnimation.isAnimating) {
         _onboardingAnimation.repeat();
@@ -650,6 +683,153 @@ class _BoardScreenState extends State<BoardScreen>
     if (preferences != null) {
       unawaited(preferences.setBool(_onboardingHollowedKey, true));
     }
+    _scheduleTransformHintIfPossible();
+  }
+
+  void _scheduleTransformHintIfPossible() {
+    if (!_onboardingInitialized ||
+        !_onboardingHollowed ||
+        _onboardingTransformed ||
+        _onboardingTransformHintShown ||
+        _onboardingTransformTimer != null ||
+        _onboardingSquare == null ||
+        (defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.android)) {
+      return;
+    }
+    _onboardingTransformTimer = Timer(_onboardingTransformWait, () {
+      _onboardingTransformTimer = null;
+      if (!mounted || _onboardingTransformed) return;
+      final target = _onboardingSquare;
+      if (target == null) return;
+      _onboardingTransformHintShown = true;
+      setState(() => _onboardingTransformTargetId = target.id);
+      _showOnboardingHintFor(_onboardingHintDuration);
+    });
+  }
+
+  void _recordOnboardingTransformed() {
+    if (!_onboardingInitialized || _onboardingTransformed) return;
+    _onboardingTransformed = true;
+    _onboardingTransformTimer?.cancel();
+    _onboardingTransformTimer = null;
+    _onboardingHintHideTimer?.cancel();
+    _onboardingHintHideTimer = null;
+    if (mounted) {
+      setState(() => _onboardingTransformTargetId = null);
+    }
+    _syncOnboardingAnimation();
+    final preferences = _onboardingPreferences;
+    if (preferences != null) {
+      unawaited(preferences.setBool(_onboardingTransformedKey, true));
+    }
+  }
+
+  void _scheduleMenuCueIfNeeded() {
+    if (!_onboardingInitialized ||
+        _onboardingMenuOpened ||
+        _onboardingMenuTimer != null) {
+      return;
+    }
+    _onboardingMenuTimer = Timer(_onboardingMenuWait, () {
+      _onboardingMenuTimer = null;
+      if (!mounted || _onboardingMenuOpened) return;
+      setState(() => _onboardingMenuCueVisible = true);
+      _syncOnboardingAnimation();
+      _onboardingMenuHideTimer?.cancel();
+      _onboardingMenuHideTimer = Timer(_onboardingMenuCueDuration, () {
+        if (!mounted) return;
+        setState(() => _onboardingMenuCueVisible = false);
+        _syncOnboardingAnimation();
+      });
+    });
+  }
+
+  void _recordOnboardingMenuOpened() {
+    if (!_onboardingInitialized || _onboardingMenuOpened) return;
+    _onboardingMenuOpened = true;
+    _onboardingMenuTimer?.cancel();
+    _onboardingMenuTimer = null;
+    _onboardingMenuHideTimer?.cancel();
+    _onboardingMenuHideTimer = null;
+    if (mounted) {
+      setState(() => _onboardingMenuCueVisible = false);
+    }
+    _syncOnboardingAnimation();
+    final preferences = _onboardingPreferences;
+    if (preferences != null) {
+      unawaited(preferences.setBool(_onboardingMenuOpenedKey, true));
+    }
+  }
+
+  void _cancelOnboardingReplay() {
+    for (final timer in _onboardingReplayTimers) {
+      timer.cancel();
+    }
+    _onboardingReplayTimers.clear();
+  }
+
+  void _replayOnboardingGestures() {
+    _cancelOnboardingReplay();
+    _onboardingHintHideTimer?.cancel();
+    _onboardingHintHideTimer = null;
+    final target = _onboardingSquare;
+    final targetId = target?.id;
+
+    setState(() {
+      _instructionsVisible = false;
+      _onboardingTapTapVisible = true;
+      _onboardingTipTargetId = null;
+      _onboardingHollowTargetId = null;
+      _onboardingTransformTargetId = null;
+    });
+    _syncOnboardingAnimation();
+
+    if (targetId == null) {
+      _onboardingReplayTimers.add(
+        Timer(const Duration(seconds: 4), () {
+          if (!mounted) return;
+          setState(() => _onboardingTapTapVisible = false);
+          _syncOnboardingAnimation();
+        }),
+      );
+      return;
+    }
+
+    _onboardingReplayTimers.add(
+      Timer(const Duration(milliseconds: 2400), () {
+        if (!mounted) return;
+        setState(() {
+          _onboardingTapTapVisible = false;
+          _onboardingTipTargetId = targetId;
+        });
+      }),
+    );
+    _onboardingReplayTimers.add(
+      Timer(const Duration(milliseconds: 5400), () {
+        if (!mounted) return;
+        setState(() {
+          _onboardingTipTargetId = null;
+          _onboardingHollowTargetId = targetId;
+        });
+      }),
+    );
+    _onboardingReplayTimers.add(
+      Timer(const Duration(milliseconds: 8400), () {
+        if (!mounted) return;
+        setState(() {
+          _onboardingHollowTargetId = null;
+          _onboardingTransformTargetId = targetId;
+        });
+      }),
+    );
+    _onboardingReplayTimers.add(
+      Timer(const Duration(milliseconds: 12400), () {
+        if (!mounted) return;
+        setState(() => _onboardingTransformTargetId = null);
+        _syncOnboardingAnimation();
+      }),
+    );
   }
 
   void _observeOnboardingState() {
@@ -692,6 +872,8 @@ class _BoardScreenState extends State<BoardScreen>
       _scheduleTipHintIfPossible();
     } else if (_onboardingTipped && !_onboardingHollowed) {
       _scheduleHollowHintIfPossible();
+    } else if (_onboardingHollowed && !_onboardingTransformed) {
+      _scheduleTransformHintIfPossible();
     }
   }
 
@@ -1850,11 +2032,14 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   void _endTransformWithSnaps({bool includeGrid = true}) {
+    final usedTransform = _transformTranslated || _transformRotated;
     _controller.endTransform(
       snapDegrees: _rotationSnapDegrees,
       snapPosition: includeGrid ? _nearestUnderlaySnapPoint() : null,
     );
+    if (usedTransform) _recordOnboardingTransformed();
     _transformTranslated = false;
+    _transformRotated = false;
   }
 
   Future<void> _runLightRandomizer() async {
@@ -3232,6 +3417,9 @@ class _BoardScreenState extends State<BoardScreen>
       if (delta.distanceTo(PhysicalPoint.zero) > 0.35) {
         _transformTranslated = true;
       }
+      if (rotationDelta.abs() > 0.025) {
+        _transformRotated = true;
+      }
       _queueTransform(delta, rotationDelta);
       return;
     }
@@ -3524,6 +3712,9 @@ class _BoardScreenState extends State<BoardScreen>
     if (delta.distanceTo(PhysicalPoint.zero) > 0.35) {
       _transformTranslated = true;
     }
+    if (rotationDelta.abs() > 0.025) {
+      _transformRotated = true;
+    }
     _controller.transformBy(delta, rotationDelta);
   }
 
@@ -3563,6 +3754,7 @@ class _BoardScreenState extends State<BoardScreen>
       final scroll = event.scrollDelta.dy.abs() >= event.scrollDelta.dx.abs()
           ? event.scrollDelta.dy
           : event.scrollDelta.dx;
+      if (scroll.abs() > 0.5) _transformRotated = true;
       _controller.transformBy(const PhysicalPoint(0, 0), -scroll * 0.008);
     } else {
       final delta = PhysicalPoint(
@@ -3606,6 +3798,7 @@ class _BoardScreenState extends State<BoardScreen>
     _lastRotation = 0;
     _transformStarted = false;
     _transformTranslated = false;
+    _transformRotated = false;
     _pendingTransformDelta = PhysicalPoint.zero;
     _pendingTransformRotation = 0;
   }
@@ -4010,14 +4203,29 @@ class _BoardScreenState extends State<BoardScreen>
     });
   }
 
-  Widget _menu() => IconButton(
-    tooltip: tr('Menu'),
-    onPressed: _showMainMenu,
-    icon: SizedBox(
-      width: 36,
-      height: 36,
-      child: CustomPaint(
-        painter: _MenuCirclePainter(snapDegrees: _rotationSnapDegrees),
+  Widget _menu() => AnimatedBuilder(
+    animation: _onboardingAnimation,
+    builder: (context, child) {
+      final breath = _onboardingMenuCueVisible
+          ? 0.5 - 0.5 * math.cos(_onboardingAnimation.value * math.pi * 2)
+          : 0.0;
+      return Transform.scale(
+        scale: 1 + breath * 0.08,
+        child: Opacity(
+          opacity: 0.82 + breath * 0.18,
+          child: child,
+        ),
+      );
+    },
+    child: IconButton(
+      tooltip: tr('Menu'),
+      onPressed: _showMainMenu,
+      icon: SizedBox(
+        width: 36,
+        height: 36,
+        child: CustomPaint(
+          painter: _MenuCirclePainter(snapDegrees: _rotationSnapDegrees),
+        ),
       ),
     ),
   );
@@ -4100,6 +4308,7 @@ class _BoardScreenState extends State<BoardScreen>
       );
 
   Future<void> _showMainMenu() async {
+    _recordOnboardingMenuOpened();
     await _ensureMotionPermission();
     if (!mounted) return;
     final choice = await _showCompactMenu([
@@ -4969,18 +5178,26 @@ class _BoardScreenState extends State<BoardScreen>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.center,
-                      child: TextButton(
-                        onPressed: _showLanguageMenu,
-                        child: const Text(
-                          languagePickerGlyph,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _replayOnboardingGestures,
+                          icon: const Icon(Icons.gesture, size: 18),
+                          label: Text(tr('Show gestures again')),
+                        ),
+                        TextButton(
+                          onPressed: _showLanguageMenu,
+                          child: const Text(
+                            languagePickerGlyph,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -5379,6 +5596,9 @@ class _BoardScreenState extends State<BoardScreen>
             hollowTarget: _onboardingHollowTargetId == null
                 ? null
                 : _controller.state.elementById(_onboardingHollowTargetId!),
+            transformTarget: _onboardingTransformTargetId == null
+                ? null
+                : _controller.state.elementById(_onboardingTransformTargetId!),
           ),
         ),
         if (_activeToys.contains(_ToyKind.wireDie))
