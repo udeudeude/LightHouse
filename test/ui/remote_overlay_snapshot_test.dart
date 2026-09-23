@@ -26,7 +26,7 @@ void main() {
     expect(arcadeDiceChoices, hasLength(11));
     expect(
       arcadeDiceChoices.map((choice) => choice.kind).toSet(),
-      hasLength(6),
+      hasLength(11),
     );
     expect(arcadeDiceChoices.map((choice) => choice.id), contains('fate'));
   });
