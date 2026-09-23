@@ -20,5 +20,6 @@ jobs:
             ! -path 'lib/ui/board_screen.dart' \
             ! -path 'lib/ui/dice_bubble.dart' \
             -print0 | xargs -0 dart format --output=none --set-exit-if-changed
+      - run: dart format --output=none --set-exit-if-changed lib/ui/dice_bubble.dart test/ui/dice_bubble_art_test.dart test/ui/remote_overlay_snapshot_test.dart
       - run: flutter analyze
       - run: flutter test
