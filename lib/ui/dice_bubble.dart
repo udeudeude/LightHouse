@@ -327,10 +327,9 @@ class _DiceBubbleState extends State<DiceBubble>
     _pendingCenterFraction = Offset(snapshot.xFraction, snapshot.yFraction);
     _bubbleScale = snapshot.sizeScale.clamp(0.65, 2.4).toDouble();
     if (_surfaceSize != Size.zero) {
-      _bubbleScale = math.min(
-        _bubbleScale,
-        _maximumBubbleScaleFor(_surfaceSize),
-      );
+      _bubbleScale = math
+          .min(_bubbleScale, _maximumBubbleScaleFor(_surfaceSize))
+          .toDouble();
       _center = _clampCenter(
         Offset(
           snapshot.xFraction * _surfaceSize.width,
@@ -510,9 +509,13 @@ class _DiceBubbleState extends State<DiceBubble>
   double _maximumBubbleScaleFor(Size size) {
     if (size == Size.zero) return 2.4;
     final availableRadius =
-        (math.min(size.width, size.height) - 8).clamp(42.0, double.infinity) /
+        (math.min(size.width, size.height) - 8)
+            .clamp(42.0, double.infinity)
+            .toDouble() /
         2;
-    return math.max(0.65, math.min(2.4, availableRadius / (70 * _baseScale)));
+    return math
+        .max(0.65, math.min(2.4, availableRadius / (70 * _baseScale)))
+        .toDouble();
   }
 
   Offset _clampCenter(Offset center, Size size) => Offset(
@@ -732,7 +735,9 @@ class _DiceBubbleState extends State<DiceBubble>
       } else {
         _center = _clampCenter(_center, size);
       }
-      _bubbleScale = math.min(_bubbleScale, _maximumBubbleScaleFor(size));
+      _bubbleScale = math
+          .min(_bubbleScale, _maximumBubbleScaleFor(size))
+          .toDouble();
       final selected = [for (final id in _selectedIds) _choice(id)];
       return Stack(
         children: [
@@ -742,6 +747,7 @@ class _DiceBubbleState extends State<DiceBubble>
             width: _radius * 2,
             height: _radius * 2,
             child: GestureDetector(
+              key: const Key('dice-bubble-gesture'),
               behavior: HitTestBehavior.opaque,
               onScaleStart: (details) {
                 _twoFingerMove = details.pointerCount >= 2;
