@@ -1571,7 +1571,6 @@ class _DiceBubblePainter extends CustomPainter {
     _Rotation3 rotation,
     int value,
   ) {
-    final sides = arcadeDieSides(kind);
     final silhouetteVertices = switch (kind) {
       ArcadeDieKind.d4 => 3,
       ArcadeDieKind.d8 => 4,
