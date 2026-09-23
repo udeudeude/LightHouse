@@ -39,7 +39,7 @@ void main() {
     expect(manifest.containsKey('icons'), isFalse);
 
     final index = File('web/index.html').readAsStringSync();
-    const manifestLink = 'rel="manifest" href="manifest.json?v=29"';
+    const manifestLink = 'rel="manifest" href="manifest.json?v=30"';
     const touchIcon =
         'rel="apple-touch-icon" sizes="180x180" '
         'href="icons/Icon-180.png"';
@@ -50,7 +50,7 @@ void main() {
     expect(_isCompletePng(icon), isTrue);
 
     final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
-    expect(bootstrap, contains("lighthouseBuildVersion = '29'"));
+    expect(bootstrap, contains("lighthouseBuildVersion = '30'"));
     expect(bootstrap, isNot(contains('lighthousePrepareFreshRuntime')));
   });
 }
