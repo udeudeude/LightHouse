@@ -4203,14 +4203,29 @@ class _BoardScreenState extends State<BoardScreen>
     });
   }
 
-  Widget _menu() => IconButton(
-    tooltip: tr('Menu'),
-    onPressed: _showMainMenu,
-    icon: SizedBox(
-      width: 36,
-      height: 36,
-      child: CustomPaint(
-        painter: _MenuCirclePainter(snapDegrees: _rotationSnapDegrees),
+  Widget _menu() => AnimatedBuilder(
+    animation: _onboardingAnimation,
+    builder: (context, child) {
+      final breath = _onboardingMenuCueVisible
+          ? 0.5 - 0.5 * math.cos(_onboardingAnimation.value * math.pi * 2)
+          : 0.0;
+      return Transform.scale(
+        scale: 1 + breath * 0.08,
+        child: Opacity(
+          opacity: 0.82 + breath * 0.18,
+          child: child,
+        ),
+      );
+    },
+    child: IconButton(
+      tooltip: tr('Menu'),
+      onPressed: _showMainMenu,
+      icon: SizedBox(
+        width: 36,
+        height: 36,
+        child: CustomPaint(
+          painter: _MenuCirclePainter(snapDegrees: _rotationSnapDegrees),
+        ),
       ),
     ),
   );
@@ -4293,6 +4308,7 @@ class _BoardScreenState extends State<BoardScreen>
       );
 
   Future<void> _showMainMenu() async {
+    _recordOnboardingMenuOpened();
     await _ensureMotionPermission();
     if (!mounted) return;
     final choice = await _showCompactMenu([
@@ -5162,18 +5178,26 @@ class _BoardScreenState extends State<BoardScreen>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.center,
-                      child: TextButton(
-                        onPressed: _showLanguageMenu,
-                        child: const Text(
-                          languagePickerGlyph,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _replayOnboardingGestures,
+                          icon: const Icon(Icons.gesture, size: 18),
+                          label: Text(tr('Show gestures again')),
+                        ),
+                        TextButton(
+                          onPressed: _showLanguageMenu,
+                          child: const Text(
+                            languagePickerGlyph,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -5572,6 +5596,9 @@ class _BoardScreenState extends State<BoardScreen>
             hollowTarget: _onboardingHollowTargetId == null
                 ? null
                 : _controller.state.elementById(_onboardingHollowTargetId!),
+            transformTarget: _onboardingTransformTargetId == null
+                ? null
+                : _controller.state.elementById(_onboardingTransformTargetId!),
           ),
         ),
         if (_activeToys.contains(_ToyKind.wireDie))
