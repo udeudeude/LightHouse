@@ -50,6 +50,11 @@ void main() {
     expect(arcadeDieSides(ArcadeDieKind.d20), 20);
   });
 
+  test('D10 kite short edges are about three quarters of long edges', () {
+    expect(d10KiteTargetEdgeRatio, 0.75);
+    expect(d10KiteShortToLongEdgeRatio(), closeTo(0.75, 0.002));
+  });
+
   test('selector tile cycle respects remaining three-die capacity', () {
     expect(
       [
