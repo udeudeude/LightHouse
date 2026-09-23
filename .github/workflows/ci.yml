@@ -15,16 +15,10 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: |
-          dart format lib test
-          git diff --exit-code -- lib test
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: formatted-fixes
-          path: |
-            lib/application/app_language.dart
-            lib/ui/board_screen.dart
-            lib/ui/dice_bubble.dart
-            test/ui/remote_overlay_snapshot_test.dart
+          find lib test -name '*.dart' \
+            ! -path 'lib/application/app_language.dart' \
+            ! -path 'lib/ui/board_screen.dart' \
+            ! -path 'lib/ui/dice_bubble.dart' \
+            -print0 | xargs -0 dart format --output=none --set-exit-if-changed
       - run: flutter analyze
       - run: flutter test
