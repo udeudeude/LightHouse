@@ -55,6 +55,35 @@ String tr(String english) {
 }
 
 const _es = <String, String>{
+  'Desktop / trackpad': 'Escritorio / panel táctil',
+  'Android tablet': 'Tableta Android',
+  'Android phone': 'Teléfono Android',
+  'Touch device': 'Dispositivo táctil',
+  'Light Lottery': 'Lotería de luz',
+  'Entropy Delete': 'Borrado entrópico',
+  'Turn Timer': 'Temporizador de turno',
+  'Red Sweep': 'Barrido rojo',
+  'Ghost Paths': 'Rastros fantasma',
+  'Random Event Zone': 'Zona de evento aleatorio',
+  'Breathing': 'Respiración',
+  'Nest Cycle': 'Ciclo de nido',
+  'Radar': 'Radar',
+  'Dice Bubble': 'Burbuja de dados',
+  'Side Guns': 'Cañones laterales',
+  'Corner Ricochet': 'Rebote de esquina',
+  'Hot Potato': 'Patata caliente',
+  'Constellation Draw': 'Dibujar constelación',
+  'Heartbeat': 'Latido',
+  'Triangle Bounce': 'Rebote triangular',
+  'Square Chase': 'Persecución cuadrada',
+  'Press/release to roll; two-finger drag moves; latch tiles cycle die counts':
+      'Pulsa y suelta para lanzar; arrastra con dos dedos para mover; las fichas del cierre cambian la cantidad de dados',
+  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts':
+      'Toca o mantén y suelta para lanzar; arrastra con dos dedos para mover; las fichas del cierre cambian la cantidad de dados',
+  'Tap or drag from tray; drag stones; double-click to remove':
+      'Toca o arrastra desde la bandeja; arrastra las piedras; doble clic para quitar',
+  'Tap or drag from tray; drag stones; double-tap to remove':
+      'Toca o arrastra desde la bandeja; arrastra las piedras; doble toque para quitar',
   'Thanks for playing with LightHouse!': '¡Gracias por jugar con LightHouse!',
   'Menu': 'Menú', 'File': 'Archivo', 'Edit': 'Editar',
   'Boards': 'Tableros', 'Toys': 'Juguetes', 'Display': 'Pantalla',
@@ -133,6 +162,35 @@ const _es = <String, String>{
 };
 
 const _ja = <String, String>{
+  'Desktop / trackpad': 'デスクトップ / トラックパッド',
+  'Android tablet': 'Androidタブレット',
+  'Android phone': 'Androidスマートフォン',
+  'Touch device': 'タッチ端末',
+  'Light Lottery': 'ライト・ロッタリー',
+  'Entropy Delete': 'エントロピー削除',
+  'Turn Timer': 'ターンタイマー',
+  'Red Sweep': 'レッドスイープ',
+  'Ghost Paths': 'ゴーストパス',
+  'Random Event Zone': 'ランダムイベントゾーン',
+  'Breathing': 'ブリージング',
+  'Nest Cycle': 'ネストサイクル',
+  'Radar': 'レーダー',
+  'Dice Bubble': 'ダイスバブル',
+  'Side Guns': 'サイドガン',
+  'Corner Ricochet': 'コーナー跳弾',
+  'Hot Potato': 'ホットポテト',
+  'Constellation Draw': '星座描画',
+  'Heartbeat': 'ハートビート',
+  'Triangle Bounce': 'トライアングルバウンス',
+  'Square Chase': 'スクエアチェイス',
+  'Press/release to roll; two-finger drag moves; latch tiles cycle die counts':
+      '押して離すとロール。2本指ドラッグで移動。ラッチでダイス数を変更',
+  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts':
+      'タップまたは長押しして離すとロール。2本指ドラッグで移動。ラッチでダイス数を変更',
+  'Tap or drag from tray; drag stones; double-click to remove':
+      'トレイからタップまたはドラッグ。ストーンをドラッグ。ダブルクリックで削除',
+  'Tap or drag from tray; drag stones; double-tap to remove':
+      'トレイからタップまたはドラッグ。ストーンをドラッグ。ダブルタップで削除',
   'Thanks for playing with LightHouse!': 'LightHouseで遊んでくれてありがとう！',
   'Menu': 'メニュー', 'File': 'ファイル', 'Edit': '編集',
   'Boards': 'ボード', 'Toys': 'トイ', 'Display': '表示',
