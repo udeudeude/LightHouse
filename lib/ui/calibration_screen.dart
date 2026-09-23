@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../application/app_language.dart';
+
 class CalibrationScreen extends StatefulWidget {
   const CalibrationScreen({
     super.key,
@@ -47,8 +49,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Calibrate physical size',
+                  Text(
+                    tr('Calibrate physical size'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -57,9 +59,12 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                   ),
                   const SizedBox(height: 20),
                   SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(value: false, label: Text('Ruler')),
-                      ButtonSegment(value: true, label: Text('Large pyramid')),
+                    segments: [
+                      ButtonSegment(value: false, label: Text(tr('Ruler'))),
+                      ButtonSegment(
+                        value: true,
+                        label: Text(tr('Large pyramid')),
+                      ),
                     ],
                     selected: {_usePyramid},
                     onSelectionChanged: (selection) {
@@ -69,8 +74,12 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                   const SizedBox(height: 20),
                   Text(
                     _usePyramid
-                        ? 'Place a Large pyramid upright over the filled square. Adjust the slider until its base matches the square exactly.'
-                        : 'Hold a ruler to the screen with 0 aligned to the fixed left end. Adjust the slider until the right end reaches exactly 50 mm.',
+                        ? tr(
+                            'Place a Large pyramid upright over the filled square. Adjust the slider until its base matches the square exactly.',
+                          )
+                        : tr(
+                            'Hold a ruler to the screen with 0 aligned to the fixed left end. Adjust the slider until the right end reaches exactly 50 mm.',
+                          ),
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
@@ -122,24 +131,24 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                       if (widget.onCancel != null) ...[
                         OutlinedButton(
                           onPressed: widget.onCancel,
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 12,
                             ),
-                            child: Text('Cancel'),
+                            child: Text(tr('Cancel')),
                           ),
                         ),
                         const SizedBox(width: 12),
                       ],
                       FilledButton(
                         onPressed: () => widget.onComplete(_logicalPixelsPerMm),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 12,
                           ),
-                          child: Text('Use calibration'),
+                          child: Text(tr('Use calibration')),
                         ),
                       ),
                     ],
