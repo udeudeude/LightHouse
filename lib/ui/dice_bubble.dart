@@ -4,9 +4,31 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../application/app_language.dart';
 import 'pyramid_love_lightning_paths.dart';
 
-enum ArcadeDieKind { standard, lightning, pyramid, treehouse, color, fate }
+enum ArcadeDieKind {
+  standard,
+  lightning,
+  pyramid,
+  treehouse,
+  color,
+  fate,
+  d4,
+  d8,
+  d10,
+  d12,
+  d20,
+}
+
+int arcadeDieSides(ArcadeDieKind kind) => switch (kind) {
+  ArcadeDieKind.d4 => 4,
+  ArcadeDieKind.d8 => 8,
+  ArcadeDieKind.d10 => 10,
+  ArcadeDieKind.d12 => 12,
+  ArcadeDieKind.d20 => 20,
+  _ => 6,
+};
 
 bool arcadeDieUsesDarkBody(ArcadeDieKind kind) =>
     kind == ArcadeDieKind.lightning || kind == ArcadeDieKind.treehouse;
@@ -66,6 +88,11 @@ const arcadeDiceChoices = <ArcadeDieChoice>[
   ArcadeDieChoice('treehouse', ArcadeDieKind.treehouse, 'Treehouse die'),
   ArcadeDieChoice('color', ArcadeDieKind.color, 'Color die'),
   ArcadeDieChoice('fate', ArcadeDieKind.fate, 'Fudge / Fate die'),
+  ArcadeDieChoice('d4', ArcadeDieKind.d4, 'D4'),
+  ArcadeDieChoice('d8', ArcadeDieKind.d8, 'D8'),
+  ArcadeDieChoice('d10', ArcadeDieKind.d10, 'D10'),
+  ArcadeDieChoice('d12', ArcadeDieKind.d12, 'D12'),
+  ArcadeDieChoice('d20', ArcadeDieKind.d20, 'D20'),
 ];
 
 String arcadeDieBaseId(String instanceId) {
@@ -77,6 +104,18 @@ String arcadeDieBaseId(String instanceId) {
 
 bool isKnownArcadeDieInstance(String instanceId) =>
     arcadeDiceChoices.any((choice) => choice.id == arcadeDieBaseId(instanceId));
+
+ArcadeDieChoice? arcadeDieChoiceForInstance(String instanceId) {
+  final baseId = arcadeDieBaseId(instanceId);
+  return arcadeDiceChoices
+      .where((choice) => choice.id == baseId)
+      .firstOrNull;
+}
+
+int arcadeDieSidesForInstance(String instanceId) =>
+    arcadeDieChoiceForInstance(instanceId) case final choice?
+    ? arcadeDieSides(choice.kind)
+    : 6;
 
 class DiceBubbleSnapshot {
   const DiceBubbleSnapshot({
@@ -129,8 +168,10 @@ class DiceBubbleSnapshot {
       if (rawFaces is Map) {
         for (final entry in rawFaces.entries) {
           if (entry.key is! String || entry.value is! num) continue;
+          final id = entry.key as String;
           final value = (entry.value as num).toInt();
-          if (value >= 0 && value < 6) faces[entry.key as String] = value;
+          final sides = arcadeDieSidesForInstance(id);
+          if (value >= 0 && value < sides) faces[id] = value;
         }
       }
       return DiceBubbleSnapshot(
@@ -298,8 +339,9 @@ class _DiceBubbleState extends State<DiceBubble>
     for (final id in _selectedIds) {
       final oldFace = previousFaces[id] ?? _faces[id] ?? 0;
       final face = _faces[id] ?? 0;
-      final start = _targetForFace(oldFace);
-      final target = _targetForFace(face);
+      final sides = arcadeDieSides(_choice(id).kind);
+      final start = _targetForFace(oldFace, sides: sides);
+      final target = _targetForFace(face, sides: sides);
       _plans[id] = _SpinPlan(
         start: start,
         end: _Rotation3(
@@ -368,7 +410,7 @@ class _DiceBubbleState extends State<DiceBubble>
       while (_choiceCount(choice.id) < desired && _selectedIds.length < 3) {
         final id = '${choice.id}#${_nextInstanceSerial++}';
         _selectedIds.add(id);
-        _faces[id] = _random.nextInt(6);
+        _faces[id] = _random.nextInt(arcadeDieSides(choice.kind));
       }
     });
     _emitSnapshot();
@@ -392,14 +434,24 @@ class _DiceBubbleState extends State<DiceBubble>
   double _normalize(double radians) =>
       ((radians + math.pi) % (2 * math.pi)) - math.pi;
 
-  _Rotation3 _targetForFace(int face) => switch (face) {
-    0 => const _Rotation3(0, 0, 0),
-    1 => const _Rotation3(-math.pi / 2, 0, 0),
-    2 => const _Rotation3(0, -math.pi / 2, 0),
-    3 => const _Rotation3(0, math.pi / 2, 0),
-    4 => const _Rotation3(math.pi / 2, 0, 0),
-    _ => const _Rotation3(0, math.pi, 0),
-  };
+  _Rotation3 _targetForFace(int face, {int sides = 6}) {
+    if (sides != 6) {
+      final angle = face * 2 * math.pi / sides;
+      return _Rotation3(
+        0.34 * math.sin(angle * 1.7),
+        0.30 * math.cos(angle * 1.3),
+        angle,
+      );
+    }
+    return switch (face) {
+      0 => const _Rotation3(0, 0, 0),
+      1 => const _Rotation3(-math.pi / 2, 0, 0),
+      2 => const _Rotation3(0, -math.pi / 2, 0),
+      3 => const _Rotation3(0, math.pi / 2, 0),
+      4 => const _Rotation3(math.pi / 2, 0, 0),
+      _ => const _Rotation3(0, math.pi, 0),
+    };
+  }
 
   double _spunEnd(double target) {
     final turns = 2 + _random.nextInt(3);
@@ -416,14 +468,18 @@ class _DiceBubbleState extends State<DiceBubble>
       return;
     }
     for (final id in _selectedIds) {
-      final old = _plans[id]?.rotationAt(1) ?? _targetForFace(_faces[id] ?? 0);
+      final choice = _choice(id);
+      final sides = arcadeDieSides(choice.kind);
+      final old =
+          _plans[id]?.rotationAt(1) ??
+          _targetForFace(_faces[id] ?? 0, sides: sides);
       final start = _Rotation3(
         _normalize(old.x),
         _normalize(old.y),
         _normalize(old.z),
       );
-      final face = _random.nextInt(6);
-      final target = _targetForFace(face);
+      final face = _random.nextInt(sides);
+      final target = _targetForFace(face, sides: sides);
       _faces[id] = face;
       _plans[id] = _SpinPlan(
         start: start,
@@ -496,7 +552,7 @@ class _DiceBubbleState extends State<DiceBubble>
                     Padding(
                       padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
                       child: Text(
-                        'Dice · ${_selectedIds.length}/3 selected',
+                        '${tr('Dice')} · ${_selectedIds.length}/3 ${tr('selected')}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 17,
@@ -520,7 +576,7 @@ class _DiceBubbleState extends State<DiceBubble>
                         final count = _choiceCount(choice.id);
                         final canAdd = count < _maximumChoiceCount(choice);
                         return Tooltip(
-                          message: choice.label,
+                          message: tr(choice.label),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(10),
                             onTap: () {
@@ -571,7 +627,7 @@ class _DiceBubbleState extends State<DiceBubble>
                                     left: 2,
                                     bottom: 2,
                                     child: IconButton(
-                                      tooltip: 'Remove one ${choice.label}',
+                                      tooltip: '${tr('Remove one')} ${tr(choice.label)}',
                                       visualDensity: VisualDensity.compact,
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(
@@ -591,7 +647,7 @@ class _DiceBubbleState extends State<DiceBubble>
                                     right: 2,
                                     bottom: 2,
                                     child: IconButton(
-                                      tooltip: 'Add one ${choice.label}',
+                                      tooltip: '${tr('Add one')} ${tr(choice.label)}',
                                       visualDensity: VisualDensity.compact,
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(
