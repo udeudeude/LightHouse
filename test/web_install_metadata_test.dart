@@ -7,12 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 bool _isCompletePng(File file) {
   final bytes = file.readAsBytesSync();
   const signature = <int>[137, 80, 78, 71, 13, 10, 26, 10];
-  if (bytes.length < signature.length ||
-      !List<int>.generate(
-        signature.length,
-        (index) => bytes[index],
-      ).every((value) => value == signature[signature.indexOf(value)])) {
-    return false;
+  if (bytes.length < signature.length) return false;
+  for (var index = 0; index < signature.length; index += 1) {
+    if (bytes[index] != signature[index]) return false;
   }
 
   final data = ByteData.sublistView(Uint8List.fromList(bytes));
