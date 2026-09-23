@@ -1939,9 +1939,9 @@ class _DiceBubblePainter extends CustomPainter {
       final symmetricWidth = 2 * math.min(left, right);
       final symmetricHeight = 2 * math.min(up, down);
       final faceFill = switch (face.vertices.length) {
-        3 => 0.76,
-        4 => 0.86,
-        _ => 0.82,
+        3 => 0.92,
+        4 => 0.92,
+        _ => 0.88,
       };
       final value = face.index + 1;
       const sampleFontSize = 100.0;
