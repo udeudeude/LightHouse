@@ -465,11 +465,11 @@ class _BoardScreenState extends State<BoardScreen>
     );
 
     _onboardingCreated =
-        preferences.getBool(_onboardingCreatedKey) ?? hasFootprint;
+        preferences.getBool(_onboardingCreatedKey) == true || hasFootprint;
     _onboardingTipped =
-        preferences.getBool(_onboardingTippedKey) ?? hasFlat;
+        preferences.getBool(_onboardingTippedKey) == true || hasFlat;
     _onboardingHollowed =
-        preferences.getBool(_onboardingHollowedKey) ?? hasHollow;
+        preferences.getBool(_onboardingHollowedKey) == true || hasHollow;
     _onboardingPreviousElements = {
       for (final element in elements) element.id: element,
     };
