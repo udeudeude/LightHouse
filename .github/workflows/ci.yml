@@ -29,7 +29,7 @@ jobs:
           name: polyhedral-formatted
           path: lib/ui/dice_bubble.dart
       - name: Commit formatter output on development branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/real-polyhedral-dice'
+        if: github.ref == 'refs/heads/real-polyhedral-dice' || github.head_ref == 'real-polyhedral-dice'
         run: |
           if ! git diff --quiet -- lib/ui/dice_bubble.dart test/ui/dice_bubble_art_test.dart test/ui/remote_overlay_snapshot_test.dart; then
             git config user.name "github-actions[bot]"
