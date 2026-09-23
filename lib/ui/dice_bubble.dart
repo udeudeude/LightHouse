@@ -1758,14 +1758,7 @@ class _DiceBubblePainter extends CustomPainter {
       ArcadeDieKind.d12,
       ArcadeDieKind.d20,
     }.contains(kind)) {
-      _paintPolyhedralDie(
-        canvas,
-        center,
-        scale,
-        kind,
-        rotation,
-        faceIndex + 1,
-      );
+      _paintPolyhedralDie(canvas, center, scale, kind, rotation);
       return;
     }
 
@@ -1822,147 +1815,118 @@ class _DiceBubblePainter extends CustomPainter {
     double scale,
     ArcadeDieKind kind,
     _Rotation3 rotation,
-    int value,
   ) {
-    final silhouetteVertices = switch (kind) {
-      ArcadeDieKind.d4 => 3,
-      ArcadeDieKind.d8 => 4,
-      ArcadeDieKind.d10 => 10,
-      ArcadeDieKind.d12 => 5,
-      ArcadeDieKind.d20 => 6,
-      _ => 6,
-    };
-    final radius = scale * switch (kind) {
-      ArcadeDieKind.d4 => 1.18,
-      ArcadeDieKind.d8 => 1.16,
-      ArcadeDieKind.d10 => 1.14,
-      ArcadeDieKind.d12 => 1.12,
-      ArcadeDieKind.d20 => 1.16,
+    final mesh = _polyMeshForKind(kind);
+    final meshScale = scale * switch (kind) {
+      ArcadeDieKind.d4 => 1.32,
+      ArcadeDieKind.d8 => 1.28,
+      ArcadeDieKind.d10 => 1.30,
+      ArcadeDieKind.d12 => 1.32,
+      ArcadeDieKind.d20 => 1.34,
       _ => 1.0,
     };
-    final tiltScale =
-        0.88 + 0.12 * math.cos(rotation.x) * math.cos(rotation.y);
+    final rotated = [
+      for (final vertex in mesh.vertices) _rotate(vertex, rotation),
+    ];
+    final projected = [
+      for (final vertex in rotated) _project(vertex, center, meshScale),
+    ];
 
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(rotation.z * 0.22);
-
-    final points = <Offset>[];
-    for (var i = 0; i < silhouetteVertices; i += 1) {
-      final angle = -math.pi / 2 + i * 2 * math.pi / silhouetteVertices;
-      final alternating =
-          kind == ArcadeDieKind.d10 && i.isOdd ? 0.76 : 1.0;
-      points.add(
-        Offset(
-          math.cos(angle) * radius * alternating,
-          math.sin(angle) * radius * alternating * tiltScale,
-        ),
-      );
+    final visible = <({ _Face face, double depth, _V3 normal })>[];
+    for (final face in mesh.faces) {
+      final normal = _rotate(face.normal, rotation);
+      if (normal.z <= 0.015) continue;
+      final depth =
+          face.vertices
+              .map((index) => rotated[index].z)
+              .reduce((a, b) => a + b) /
+          face.vertices.length;
+      visible.add((face: face, depth: depth, normal: normal));
     }
+    visible.sort((a, b) => a.depth.compareTo(b.depth));
 
-    final body = Path();
-    for (var i = 0; i < points.length; i += 1) {
-      final p = points[i];
-      if (i == 0) {
-        body.moveTo(p.dx, p.dy);
-      } else {
-        body.lineTo(p.dx, p.dy);
-      }
-    }
-    body.close();
-    canvas.drawPath(
-      body,
-      Paint()..color = Colors.white.withValues(alpha: 0.92),
-    );
+    final fill = Paint()..color = Colors.white.withValues(alpha: 0.93);
     final edge = Paint()
-      ..color = Colors.black.withValues(alpha: 0.82)
+      ..color = Colors.black.withValues(alpha: 0.88)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.0, scale * 0.075)
+      ..strokeWidth = math.max(0.9, scale * 0.072)
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(body, edge);
 
-    switch (kind) {
-      case ArcadeDieKind.d4:
-        for (final p in points) {
-          canvas.drawLine(Offset.zero, p, edge);
+    for (final item in visible) {
+      final face = item.face;
+      final polygon = <Offset>[
+        for (final index in face.vertices) projected[index],
+      ];
+      final path = Path();
+      for (var i = 0; i < polygon.length; i += 1) {
+        final point = polygon[i];
+        if (i == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
         }
-      case ArcadeDieKind.d8:
-        canvas.drawLine(points[0], points[2], edge);
-        canvas.drawLine(points[1], points[3], edge);
-        canvas.drawLine(
-          points[1],
-          Offset(0, radius * 0.28 * tiltScale),
-          edge,
-        );
-        canvas.drawLine(
-          points[3],
-          Offset(0, radius * 0.28 * tiltScale),
-          edge,
-        );
-      case ArcadeDieKind.d10:
-        for (var i = 0; i < points.length; i += 2) {
-          canvas.drawLine(Offset.zero, points[i], edge);
-        }
-      case ArcadeDieKind.d12:
-        final inner = <Offset>[
-          for (var i = 0; i < 5; i += 1)
-            Offset(
-              math.cos(-math.pi / 2 + i * 2 * math.pi / 5) * radius * 0.47,
-              math.sin(-math.pi / 2 + i * 2 * math.pi / 5) *
-                  radius *
-                  0.47 *
-                  tiltScale,
-            ),
-        ];
-        final innerPath = Path();
-        for (var i = 0; i < inner.length; i += 1) {
-          final p = inner[i];
-          if (i == 0) {
-            innerPath.moveTo(p.dx, p.dy);
-          } else {
-            innerPath.lineTo(p.dx, p.dy);
-          }
-          canvas.drawLine(p, points[i], edge);
-        }
-        innerPath.close();
-        canvas.drawPath(innerPath, edge);
-      case ArcadeDieKind.d20:
-        for (final p in points) {
-          canvas.drawLine(Offset.zero, p, edge);
-        }
-        canvas.drawLine(points[0], points[2], edge);
-        canvas.drawLine(points[2], points[4], edge);
-        canvas.drawLine(points[4], points[0], edge);
-        canvas.drawLine(points[1], points[3], edge);
-        canvas.drawLine(points[3], points[5], edge);
-        canvas.drawLine(points[5], points[1], edge);
-      default:
-        break;
-    }
+      }
+      path.close();
+      canvas.drawPath(path, fill);
+      canvas.drawPath(path, edge);
 
-    final painter = TextPainter(
-      text: TextSpan(
-        text: '$value',
-        style: TextStyle(
-          color: Colors.black,
-          fontSize: math.max(8, scale * (value >= 10 ? 0.70 : 0.82)),
-          fontWeight: FontWeight.w900,
-          height: 1,
+      final worldCenter = _averageVertices(mesh.vertices, face.vertices);
+      final rotatedCenter = _rotate(worldCenter, rotation);
+      final labelCenter = _project(rotatedCenter, center, meshScale);
+      final axisPoint = _project(
+        _rotate(worldCenter + face.xAxis.scale(0.24), rotation),
+        center,
+        meshScale,
+      );
+      var labelAngle = math.atan2(
+        axisPoint.dy - labelCenter.dy,
+        axisPoint.dx - labelCenter.dx,
+      );
+      if (math.cos(labelAngle) < 0) labelAngle += math.pi;
+
+      var minX = polygon.first.dx;
+      var maxX = polygon.first.dx;
+      var minY = polygon.first.dy;
+      var maxY = polygon.first.dy;
+      for (final point in polygon.skip(1)) {
+        minX = math.min(minX, point.dx);
+        maxX = math.max(maxX, point.dx);
+        minY = math.min(minY, point.dy);
+        maxY = math.max(maxY, point.dy);
+      }
+      final shortSpan = math.min(maxX - minX, maxY - minY);
+      final value = face.index + 1;
+      final faceFactor = switch (kind) {
+        ArcadeDieKind.d10 => 0.40,
+        ArcadeDieKind.d12 => 0.45,
+        ArcadeDieKind.d20 => 0.43,
+        _ => 0.46,
+      };
+      final fontSize = (shortSpan * faceFactor)
+          .clamp(4.6, value >= 10 ? 10.5 : 12.5)
+          .toDouble();
+      final painter = TextPainter(
+        text: TextSpan(
+          text: '$value',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: fontSize,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    final plateRadius = scale * (value >= 10 ? 0.58 : 0.52);
-    canvas.drawCircle(
-      Offset.zero,
-      plateRadius,
-      Paint()..color = Colors.white.withValues(alpha: 0.86),
-    );
-    painter.paint(
-      canvas,
-      Offset(-painter.width / 2, -painter.height / 2),
-    );
-    canvas.restore();
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      canvas.save();
+      canvas.translate(labelCenter.dx, labelCenter.dy);
+      canvas.rotate(labelAngle);
+      painter.paint(
+        canvas,
+        Offset(-painter.width / 2, -painter.height / 2),
+      );
+      canvas.restore();
+    }
   }
 
   Offset _facePoint(
