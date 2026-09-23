@@ -2,7 +2,7 @@
 
 ## Unreleased
 - Fixed disappearing polyhedral die numbers by fitting labels to finite projected-face edge geometry at every perspective and size.
-- Repaired Home Screen/PWA metadata: use the manifest as the icon source of truth, prefer the full-bleed maskable SVG with PNG fallbacks, add stable app id/scope metadata, and stop unregistering the web runtime on every launch.
+- Repaired Home Screen/PWA metadata: keep the manifest as the cross-platform icon source of truth, restore an explicit PNG Apple touch icon for iPhone/iPad Home Screen installation, prefer the full-bleed maskable SVG with PNG fallbacks elsewhere, add stable app id/scope metadata, and stop unregistering the web runtime on every launch.
 - Added toki pona (`tok`) to the interface language selector with the same 182 translated interface strings as Italian.
 - Added Italian (Italiano) to the interface language selector with translation coverage matching the existing non-English languages.
 - Made polyhedral die numbers occupy most of each projected face and scale continuously with die and Dice Bubble size, including double-digit faces.
