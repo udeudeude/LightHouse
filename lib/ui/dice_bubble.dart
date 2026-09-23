@@ -1097,7 +1097,7 @@ class _DieSelectorMarkPainter extends CustomPainter {
     final path = Path();
     for (var i = 0; i < vertices; i += 1) {
       final angle = -math.pi / 2 + i * 2 * math.pi / vertices;
-      final r = sides == 10 && i.isOdd ? radius * 0.78 : radius;
+      final r = sides == 10 && i.isOdd ? radius * 0.88 : radius;
       final point = center + Offset(math.cos(angle), math.sin(angle)) * r;
       if (i == 0) {
         path.moveTo(point.dx, point.dy);
@@ -1242,6 +1242,16 @@ _V3 _averageVertices(List<_V3> vertices, List<int> indices) {
   return sum.scale(1 / indices.length);
 }
 
+_V3 _polygonNormal(List<_V3> vertices, List<int> indices) {
+  var areaVector = const _V3(0, 0, 0);
+  for (var index = 0; index < indices.length; index += 1) {
+    final current = vertices[indices[index]];
+    final next = vertices[indices[(index + 1) % indices.length]];
+    areaVector = areaVector + current.cross(next);
+  }
+  return areaVector.normalized;
+}
+
 _PolyMesh _buildPolyMesh(List<_V3> rawVertices, List<List<int>> rawFaces) {
   final maxRadius = rawVertices.map((vertex) => vertex.length).reduce(math.max);
   final vertices = [
@@ -1252,15 +1262,11 @@ _PolyMesh _buildPolyMesh(List<_V3> rawVertices, List<List<int>> rawFaces) {
   for (var faceIndex = 0; faceIndex < rawFaces.length; faceIndex += 1) {
     var indices = List<int>.from(rawFaces[faceIndex]);
     var center = _averageVertices(vertices, indices);
-    var normal = (vertices[indices[1]] - vertices[indices[0]])
-        .cross(vertices[indices[2]] - vertices[indices[0]])
-        .normalized;
+    var normal = _polygonNormal(vertices, indices);
     if (normal.dot(center) < 0) {
       indices = indices.reversed.toList(growable: false);
       center = _averageVertices(vertices, indices);
-      normal = (vertices[indices[1]] - vertices[indices[0]])
-          .cross(vertices[indices[2]] - vertices[indices[0]])
-          .normalized;
+      normal = _polygonNormal(vertices, indices);
     }
     final xAxis = (vertices[indices[1]] - vertices[indices[0]]).normalized;
     final yAxis = normal.cross(xAxis).normalized;
@@ -1311,34 +1317,53 @@ final _octahedronMesh = _buildPolyMesh(
   ],
 );
 
-final _d10Mesh = _buildPolyMesh(
-  const [
-    _V3(0, 0.3090169944, 0.8090169944),
-    _V3(0, 0.3090169944, -0.8090169944),
-    _V3(0, -0.3090169944, 0.8090169944),
-    _V3(0, -0.3090169944, -0.8090169944),
-    _V3(0.5, 0.5, 0.5),
-    _V3(0.5, 0.5, -0.5),
-    _V3(-0.5, -0.5, 0.5),
-    _V3(-0.5, -0.5, -0.5),
-    _V3(1.3090169944, -0.8090169944, 0),
-    _V3(-1.3090169944, 0.8090169944, 0),
-    _V3(0.3090169944, 0.8090169944, 0),
-    _V3(-0.3090169944, -0.8090169944, 0),
-  ],
-  const [
-    [8, 2, 6, 11],
-    [8, 11, 7, 3],
-    [8, 3, 1, 5],
-    [8, 5, 10, 4],
-    [8, 4, 0, 2],
-    [9, 0, 4, 10],
-    [9, 10, 5, 1],
-    [9, 1, 3, 7],
-    [9, 7, 11, 6],
-    [9, 6, 2, 0],
-  ],
-);
+const d10KiteTargetEdgeRatio = 0.75;
+const _d10PoleHeight = 1.4;
+const _d10RingRadius = 1.0;
+const _d10RingZ = 0.4233881295768445;
+
+_PolyMesh _buildD10Mesh() {
+  final rawVertices = <_V3>[
+    const _V3(0, 0, _d10PoleHeight),
+    const _V3(0, 0, -_d10PoleHeight),
+    for (var index = 0; index < 10; index += 1)
+      _V3(
+        math.cos(index * math.pi / 5) * _d10RingRadius,
+        math.sin(index * math.pi / 5) * _d10RingRadius,
+        index.isEven ? _d10RingZ : -_d10RingZ,
+      ),
+  ];
+  final rawFaces = <List<int>>[
+    for (var index = 0; index < 5; index += 1)
+      [
+        0,
+        2 + (index * 2) % 10,
+        2 + (index * 2 + 1) % 10,
+        2 + (index * 2 + 2) % 10,
+      ],
+    for (var index = 0; index < 5; index += 1)
+      [
+        1,
+        2 + (index * 2 + 1) % 10,
+        2 + (index * 2 + 2) % 10,
+        2 + (index * 2 + 3) % 10,
+      ],
+  ];
+  return _buildPolyMesh(rawVertices, rawFaces);
+}
+
+final _d10Mesh = _buildD10Mesh();
+
+double d10KiteShortToLongEdgeRatio() {
+  final face = _d10Mesh.faces.first;
+  final lengths = <double>[
+    for (var index = 0; index < face.vertices.length; index += 1)
+      (_d10Mesh.vertices[face.vertices[(index + 1) % face.vertices.length]] -
+              _d10Mesh.vertices[face.vertices[index]])
+          .length,
+  ]..sort();
+  return (lengths[0] + lengths[1]) / (lengths[2] + lengths[3]);
+}
 
 final _icosahedronMesh = _buildPolyMesh(
   const [

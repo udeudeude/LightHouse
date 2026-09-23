@@ -5177,27 +5177,32 @@ class _BoardScreenState extends State<BoardScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: _replayOnboardingGestures,
-                          icon: const Icon(Icons.gesture, size: 18),
-                          label: Text(tr('Show gestures again')),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white60,
+                          visualDensity: VisualDensity.compact,
                         ),
-                        TextButton(
-                          onPressed: _showLanguageMenu,
-                          child: const Text(
-                            languagePickerGlyph,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        onPressed: _replayOnboardingGestures,
+                        icon: const Icon(Icons.gesture, size: 17),
+                        label: Text(tr('Show gestures again')),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: _showLanguageMenu,
+                        child: const Text(
+                          languagePickerGlyph,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
