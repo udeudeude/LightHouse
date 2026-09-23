@@ -4691,10 +4691,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   child: SizedBox(
                     width: 40,
                     height: 40,
-                    child: Icon(
-                      toy.icon,
-                      size: 21,
-                      color: active ? Colors.white : Colors.white70,
+                    child: _toyIcon(
+                      toy,
+                      active ? Colors.white : Colors.white70,
+                      inMenu: false,
                     ),
                   ),
                 ),
@@ -4744,10 +4744,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   child: SizedBox(
                     width: 40,
                     height: 40,
-                    child: Icon(
-                      toy.icon,
-                      size: 21,
-                      color: active ? Colors.white : Colors.white70,
+                    child: _toyIcon(
+                      toy,
+                      active ? Colors.white : Colors.white70,
+                      inMenu: false,
                     ),
                   ),
                 ),
