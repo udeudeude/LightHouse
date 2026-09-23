@@ -11,6 +11,7 @@ void main() {
       faces: {'standard#4': 5, 'standard#5': 1, 'pyramid#6': 2},
       xFraction: 0.37,
       yFraction: 0.61,
+      sizeScale: 1.65,
     );
     final decoded = DiceBubbleSnapshot.fromJson(source.toJson());
     expect(decoded, isNotNull);
@@ -20,6 +21,7 @@ void main() {
     expect(decoded.faces['standard#4'], 5);
     expect(decoded.faces['standard#5'], 1);
     expect(decoded.xFraction, closeTo(0.37, 0.0001));
+    expect(decoded.sizeScale, closeTo(1.65, 0.0001));
   });
 
   test('dice selector exposes each die kind once', () {
@@ -70,6 +72,7 @@ void main() {
 
     expect(decoded, isNotNull);
     expect(decoded!.selectedIds, legacy.selectedIds);
+    expect(decoded.sizeScale, 1.0);
   });
 
   test('zendo stones snapshot round trips', () {

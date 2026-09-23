@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Enlarged the 3D polyhedral dice; made Dice Bubble persistently resizable by two-finger pinch while scaling its dice but keeping the hidden spider optically small; replaced the pixelated Home Screen icon with antialiased vector-derived artwork; and changed the language selector to a responsive two- or three-column grid.
 - Added true 3D D4, D8, D10, D12, and D20 dice to Dice Bubble using explicit polyhedron meshes, perspective projection, face-aware result orientations, flat LightHouse styling, and saved/Remote support for values above six.
 - Rebuilt the on-table Toys layout as a deterministic six-column bottom-anchored grid matching menu order; made on-table toy glyphs use the exact menu icon renderer; corrected Pyramid Die marks to true Small/Medium/Large proportions with a nearly face-filling Medium+Large side; kept Zendo rule text in English while localizing its heading/difficulty; and added German, French, Dutch, Portuguese, and Chinese language options.
 - Added a PawnOnQueenOnDrone-based black Home Screen icon; lowered the Toys chooser to the bottom; unified menu/on-screen Toy glyphs and centered Nest Cycle; kept Rotation Snap open across changes; enlarged Pyramid Die marks again; added D4/D8/D10/D12/D20 dice with persistent variable face counts; and added a first English/Spanish/Japanese interface-language prototype with an A↔あ selector in Instructions.

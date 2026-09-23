@@ -4467,33 +4467,71 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       useSafeArea: true,
       showDragHandle: true,
       backgroundColor: const Color(0xFF202020),
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-              child: Text(
-                tr('Thanks for playing with LightHouse!'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+      builder: (sheetContext) => LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 620 ? 3 : 2;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+                  child: Text(
+                    tr('Thanks for playing with LightHouse!'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: AppLanguage.values.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    mainAxisSpacing: 6,
+                    crossAxisSpacing: 6,
+                    mainAxisExtent: 52,
+                  ),
+                  itemBuilder: (context, index) {
+                    final language = AppLanguage.values[index];
+                    final selected =
+                        language == AppLanguageController.current;
+                    return Material(
+                      color: selected
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => Navigator.pop(sheetContext, language),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  language.selfName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (selected) const Icon(Icons.check, size: 18),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-            for (final language in AppLanguage.values)
-              ListTile(
-                title: Text(language.selfName),
-                trailing: language == AppLanguageController.current
-                    ? const Icon(Icons.check)
-                    : null,
-                onTap: () => Navigator.pop(sheetContext, language),
-              ),
-          ],
-        ),
+          );
+        },
       ),
     );
     if (selected == null) return;
@@ -4556,7 +4594,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
-              'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts',
+              'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts',
             ),
             (
               'Zendo stones',
