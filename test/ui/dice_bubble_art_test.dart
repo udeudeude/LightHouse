@@ -125,6 +125,50 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
+  testWidgets('two-finger pinch resizes the Dice Bubble', (tester) async {
+    DiceBubbleSnapshot? latest;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 360,
+          height: 640,
+          child: DiceBubble(
+            snapshot: const DiceBubbleSnapshot(
+              revision: 20,
+              rollSerial: 0,
+              selectedIds: ['standard#1'],
+              faces: {'standard#1': 0},
+              xFraction: 0.5,
+              yFraction: 0.4,
+            ),
+            onChanged: (snapshot) => latest = snapshot,
+          ),
+        ),
+      ),
+    );
+
+    final target = find.byKey(const Key('dice-bubble-gesture'));
+    final center = tester.getCenter(target);
+    final first = await tester.startGesture(
+      center + const Offset(-20, 0),
+      pointer: 1,
+    );
+    final second = await tester.startGesture(
+      center + const Offset(20, 0),
+      pointer: 2,
+    );
+    await tester.pump();
+    await first.moveTo(center + const Offset(-42, 0));
+    await second.moveTo(center + const Offset(42, 0));
+    await tester.pump();
+    await first.up();
+    await second.up();
+    await tester.pump();
+
+    expect(latest, isNotNull);
+    expect(latest!.sizeScale, greaterThan(1.0));
+  });
+
   testWidgets('polyhedral dice render together without painter errors', (
     tester,
   ) async {
