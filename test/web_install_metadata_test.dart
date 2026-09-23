@@ -8,8 +8,8 @@ void main() {
     final manifest =
         jsonDecode(File('web/manifest.json').readAsStringSync())
             as Map<String, dynamic>;
-    final icons = (manifest['icons'] as List<dynamic>)
-        .cast<Map<String, dynamic>>();
+    final icons =
+        (manifest['icons'] as List<dynamic>).cast<Map<String, dynamic>>();
 
     expect(manifest['id'], './');
     expect(manifest['start_url'], './');
