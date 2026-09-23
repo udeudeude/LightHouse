@@ -14,11 +14,6 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Show formatter diff for repair tests
-        run: |
-          dart format test/web_install_metadata_test.dart test/application/app_language_test.dart
-          git diff -- test/web_install_metadata_test.dart test/application/app_language_test.dart
-          exit 1
       - run: |
           find lib test -name '*.dart' \
             ! -path 'lib/application/app_language.dart' \
