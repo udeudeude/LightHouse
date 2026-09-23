@@ -151,8 +151,7 @@ class OnboardingGesturePainter extends CustomPainter {
     final angle = math.atan2(direction.dy, direction.dx);
     final arrowLength = math.max(6.0, base * 0.18);
     final arrowWidth = arrowLength * 0.48;
-    final back =
-        end - Offset(math.cos(angle), math.sin(angle)) * arrowLength;
+    final back = end - Offset(math.cos(angle), math.sin(angle)) * arrowLength;
     final normal = Offset(-math.sin(angle), math.cos(angle));
     final path = Path()
       ..moveTo(end.dx, end.dy)
