@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- Added gentle first-use onboarding: an empty-table haiku, a delayed “Tap. Tap.” creation cue, animated tip and encirclement gesture demonstrations that retire after the user performs each action, and persistent milestone memory so learned hints stay gone.
+- Refined first-use onboarding: halved the haiku timing, shortened core waits to 35 seconds, made the hollow gesture a faster hand-drawn diagonal ellipse with a leading arrowhead, added a replay-gestures control in Instructions, added a delayed two-finger move/twist demonstration, and added a single subtle menu breathing cue for users who have never opened it.
 - Changed Toys so no toy controls are visible by default on a fresh install.
 - Fixed disappearing polyhedral die numbers by fitting labels to finite projected-face edge geometry at every perspective and size.
 - Identified the iPhone/iPad Home Screen failure as truncated PNG icon assets. Regenerated a valid dedicated 180×180 Apple touch icon from the vector artwork, reintroduced only that icon first, and added a regression test that rejects incomplete PNG files before deployment.
