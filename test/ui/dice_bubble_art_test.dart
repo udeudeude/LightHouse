@@ -42,6 +42,14 @@ void main() {
     expect(isKnownArcadeDieInstance('fate#17'), isTrue);
   });
 
+  test('polyhedral dice expose the expected face counts', () {
+    expect(arcadeDieSides(ArcadeDieKind.d4), 4);
+    expect(arcadeDieSides(ArcadeDieKind.d8), 8);
+    expect(arcadeDieSides(ArcadeDieKind.d10), 10);
+    expect(arcadeDieSides(ArcadeDieKind.d12), 12);
+    expect(arcadeDieSides(ArcadeDieKind.d20), 20);
+  });
+
   test('selector tile cycle respects remaining three-die capacity', () {
     expect(
       [
@@ -117,6 +125,56 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
+  testWidgets('polyhedral dice render together without painter errors', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 360,
+          height: 640,
+          child: DiceBubble(
+            snapshot: DiceBubbleSnapshot(
+              revision: 21,
+              rollSerial: 7,
+              selectedIds: ['d4#1', 'd10#2', 'd20#3'],
+              faces: {'d4#1': 3, 'd10#2': 9, 'd20#3': 19},
+              xFraction: 0.5,
+              yFraction: 0.4,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('d8 and d12 render together without painter errors', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 360,
+          height: 640,
+          child: DiceBubble(
+            snapshot: DiceBubbleSnapshot(
+              revision: 22,
+              rollSerial: 8,
+              selectedIds: ['d8#1', 'd12#2'],
+              faces: {'d8#1': 7, 'd12#2': 11},
+              xFraction: 0.5,
+              yFraction: 0.4,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('zero-dice selector renders all die artwork and closes cleanly', (
     tester,
   ) async {
