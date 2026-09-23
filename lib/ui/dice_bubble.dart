@@ -1317,20 +1317,20 @@ final _octahedronMesh = _buildPolyMesh(
   ],
 );
 
-const d10KiteTargetEdgeRatio = 0.75;
-const _d10PoleHeight = 1.4;
-const _d10RingRadius = 1.0;
-const _d10RingZ = 0.4233881295768445;
+const d10KiteReferenceEdgeRatio = 0.4858682717566456;
+const d10StandardPoleHeight = 1.005619830238388;
+const d10StandardRingRadius = 1.0;
+const d10StandardRingZ = 0.10616611026445436;
 
 _PolyMesh _buildD10Mesh() {
   final rawVertices = <_V3>[
-    const _V3(0, 0, _d10PoleHeight),
-    const _V3(0, 0, -_d10PoleHeight),
+    const _V3(0, 0, d10StandardPoleHeight),
+    const _V3(0, 0, -d10StandardPoleHeight),
     for (var index = 0; index < 10; index += 1)
       _V3(
-        math.cos(index * math.pi / 5) * _d10RingRadius,
-        math.sin(index * math.pi / 5) * _d10RingRadius,
-        index.isEven ? _d10RingZ : -_d10RingZ,
+        math.cos(index * math.pi / 5) * d10StandardRingRadius,
+        math.sin(index * math.pi / 5) * d10StandardRingRadius,
+        index.isEven ? d10StandardRingZ : -d10StandardRingZ,
       ),
   ];
   final rawFaces = <List<int>>[
@@ -1363,6 +1363,21 @@ double d10KiteShortToLongEdgeRatio() {
           .length,
   ]..sort();
   return (lengths[0] + lengths[1]) / (lengths[2] + lengths[3]);
+}
+
+double d10FacePlanarityError() {
+  final face = _d10Mesh.faces.first;
+  final a = _d10Mesh.vertices[face.vertices[0]];
+  final b = _d10Mesh.vertices[face.vertices[1]];
+  final c = _d10Mesh.vertices[face.vertices[2]];
+  final d = _d10Mesh.vertices[face.vertices[3]];
+  final normal = (b - a).cross(c - a).normalized;
+  return (d - a).dot(normal).abs();
+}
+
+double d10VertexRadiusSpread() {
+  final radii = _d10Mesh.vertices.map((vertex) => vertex.length).toList();
+  return radii.reduce(math.max) - radii.reduce(math.min);
 }
 
 final _icosahedronMesh = _buildPolyMesh(
