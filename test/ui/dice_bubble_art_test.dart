@@ -50,9 +50,16 @@ void main() {
     expect(arcadeDieSides(ArcadeDieKind.d20), 20);
   });
 
-  test('D10 kite short edges are about three quarters of long edges', () {
-    expect(d10KiteTargetEdgeRatio, 0.75);
-    expect(d10KiteShortToLongEdgeRatio(), closeTo(0.75, 0.002));
+  test('D10 uses the standard shallow pentagonal trapezohedron', () {
+    expect(d10StandardPoleHeight, closeTo(1.0056198302, 1e-9));
+    expect(d10StandardRingRadius, 1.0);
+    expect(d10StandardRingZ, closeTo(0.1061661103, 1e-9));
+    expect(
+      d10KiteShortToLongEdgeRatio(),
+      closeTo(d10KiteReferenceEdgeRatio, 0.001),
+    );
+    expect(d10FacePlanarityError(), lessThan(1e-9));
+    expect(d10VertexRadiusSpread(), lessThan(1e-9));
   });
 
   test('selector tile cycle respects remaining three-die capacity', () {
