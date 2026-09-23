@@ -123,6 +123,7 @@ class DiceBubbleSnapshot {
     required this.faces,
     required this.xFraction,
     required this.yFraction,
+    this.sizeScale = 1.0,
   });
 
   static const initial = DiceBubbleSnapshot(
@@ -140,6 +141,7 @@ class DiceBubbleSnapshot {
   final Map<String, int> faces;
   final double xFraction;
   final double yFraction;
+  final double sizeScale;
 
   Map<String, Object?> toJson() => {
     'revision': revision,
@@ -148,6 +150,7 @@ class DiceBubbleSnapshot {
     'faces': faces,
     'xFraction': xFraction,
     'yFraction': yFraction,
+    'sizeScale': sizeScale,
   };
 
   static DiceBubbleSnapshot? fromJson(Object? raw) {
@@ -182,6 +185,9 @@ class DiceBubbleSnapshot {
             .toDouble(),
         yFraction: ((map['yFraction'] as num?)?.toDouble() ?? 0.14)
             .clamp(0.0, 1.0)
+            .toDouble(),
+        sizeScale: ((map['sizeScale'] as num?)?.toDouble() ?? 1.0)
+            .clamp(0.65, 2.4)
             .toDouble(),
       );
     } on Object {
@@ -241,7 +247,8 @@ class _SpinPlan {
 
 class _DiceBubbleState extends State<DiceBubble>
     with SingleTickerProviderStateMixin {
-  double get _radius => 70 * widget.scale.clamp(0.25, 4.0);
+  double get _baseScale => widget.scale.clamp(0.25, 4.0);
+  double get _radius => 70 * _baseScale * _bubbleScale;
   final math.Random _random = math.Random();
   final List<String> _selectedIds = [];
   final Map<String, int> _faces = {};
@@ -261,6 +268,8 @@ class _DiceBubbleState extends State<DiceBubble>
   bool _twoFingerMove = false;
   bool _gestureMoved = false;
   double _gestureTravel = 0;
+  double _bubbleScale = 1.0;
+  double _gestureStartBubbleScale = 1.0;
 
   @override
   void initState() {
@@ -316,7 +325,12 @@ class _DiceBubbleState extends State<DiceBubble>
     _rollSerial = snapshot.rollSerial;
     _appliedRevision = snapshot.revision;
     _pendingCenterFraction = Offset(snapshot.xFraction, snapshot.yFraction);
+    _bubbleScale = snapshot.sizeScale.clamp(0.65, 2.4).toDouble();
     if (_surfaceSize != Size.zero) {
+      _bubbleScale = math.min(
+        _bubbleScale,
+        _maximumBubbleScaleFor(_surfaceSize),
+      );
       _center = _clampCenter(
         Offset(
           snapshot.xFraction * _surfaceSize.width,
@@ -372,6 +386,7 @@ class _DiceBubbleState extends State<DiceBubble>
         faces: Map<String, int>.unmodifiable(_faces),
         xFraction: x,
         yFraction: y,
+        sizeScale: _bubbleScale,
       ),
     );
   }
@@ -490,6 +505,14 @@ class _DiceBubbleState extends State<DiceBubble>
     HapticFeedback.mediumImpact();
     _rollController.forward(from: 0);
     _emitSnapshot();
+  }
+
+  double _maximumBubbleScaleFor(Size size) {
+    if (size == Size.zero) return 2.4;
+    final availableRadius =
+        (math.min(size.width, size.height) - 8).clamp(42.0, double.infinity) /
+        2;
+    return math.max(0.65, math.min(2.4, availableRadius / (70 * _baseScale)));
   }
 
   Offset _clampCenter(Offset center, Size size) => Offset(
@@ -709,6 +732,7 @@ class _DiceBubbleState extends State<DiceBubble>
       } else {
         _center = _clampCenter(_center, size);
       }
+      _bubbleScale = math.min(_bubbleScale, _maximumBubbleScaleFor(size));
       final selected = [for (final id in _selectedIds) _choice(id)];
       return Stack(
         children: [
@@ -723,6 +747,7 @@ class _DiceBubbleState extends State<DiceBubble>
                 _twoFingerMove = details.pointerCount >= 2;
                 _gestureMoved = false;
                 _gestureTravel = 0;
+                _gestureStartBubbleScale = _bubbleScale;
                 setState(() => _pressed = !_twoFingerMove);
                 if (_pressed) HapticFeedback.selectionClick();
               },
@@ -735,9 +760,18 @@ class _DiceBubbleState extends State<DiceBubble>
                   return;
                 }
                 _twoFingerMove = true;
-                if (details.focalPointDelta.distance > 0) _gestureMoved = true;
+                final maximumScale = _maximumBubbleScaleFor(size);
+                final nextBubbleScale =
+                    (_gestureStartBubbleScale * details.scale)
+                        .clamp(0.65, maximumScale)
+                        .toDouble();
+                if (details.focalPointDelta.distance > 0 ||
+                    (nextBubbleScale - _bubbleScale).abs() > 0.002) {
+                  _gestureMoved = true;
+                }
                 setState(() {
                   _pressed = false;
+                  _bubbleScale = nextBubbleScale;
                   _center = _clampCenter(
                     _center + details.focalPointDelta,
                     size,
@@ -767,6 +801,7 @@ class _DiceBubbleState extends State<DiceBubble>
                       rollSerial: _rollSerial,
                       pressed: _pressed,
                       showSpider: !_pickerOpen && _spiderRevealed,
+                      spiderVisualScale: _baseScale,
                     ),
                   ),
                   Align(
@@ -776,8 +811,8 @@ class _DiceBubbleState extends State<DiceBubble>
                       behavior: HitTestBehavior.opaque,
                       onTap: _showPicker,
                       child: Container(
-                        width: 12 * widget.scale.clamp(0.25, 4.0),
-                        height: 38 * widget.scale.clamp(0.25, 4.0),
+                        width: 12 * _baseScale,
+                        height: 38 * _baseScale,
                         decoration: BoxDecoration(
                           color: const Color(0xFFBDBDBD),
                           borderRadius: const BorderRadius.horizontal(
@@ -1420,6 +1455,7 @@ class _DiceBubblePainter extends CustomPainter {
     required this.rollSerial,
     required this.pressed,
     required this.showSpider,
+    required this.spiderVisualScale,
   });
 
   final List<String> instanceIds;
@@ -1430,6 +1466,7 @@ class _DiceBubblePainter extends CustomPainter {
   final int rollSerial;
   final bool pressed;
   final bool showSpider;
+  final double spiderVisualScale;
 
   static const _vertices = <_V3>[
     _V3(-1, -1, -1),
@@ -1566,7 +1603,7 @@ class _DiceBubblePainter extends CustomPainter {
     final visualScale = math.min(size.width, size.height) / 140;
     if (choices.isEmpty) {
       if (showSpider) {
-        _paintSpider(canvas, center, baseRadius, visualScale);
+        _paintSpider(canvas, center, baseRadius, spiderVisualScale);
       }
       return;
     }
@@ -1806,11 +1843,11 @@ class _DiceBubblePainter extends CustomPainter {
     final meshScale =
         scale *
         switch (kind) {
-          ArcadeDieKind.d4 => 1.32,
-          ArcadeDieKind.d8 => 1.28,
-          ArcadeDieKind.d10 => 1.30,
-          ArcadeDieKind.d12 => 1.32,
-          ArcadeDieKind.d20 => 1.34,
+          ArcadeDieKind.d4 => 1.58,
+          ArcadeDieKind.d8 => 1.54,
+          ArcadeDieKind.d10 => 1.56,
+          ArcadeDieKind.d12 => 1.58,
+          ArcadeDieKind.d20 => 1.60,
           _ => 1.0,
         };
     final rotated = [
