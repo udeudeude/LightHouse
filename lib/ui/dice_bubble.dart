@@ -1143,7 +1143,24 @@ class _V3 {
   final double z;
 
   _V3 operator +(_V3 other) => _V3(x + other.x, y + other.y, z + other.z);
+  _V3 operator -(_V3 other) => _V3(x - other.x, y - other.y, z - other.z);
   _V3 scale(double amount) => _V3(x * amount, y * amount, z * amount);
+
+  double dot(_V3 other) => x * other.x + y * other.y + z * other.z;
+
+  _V3 cross(_V3 other) => _V3(
+    y * other.z - z * other.y,
+    z * other.x - x * other.z,
+    x * other.y - y * other.x,
+  );
+
+  double get length => math.sqrt(x * x + y * y + z * z);
+
+  _V3 get normalized {
+    final magnitude = length;
+    if (magnitude <= 1e-9) return const _V3(0, 0, 0);
+    return scale(1 / magnitude);
+  }
 }
 
 class _Face {
@@ -1160,6 +1177,250 @@ class _Face {
   final _V3 normal;
   final _V3 xAxis;
   final _V3 yAxis;
+}
+
+
+class _PolyMesh {
+  const _PolyMesh(this.vertices, this.faces);
+
+  final List<_V3> vertices;
+  final List<_Face> faces;
+}
+
+bool _isPolyhedralKind(ArcadeDieKind kind) => switch (kind) {
+  ArcadeDieKind.d4 ||
+  ArcadeDieKind.d8 ||
+  ArcadeDieKind.d10 ||
+  ArcadeDieKind.d12 ||
+  ArcadeDieKind.d20 => true,
+  _ => false,
+};
+
+_V3 _averageVertices(List<_V3> vertices, List<int> indices) {
+  var sum = const _V3(0, 0, 0);
+  for (final index in indices) {
+    sum = sum + vertices[index];
+  }
+  return sum.scale(1 / indices.length);
+}
+
+_PolyMesh _buildPolyMesh(
+  List<_V3> rawVertices,
+  List<List<int>> rawFaces,
+) {
+  final maxRadius = rawVertices
+      .map((vertex) => vertex.length)
+      .reduce(math.max);
+  final vertices = [
+    for (final vertex in rawVertices) vertex.scale(1 / maxRadius),
+  ];
+
+  final faces = <_Face>[];
+  for (var faceIndex = 0; faceIndex < rawFaces.length; faceIndex += 1) {
+    var indices = List<int>.from(rawFaces[faceIndex]);
+    var center = _averageVertices(vertices, indices);
+    var normal =
+        (vertices[indices[1]] - vertices[indices[0]])
+            .cross(vertices[indices[2]] - vertices[indices[0]])
+            .normalized;
+    if (normal.dot(center) < 0) {
+      indices = indices.reversed.toList(growable: false);
+      center = _averageVertices(vertices, indices);
+      normal =
+          (vertices[indices[1]] - vertices[indices[0]])
+              .cross(vertices[indices[2]] - vertices[indices[0]])
+              .normalized;
+    }
+    final xAxis = (vertices[indices[1]] - vertices[indices[0]]).normalized;
+    final yAxis = normal.cross(xAxis).normalized;
+    faces.add(
+      _Face(
+        index: faceIndex,
+        vertices: List<int>.unmodifiable(indices),
+        normal: normal,
+        xAxis: xAxis,
+        yAxis: yAxis,
+      ),
+    );
+  }
+  return _PolyMesh(
+    List<_V3>.unmodifiable(vertices),
+    List<_Face>.unmodifiable(faces),
+  );
+}
+
+final _tetrahedronMesh = _buildPolyMesh(
+  const [
+    _V3(1, 1, 1),
+    _V3(1, -1, -1),
+    _V3(-1, 1, -1),
+    _V3(-1, -1, 1),
+  ],
+  const [
+    [0, 1, 2],
+    [0, 3, 1],
+    [0, 2, 3],
+    [1, 3, 2],
+  ],
+);
+
+final _octahedronMesh = _buildPolyMesh(
+  const [
+    _V3(1, 0, 0),
+    _V3(0, 1, 0),
+    _V3(-1, 0, 0),
+    _V3(0, -1, 0),
+    _V3(0, 0, 1),
+    _V3(0, 0, -1),
+  ],
+  const [
+    [4, 0, 1],
+    [4, 1, 2],
+    [4, 2, 3],
+    [4, 3, 0],
+    [5, 1, 0],
+    [5, 2, 1],
+    [5, 3, 2],
+    [5, 0, 3],
+  ],
+);
+
+final _d10Mesh = _buildPolyMesh(
+  const [
+    _V3(0, 0.3090169944, 0.8090169944),
+    _V3(0, 0.3090169944, -0.8090169944),
+    _V3(0, -0.3090169944, 0.8090169944),
+    _V3(0, -0.3090169944, -0.8090169944),
+    _V3(0.5, 0.5, 0.5),
+    _V3(0.5, 0.5, -0.5),
+    _V3(-0.5, -0.5, 0.5),
+    _V3(-0.5, -0.5, -0.5),
+    _V3(1.3090169944, -0.8090169944, 0),
+    _V3(-1.3090169944, 0.8090169944, 0),
+    _V3(0.3090169944, 0.8090169944, 0),
+    _V3(-0.3090169944, -0.8090169944, 0),
+  ],
+  const [
+    [8, 2, 6, 11],
+    [8, 11, 7, 3],
+    [8, 3, 1, 5],
+    [8, 5, 10, 4],
+    [8, 4, 0, 2],
+    [9, 0, 4, 10],
+    [9, 10, 5, 1],
+    [9, 1, 3, 7],
+    [9, 7, 11, 6],
+    [9, 6, 2, 0],
+  ],
+);
+
+final _icosahedronMesh = _buildPolyMesh(
+  const [
+    _V3(-1, 1.61803398875, 0),
+    _V3(1, 1.61803398875, 0),
+    _V3(-1, -1.61803398875, 0),
+    _V3(1, -1.61803398875, 0),
+    _V3(0, -1, 1.61803398875),
+    _V3(0, 1, 1.61803398875),
+    _V3(0, -1, -1.61803398875),
+    _V3(0, 1, -1.61803398875),
+    _V3(1.61803398875, 0, -1),
+    _V3(1.61803398875, 0, 1),
+    _V3(-1.61803398875, 0, -1),
+    _V3(-1.61803398875, 0, 1),
+  ],
+  const [
+    [0, 11, 5],
+    [0, 5, 1],
+    [0, 1, 7],
+    [0, 7, 10],
+    [0, 10, 11],
+    [1, 5, 9],
+    [5, 11, 4],
+    [11, 10, 2],
+    [10, 7, 6],
+    [7, 1, 8],
+    [3, 9, 4],
+    [3, 4, 2],
+    [3, 2, 6],
+    [3, 6, 8],
+    [3, 8, 9],
+    [4, 9, 5],
+    [2, 4, 11],
+    [6, 2, 10],
+    [8, 6, 7],
+    [9, 8, 1],
+  ],
+);
+
+_PolyMesh _buildDodecahedronMesh() {
+  final source = _icosahedronMesh;
+  final dualVertices = [
+    for (final face in source.faces) face.normal,
+  ];
+  final dualFaces = <List<int>>[];
+  for (var vertexIndex = 0; vertexIndex < source.vertices.length; vertexIndex += 1) {
+    final normal = source.vertices[vertexIndex].normalized;
+    final reference = normal.z.abs() < 0.9
+        ? const _V3(0, 0, 1)
+        : const _V3(1, 0, 0);
+    final axisA = normal.cross(reference).normalized;
+    final axisB = normal.cross(axisA).normalized;
+    final adjacent = <int>[
+      for (var faceIndex = 0; faceIndex < source.faces.length; faceIndex += 1)
+        if (source.faces[faceIndex].vertices.contains(vertexIndex)) faceIndex,
+    ];
+    adjacent.sort((a, b) {
+      final va = dualVertices[a];
+      final vb = dualVertices[b];
+      final aa = math.atan2(va.dot(axisB), va.dot(axisA));
+      final ab = math.atan2(vb.dot(axisB), vb.dot(axisA));
+      return aa.compareTo(ab);
+    });
+    dualFaces.add(adjacent);
+  }
+  return _buildPolyMesh(dualVertices, dualFaces);
+}
+
+final _dodecahedronMesh = _buildDodecahedronMesh();
+
+_PolyMesh _polyMeshForKind(ArcadeDieKind kind) => switch (kind) {
+  ArcadeDieKind.d4 => _tetrahedronMesh,
+  ArcadeDieKind.d8 => _octahedronMesh,
+  ArcadeDieKind.d10 => _d10Mesh,
+  ArcadeDieKind.d12 => _dodecahedronMesh,
+  ArcadeDieKind.d20 => _icosahedronMesh,
+  _ => throw ArgumentError('Not a polyhedral die: $kind'),
+};
+
+_V3 _rotatePolyVector(_V3 p, _Rotation3 rotation) {
+  final cx = math.cos(rotation.x);
+  final sx = math.sin(rotation.x);
+  final cy = math.cos(rotation.y);
+  final sy = math.sin(rotation.y);
+  final cz = math.cos(rotation.z);
+  final sz = math.sin(rotation.z);
+  var x = p.x;
+  var y = p.y * cx - p.z * sx;
+  var z = p.y * sx + p.z * cx;
+  final x2 = x * cy + z * sy;
+  final z2 = -x * sy + z * cy;
+  x = x2;
+  z = z2;
+  return _V3(x * cz - y * sz, x * sz + y * cz, z);
+}
+
+_Rotation3 _polyTargetForFace(ArcadeDieKind kind, int faceIndex) {
+  final mesh = _polyMeshForKind(kind);
+  final face = mesh.faces[faceIndex % mesh.faces.length];
+  final normal = face.normal;
+  final xRotation = math.atan2(normal.y, normal.z);
+  final yzLength = math.sqrt(normal.y * normal.y + normal.z * normal.z);
+  final yRotation = math.atan2(-normal.x, yzLength);
+  final base = _Rotation3(xRotation, yRotation, 0);
+  final alignedXAxis = _rotatePolyVector(face.xAxis, base);
+  final zRotation = -math.atan2(alignedXAxis.y, alignedXAxis.x);
+  return _Rotation3(xRotation, yRotation, zRotation);
 }
 
 class _DiceBubblePainter extends CustomPainter {
