@@ -4038,7 +4038,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'ZENDO RULE · ${rule.difficulty.label.toUpperCase()}',
+                            '${tr('Zendo Rule').toUpperCase()} · '
+                            '${tr(rule.difficulty.label).toUpperCase()}',
                             style: const TextStyle(
                               color: Colors.white54,
                               fontSize: 10,
