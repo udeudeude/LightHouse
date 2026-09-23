@@ -22,9 +22,7 @@ void main() {
   });
 
   test('toki pona translation coverage matches Italian coverage', () {
-    final source = File(
-      'lib/application/app_language.dart',
-    ).readAsStringSync();
+    final source = File('lib/application/app_language.dart').readAsStringSync();
 
     Set<String> keysFor(String mapName) {
       final start = source.indexOf('const ${mapName} = <String, String>{');
