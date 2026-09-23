@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const languagePickerGlyph = 'A\u2194\uFE0Eあ';
+
 enum AppLanguage {
   english,
   spanish,
