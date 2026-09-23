@@ -814,6 +814,16 @@ class _DieSelectorMarkPainter extends CustomPainter {
         _paintColor(canvas, center, size);
       case ArcadeDieKind.fate:
         _paintFate(canvas, center, size);
+      case ArcadeDieKind.d4:
+        _paintPolySelector(canvas, center, size, 4);
+      case ArcadeDieKind.d8:
+        _paintPolySelector(canvas, center, size, 8);
+      case ArcadeDieKind.d10:
+        _paintPolySelector(canvas, center, size, 10);
+      case ArcadeDieKind.d12:
+        _paintPolySelector(canvas, center, size, 12);
+      case ArcadeDieKind.d20:
+        _paintPolySelector(canvas, center, size, 20);
     }
   }
 
@@ -1023,6 +1033,77 @@ class _DieSelectorMarkPainter extends CustomPainter {
     );
   }
 
+  void _paintPolySelector(
+    Canvas canvas,
+    Offset center,
+    Size size,
+    int sides,
+  ) {
+    final unit = size.shortestSide;
+    final outline = Paint()
+      ..color = foreground
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.4, unit * 0.04)
+      ..strokeJoin = StrokeJoin.round;
+    final radius = unit * 0.31;
+    final vertices = switch (sides) {
+      4 => 3,
+      8 => 4,
+      10 => 10,
+      12 => 5,
+      _ => 6,
+    };
+    final path = Path();
+    for (var i = 0; i < vertices; i += 1) {
+      final angle = -math.pi / 2 + i * 2 * math.pi / vertices;
+      final r = sides == 10 && i.isOdd ? radius * 0.78 : radius;
+      final point = center + Offset(math.cos(angle), math.sin(angle)) * r;
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, outline);
+
+    if (sides == 8) {
+      canvas.drawLine(
+        center + Offset(-radius, 0),
+        center + Offset(radius, 0),
+        outline,
+      );
+    } else if (sides == 12) {
+      canvas.drawCircle(center, radius * 0.46, outline);
+    } else if (sides == 20) {
+      for (var i = 0; i < 3; i += 1) {
+        final angle = -math.pi / 2 + i * 2 * math.pi / 3;
+        canvas.drawLine(
+          center,
+          center + Offset(math.cos(angle), math.sin(angle)) * radius,
+          outline,
+        );
+      }
+    }
+
+    final painter = TextPainter(
+      text: TextSpan(
+        text: 'D$sides',
+        style: TextStyle(
+          color: foreground,
+          fontSize: unit * 0.22,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(
+      canvas,
+      center - Offset(painter.width / 2, painter.height / 2),
+    );
+  }
+
   void _paintVectorPlus(
     Canvas canvas,
     Offset center,
@@ -1182,14 +1263,24 @@ class _DiceBubblePainter extends CustomPainter {
     );
   }
 
-  _Rotation3 _targetForFace(int face) => switch (face) {
-    0 => const _Rotation3(0, 0, 0),
-    1 => const _Rotation3(-math.pi / 2, 0, 0),
-    2 => const _Rotation3(0, -math.pi / 2, 0),
-    3 => const _Rotation3(0, math.pi / 2, 0),
-    4 => const _Rotation3(math.pi / 2, 0, 0),
-    _ => const _Rotation3(0, math.pi, 0),
-  };
+  _Rotation3 _targetForFace(int face, {int sides = 6}) {
+    if (sides != 6) {
+      final angle = face * 2 * math.pi / sides;
+      return _Rotation3(
+        0.34 * math.sin(angle * 1.7),
+        0.30 * math.cos(angle * 1.3),
+        angle,
+      );
+    }
+    return switch (face) {
+      0 => const _Rotation3(0, 0, 0),
+      1 => const _Rotation3(-math.pi / 2, 0, 0),
+      2 => const _Rotation3(0, -math.pi / 2, 0),
+      3 => const _Rotation3(0, math.pi / 2, 0),
+      4 => const _Rotation3(math.pi / 2, 0, 0),
+      _ => const _Rotation3(0, math.pi, 0),
+    };
+  }
 
   List<Offset> _dieOffsets(int count) => switch (count) {
     1 => const [Offset.zero],
@@ -1242,7 +1333,9 @@ class _DiceBubblePainter extends CustomPainter {
       final instanceId = instanceIds[i];
       final face = faces[instanceId] ?? 0;
       final plan = plans[instanceId];
-      final rotation = plan?.rotationAt(progress) ?? _targetForFace(face);
+      final rotation =
+          plan?.rotationAt(progress) ??
+          _targetForFace(face, sides: arcadeDieSides(choice.kind));
       var dieCenter = center + offsets[i] * squeeze;
       if (plan != null && progress < 1) {
         final decay = math.pow(1 - progress, 2).toDouble();
@@ -1259,6 +1352,7 @@ class _DiceBubblePainter extends CustomPainter {
         13.8 * visualScale * squeeze,
         choice.kind,
         rotation,
+        face,
       );
     }
   }
@@ -1396,7 +1490,26 @@ class _DiceBubblePainter extends CustomPainter {
     double scale,
     ArcadeDieKind kind,
     _Rotation3 rotation,
+    int faceIndex,
   ) {
+    if ({
+      ArcadeDieKind.d4,
+      ArcadeDieKind.d8,
+      ArcadeDieKind.d10,
+      ArcadeDieKind.d12,
+      ArcadeDieKind.d20,
+    }.contains(kind)) {
+      _paintPolyhedralDie(
+        canvas,
+        center,
+        scale,
+        kind,
+        rotation,
+        faceIndex + 1,
+      );
+      return;
+    }
+
     final rotated = [for (final vertex in _vertices) _rotate(vertex, rotation)];
     final projected = [
       for (final vertex in rotated) _project(vertex, center, scale),
@@ -1442,6 +1555,156 @@ class _DiceBubblePainter extends CustomPainter {
       canvas.drawPath(path, edgePaint);
       _paintFaceMark(canvas, center, scale, rotation, face, kind);
     }
+  }
+
+  void _paintPolyhedralDie(
+    Canvas canvas,
+    Offset center,
+    double scale,
+    ArcadeDieKind kind,
+    _Rotation3 rotation,
+    int value,
+  ) {
+    final sides = arcadeDieSides(kind);
+    final silhouetteVertices = switch (kind) {
+      ArcadeDieKind.d4 => 3,
+      ArcadeDieKind.d8 => 4,
+      ArcadeDieKind.d10 => 10,
+      ArcadeDieKind.d12 => 5,
+      ArcadeDieKind.d20 => 6,
+      _ => 6,
+    };
+    final radius = scale * switch (kind) {
+      ArcadeDieKind.d4 => 1.18,
+      ArcadeDieKind.d8 => 1.16,
+      ArcadeDieKind.d10 => 1.14,
+      ArcadeDieKind.d12 => 1.12,
+      ArcadeDieKind.d20 => 1.16,
+      _ => 1.0,
+    };
+    final tiltScale =
+        0.88 + 0.12 * math.cos(rotation.x) * math.cos(rotation.y);
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation.z * 0.22);
+
+    final points = <Offset>[];
+    for (var i = 0; i < silhouetteVertices; i += 1) {
+      final angle = -math.pi / 2 + i * 2 * math.pi / silhouetteVertices;
+      final alternating =
+          kind == ArcadeDieKind.d10 && i.isOdd ? 0.76 : 1.0;
+      points.add(
+        Offset(
+          math.cos(angle) * radius * alternating,
+          math.sin(angle) * radius * alternating * tiltScale,
+        ),
+      );
+    }
+
+    final body = Path();
+    for (var i = 0; i < points.length; i += 1) {
+      final p = points[i];
+      if (i == 0) {
+        body.moveTo(p.dx, p.dy);
+      } else {
+        body.lineTo(p.dx, p.dy);
+      }
+    }
+    body.close();
+    canvas.drawPath(
+      body,
+      Paint()..color = Colors.white.withValues(alpha: 0.92),
+    );
+    final edge = Paint()
+      ..color = Colors.black.withValues(alpha: 0.82)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.0, scale * 0.075)
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(body, edge);
+
+    switch (kind) {
+      case ArcadeDieKind.d4:
+        for (final p in points) {
+          canvas.drawLine(Offset.zero, p, edge);
+        }
+      case ArcadeDieKind.d8:
+        canvas.drawLine(points[0], points[2], edge);
+        canvas.drawLine(points[1], points[3], edge);
+        canvas.drawLine(
+          points[1],
+          Offset(0, radius * 0.28 * tiltScale),
+          edge,
+        );
+        canvas.drawLine(
+          points[3],
+          Offset(0, radius * 0.28 * tiltScale),
+          edge,
+        );
+      case ArcadeDieKind.d10:
+        for (var i = 0; i < points.length; i += 2) {
+          canvas.drawLine(Offset.zero, points[i], edge);
+        }
+      case ArcadeDieKind.d12:
+        final inner = <Offset>[
+          for (var i = 0; i < 5; i += 1)
+            Offset(
+              math.cos(-math.pi / 2 + i * 2 * math.pi / 5) * radius * 0.47,
+              math.sin(-math.pi / 2 + i * 2 * math.pi / 5) *
+                  radius *
+                  0.47 *
+                  tiltScale,
+            ),
+        ];
+        final innerPath = Path();
+        for (var i = 0; i < inner.length; i += 1) {
+          final p = inner[i];
+          if (i == 0) {
+            innerPath.moveTo(p.dx, p.dy);
+          } else {
+            innerPath.lineTo(p.dx, p.dy);
+          }
+          canvas.drawLine(p, points[i], edge);
+        }
+        innerPath.close();
+        canvas.drawPath(innerPath, edge);
+      case ArcadeDieKind.d20:
+        for (final p in points) {
+          canvas.drawLine(Offset.zero, p, edge);
+        }
+        canvas.drawLine(points[0], points[2], edge);
+        canvas.drawLine(points[2], points[4], edge);
+        canvas.drawLine(points[4], points[0], edge);
+        canvas.drawLine(points[1], points[3], edge);
+        canvas.drawLine(points[3], points[5], edge);
+        canvas.drawLine(points[5], points[1], edge);
+      default:
+        break;
+    }
+
+    final painter = TextPainter(
+      text: TextSpan(
+        text: '$value',
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: math.max(8, scale * (value >= 10 ? 0.70 : 0.82)),
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final plateRadius = scale * (value >= 10 ? 0.58 : 0.52);
+    canvas.drawCircle(
+      Offset.zero,
+      plateRadius,
+      Paint()..color = Colors.white.withValues(alpha: 0.86),
+    );
+    painter.paint(
+      canvas,
+      Offset(-painter.width / 2, -painter.height / 2),
+    );
+    canvas.restore();
   }
 
   Offset _facePoint(
