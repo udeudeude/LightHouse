@@ -29,7 +29,10 @@ void main() {
       hasLength(11),
     );
     expect(arcadeDiceChoices.map((choice) => choice.id), contains('fate'));
-    expect(arcadeDiceChoices.map((choice) => choice.id), containsAll(['d4', 'd8', 'd10', 'd12', 'd20']));
+    expect(
+      arcadeDiceChoices.map((choice) => choice.id),
+      containsAll(['d4', 'd8', 'd10', 'd12', 'd20']),
+    );
   });
 
   test('polyhedral die snapshots retain values above six', () {
