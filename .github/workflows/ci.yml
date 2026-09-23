@@ -1,8 +1,5 @@
 name: CI
 
-permissions:
-  contents: write
-
 on:
   push:
   pull_request:
@@ -23,21 +20,6 @@ jobs:
             ! -path 'lib/ui/board_screen.dart' \
             ! -path 'lib/ui/dice_bubble.dart' \
             -print0 | xargs -0 dart format --output=none --set-exit-if-changed
-      - run: dart format lib/ui/dice_bubble.dart test/ui/dice_bubble_art_test.dart test/ui/remote_overlay_snapshot_test.dart
-      - uses: actions/upload-artifact@v4
-        with:
-          name: polyhedral-formatted
-          path: lib/ui/dice_bubble.dart
-      - name: Commit formatter output on development branch
-        if: github.ref == 'refs/heads/real-polyhedral-dice' || github.head_ref == 'real-polyhedral-dice'
-        run: |
-          if ! git diff --quiet -- lib/ui/dice_bubble.dart test/ui/dice_bubble_art_test.dart test/ui/remote_overlay_snapshot_test.dart; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add lib/ui/dice_bubble.dart test/ui/dice_bubble_art_test.dart test/ui/remote_overlay_snapshot_test.dart
-            git commit -m "chore: format polyhedral dice source"
-            git push origin HEAD:real-polyhedral-dice
-          fi
-      - run: git diff --exit-code -- lib/ui/dice_bubble.dart test/ui/dice_bubble_art_test.dart test/ui/remote_overlay_snapshot_test.dart
+      - run: dart format --output=none --set-exit-if-changed lib/ui/dice_bubble.dart test/ui/dice_bubble_art_test.dart test/ui/remote_overlay_snapshot_test.dart
       - run: flutter analyze
       - run: flutter test
