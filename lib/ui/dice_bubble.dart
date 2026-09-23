@@ -1957,9 +1957,9 @@ class _DiceBubblePainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
       final widthScale =
-          (symmetricWidth * faceFill) / math.max(1, samplePainter.width);
+          (symmetricWidth * faceFill) / math.max(1.0, samplePainter.width);
       final heightScale =
-          (symmetricHeight * faceFill) / math.max(1, samplePainter.height);
+          (symmetricHeight * faceFill) / math.max(1.0, samplePainter.height);
       final fontSize =
           sampleFontSize * math.max(0.01, math.min(widthScale, heightScale));
       final painter = TextPainter(
