@@ -88,11 +88,6 @@ const arcadeDiceChoices = <ArcadeDieChoice>[
   ArcadeDieChoice('treehouse', ArcadeDieKind.treehouse, 'Treehouse die'),
   ArcadeDieChoice('color', ArcadeDieKind.color, 'Color die'),
   ArcadeDieChoice('fate', ArcadeDieKind.fate, 'Fudge / Fate die'),
-  ArcadeDieChoice('d4', ArcadeDieKind.d4, 'D4'),
-  ArcadeDieChoice('d8', ArcadeDieKind.d8, 'D8'),
-  ArcadeDieChoice('d10', ArcadeDieKind.d10, 'D10'),
-  ArcadeDieChoice('d12', ArcadeDieKind.d12, 'D12'),
-  ArcadeDieChoice('d20', ArcadeDieKind.d20, 'D20'),
 ];
 
 String arcadeDieBaseId(String instanceId) {
@@ -2209,7 +2204,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.04,
-          radius: 0.58,
+          radius: 0.66,
           pips: 1,
           paint: paint,
         );
@@ -2222,7 +2217,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.04,
-          radius: 0.76,
+          radius: 0.98,
           pips: 2,
           paint: paint,
         );
@@ -2235,7 +2230,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0,
           y: 0.03,
-          radius: 0.90,
+          radius: 0.98,
           pips: 3,
           paint: paint,
         );
@@ -2248,7 +2243,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.30,
           y: -0.15,
-          radius: 0.39,
+          radius: 0.44,
           pips: 1,
           paint: paint,
           inverted: true,
@@ -2261,7 +2256,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0.25,
           y: 0.20,
-          radius: 0.56,
+          radius: 0.63,
           pips: 2,
           paint: paint,
         );
@@ -2274,7 +2269,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.33,
           y: -0.17,
-          radius: 0.39,
+          radius: 0.44,
           pips: 1,
           paint: paint,
           inverted: true,
@@ -2300,7 +2295,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: -0.34,
           y: -0.20,
-          radius: 0.62,
+          radius: 0.70,
           pips: 2,
           paint: paint,
           inverted: true,
@@ -2313,7 +2308,7 @@ class _DiceBubblePainter extends CustomPainter {
           face,
           x: 0.27,
           y: 0.22,
-          radius: 0.86,
+          radius: 0.98,
           pips: 3,
           paint: paint,
         );

@@ -15,6 +15,10 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: |
-          find lib test -name '*.dart'             ! -path 'lib/application/app_language.dart'             ! -path 'lib/ui/dice_bubble.dart'             ! -path 'lib/ui/board_screen.dart'             -print0 | xargs -0 dart format --output=none --set-exit-if-changed
+          find lib test -name '*.dart' \
+            ! -path 'lib/application/app_language.dart' \
+            ! -path 'lib/ui/board_screen.dart' \
+            ! -path 'lib/ui/dice_bubble.dart' \
+            -print0 | xargs -0 dart format --output=none --set-exit-if-changed
       - run: flutter analyze
       - run: flutter test

@@ -44,13 +44,103 @@ class AppLanguageController {
   }
 }
 
+String _translateZendoRule(String english, AppLanguage language) {
+  String apply(Map<String, String> replacements) {
+    var value = english;
+    for (final entry in replacements.entries) {
+      value = value.replaceAll(entry.key, entry.value);
+    }
+    return value;
+  }
+
+  if (language == AppLanguage.spanish) {
+    return apply(const {
+      'All the pieces': 'Todas las piezas',
+      'At least one piece': 'Al menos una pieza',
+      'Exactly one piece': 'Exactamente una pieza',
+      'At least two pieces': 'Al menos dos piezas',
+      'Exactly two pieces': 'Exactamente dos piezas',
+      'No pieces': 'Ninguna pieza',
+      'It contains': 'Contiene',
+      'It has': 'Tiene',
+      'All its pieces': 'Todas sus piezas',
+      'The sum of pips': 'La suma de puntos',
+      'The total pip count': 'El total de puntos',
+      'The total non-blue pip count': 'El total de puntos no azules',
+      'yellow': 'amarilla',
+      'red': 'roja',
+      'blue': 'azul',
+      'green': 'verde',
+      'large': 'grande',
+      'medium': 'mediana',
+      'small': 'pequeña',
+      'upright': 'vertical',
+      'lying down': 'tumbada',
+      'flat': 'plana',
+      'touching': 'tocando',
+      'the table': 'la mesa',
+      'same color': 'mismo color',
+      'same size': 'mismo tamaño',
+      'same orientation': 'misma orientación',
+      'is six or more': 'es seis o más',
+      'is six or less': 'es seis o menos',
+      'is six': 'es seis',
+      'is five': 'es cinco',
+      'is seven': 'es siete',
+      'is odd': 'es impar',
+      'is even': 'es par',
+      'is prime': 'es primo',
+    });
+  }
+  if (language == AppLanguage.japanese) {
+    return apply(const {
+      'All the pieces': 'すべてのピース',
+      'At least one piece': '少なくとも1個のピース',
+      'Exactly one piece': 'ちょうど1個のピース',
+      'At least two pieces': '少なくとも2個のピース',
+      'Exactly two pieces': 'ちょうど2個のピース',
+      'No pieces': 'どのピースも',
+      'It contains': 'そのコアンには',
+      'It has': 'そのコアンには',
+      'All its pieces': 'そのコアンのすべてのピース',
+      'The sum of pips': 'ピップの合計',
+      'The total pip count': 'ピップ総数',
+      'The total non-blue pip count': '青以外のピップ総数',
+      'yellow': '黄色',
+      'red': '赤',
+      'blue': '青',
+      'green': '緑',
+      'large': 'ラージ',
+      'medium': 'ミディアム',
+      'small': 'スモール',
+      'upright': '直立',
+      'lying down': '横倒し',
+      'flat': '平置き',
+      'touching': '接触',
+      'the table': 'テーブル',
+      'same color': '同じ色',
+      'same size': '同じサイズ',
+      'same orientation': '同じ向き',
+      'is six or more': 'は6以上',
+      'is six or less': 'は6以下',
+      'is six': 'は6',
+      'is five': 'は5',
+      'is seven': 'は7',
+      'is odd': 'は奇数',
+      'is even': 'は偶数',
+      'is prime': 'は素数',
+    });
+  }
+  return english;
+}
+
 String tr(String english) {
   final language = AppLanguageController.current;
   if (language == AppLanguage.english) return english;
   return switch (language) {
     AppLanguage.english => english,
-    AppLanguage.spanish => _es[english] ?? _esExtra[english] ?? english,
-    AppLanguage.japanese => _ja[english] ?? _jaExtra[english] ?? english,
+    AppLanguage.spanish => _es[english] ?? _esExtra[english] ?? _translateZendoRule(english, language),
+    AppLanguage.japanese => _ja[english] ?? _jaExtra[english] ?? _translateZendoRule(english, language),
   };
 }
 
@@ -267,6 +357,26 @@ const _ja = <String, String>{
 
 
 const _esExtra = <String, String>{
+
+  'Difficulty': 'Dificultad',
+  'Medium Hard': 'Media difícil',
+  'Crazy Hard': 'Extremadamente difícil',
+  'increments': 'incrementos',
+  'Manual calibration': 'Calibración manual',
+  'Pairing code': 'Código de emparejamiento',
+  'Type the same 6-character code on both devices.': 'Escribe el mismo código de 6 caracteres en ambos dispositivos.',
+  'Enter exactly 6 letters or digits.': 'Introduce exactamente 6 letras o dígitos.',
+  'Add Controller': 'Añadir controlador',
+  'Pair Controller': 'Emparejar controlador',
+  'Pair Table Display': 'Emparejar pantalla de mesa',
+  'Enter this same code on the other device and choose the opposite role.': 'Introduce este mismo código en el otro dispositivo y elige el rol opuesto.',
+  'Paired': 'Emparejado',
+  'Pairing service unavailable.': 'Servicio de emparejamiento no disponible.',
+  'Waiting for the other device': 'Esperando al otro dispositivo',
+  'LightHouse locks the table to one orientation while it is open. Android can open the system Display settings directly.': 'LightHouse fija la mesa en una orientación mientras está abierta. Android puede abrir directamente los ajustes de pantalla del sistema.',
+  'LightHouse locks the table while it is open. iOS does not provide a supported app link to Rotation Lock; change it in Control Center.': 'LightHouse fija la mesa mientras está abierta. iOS no ofrece un enlace compatible al bloqueo de rotación; cámbialo en el Centro de control.',
+  'Orientation locking depends on browser and platform support.': 'El bloqueo de orientación depende del navegador y de la plataforma.',
+
   'Motion access was not granted.': 'No se concedió acceso al movimiento.',
   'Pairing code copied.': 'Código de emparejamiento copiado.',
   'Pairing link copied.': 'Enlace de emparejamiento copiado.',
@@ -308,6 +418,26 @@ const _esExtra = <String, String>{
 };
 
 const _jaExtra = <String, String>{
+
+  'Difficulty': '難易度',
+  'Medium Hard': 'やや難しい',
+  'Crazy Hard': '非常に難しい',
+  'increments': '刻み',
+  'Manual calibration': '手動調整',
+  'Pairing code': 'ペアリングコード',
+  'Type the same 6-character code on both devices.': '両方の端末に同じ6文字コードを入力してください。',
+  'Enter exactly 6 letters or digits.': '英数字をちょうど6文字入力してください。',
+  'Add Controller': 'コントローラーを追加',
+  'Pair Controller': 'コントローラーをペアリング',
+  'Pair Table Display': 'テーブル表示をペアリング',
+  'Enter this same code on the other device and choose the opposite role.': 'もう一方の端末にも同じコードを入力し、反対の役割を選んでください。',
+  'Paired': 'ペアリング済み',
+  'Pairing service unavailable.': 'ペアリングサービスを利用できません。',
+  'Waiting for the other device': 'もう一方の端末を待っています',
+  'LightHouse locks the table to one orientation while it is open. Android can open the system Display settings directly.': 'LightHouseを開いている間、テーブルの向きを固定します。Androidではシステムの画面設定を直接開けます。',
+  'LightHouse locks the table while it is open. iOS does not provide a supported app link to Rotation Lock; change it in Control Center.': 'LightHouseを開いている間、テーブルの向きを固定します。iOSでは回転ロックへの対応リンクがないため、コントロールセンターで変更してください。',
+  'Orientation locking depends on browser and platform support.': '向きの固定はブラウザとプラットフォームの対応状況によります。',
+
   'Motion access was not granted.': 'モーションへのアクセスが許可されませんでした。',
   'Pairing code copied.': 'ペアリングコードをコピーしました。',
   'Pairing link copied.': 'ペアリングリンクをコピーしました。',
