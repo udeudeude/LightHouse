@@ -1,19 +1,38 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum AppLanguage { english, spanish, japanese }
+enum AppLanguage {
+  english,
+  spanish,
+  japanese,
+  german,
+  french,
+  dutch,
+  portuguese,
+  chinese,
+}
 
 extension AppLanguageInfo on AppLanguage {
   String get code => switch (this) {
     AppLanguage.english => 'en',
     AppLanguage.spanish => 'es',
     AppLanguage.japanese => 'ja',
+    AppLanguage.german => 'de',
+    AppLanguage.french => 'fr',
+    AppLanguage.dutch => 'nl',
+    AppLanguage.portuguese => 'pt',
+    AppLanguage.chinese => 'zh',
   };
 
   String get selfName => switch (this) {
     AppLanguage.english => 'English',
     AppLanguage.spanish => 'Español',
     AppLanguage.japanese => '日本語',
+    AppLanguage.german => 'Deutsch',
+    AppLanguage.french => 'Français',
+    AppLanguage.dutch => 'Nederlands',
+    AppLanguage.portuguese => 'Português',
+    AppLanguage.chinese => '中文',
   };
 }
 
@@ -44,103 +63,17 @@ class AppLanguageController {
   }
 }
 
-String _translateZendoRule(String english, AppLanguage language) {
-  String apply(Map<String, String> replacements) {
-    var value = english;
-    for (final entry in replacements.entries) {
-      value = value.replaceAll(entry.key, entry.value);
-    }
-    return value;
-  }
-
-  if (language == AppLanguage.spanish) {
-    return apply(const {
-      'All the pieces': 'Todas las piezas',
-      'At least one piece': 'Al menos una pieza',
-      'Exactly one piece': 'Exactamente una pieza',
-      'At least two pieces': 'Al menos dos piezas',
-      'Exactly two pieces': 'Exactamente dos piezas',
-      'No pieces': 'Ninguna pieza',
-      'It contains': 'Contiene',
-      'It has': 'Tiene',
-      'All its pieces': 'Todas sus piezas',
-      'The sum of pips': 'La suma de puntos',
-      'The total pip count': 'El total de puntos',
-      'The total non-blue pip count': 'El total de puntos no azules',
-      'yellow': 'amarilla',
-      'red': 'roja',
-      'blue': 'azul',
-      'green': 'verde',
-      'large': 'grande',
-      'medium': 'mediana',
-      'small': 'pequeña',
-      'upright': 'vertical',
-      'lying down': 'tumbada',
-      'flat': 'plana',
-      'touching': 'tocando',
-      'the table': 'la mesa',
-      'same color': 'mismo color',
-      'same size': 'mismo tamaño',
-      'same orientation': 'misma orientación',
-      'is six or more': 'es seis o más',
-      'is six or less': 'es seis o menos',
-      'is six': 'es seis',
-      'is five': 'es cinco',
-      'is seven': 'es siete',
-      'is odd': 'es impar',
-      'is even': 'es par',
-      'is prime': 'es primo',
-    });
-  }
-  if (language == AppLanguage.japanese) {
-    return apply(const {
-      'All the pieces': 'すべてのピース',
-      'At least one piece': '少なくとも1個のピース',
-      'Exactly one piece': 'ちょうど1個のピース',
-      'At least two pieces': '少なくとも2個のピース',
-      'Exactly two pieces': 'ちょうど2個のピース',
-      'No pieces': 'どのピースも',
-      'It contains': 'そのコアンには',
-      'It has': 'そのコアンには',
-      'All its pieces': 'そのコアンのすべてのピース',
-      'The sum of pips': 'ピップの合計',
-      'The total pip count': 'ピップ総数',
-      'The total non-blue pip count': '青以外のピップ総数',
-      'yellow': '黄色',
-      'red': '赤',
-      'blue': '青',
-      'green': '緑',
-      'large': 'ラージ',
-      'medium': 'ミディアム',
-      'small': 'スモール',
-      'upright': '直立',
-      'lying down': '横倒し',
-      'flat': '平置き',
-      'touching': '接触',
-      'the table': 'テーブル',
-      'same color': '同じ色',
-      'same size': '同じサイズ',
-      'same orientation': '同じ向き',
-      'is six or more': 'は6以上',
-      'is six or less': 'は6以下',
-      'is six': 'は6',
-      'is five': 'は5',
-      'is seven': 'は7',
-      'is odd': 'は奇数',
-      'is even': 'は偶数',
-      'is prime': 'は素数',
-    });
-  }
-  return english;
-}
-
 String tr(String english) {
   final language = AppLanguageController.current;
-  if (language == AppLanguage.english) return english;
   return switch (language) {
     AppLanguage.english => english,
-    AppLanguage.spanish => _es[english] ?? _esExtra[english] ?? _translateZendoRule(english, language),
-    AppLanguage.japanese => _ja[english] ?? _jaExtra[english] ?? _translateZendoRule(english, language),
+    AppLanguage.spanish => _es[english] ?? _esExtra[english] ?? english,
+    AppLanguage.japanese => _ja[english] ?? _jaExtra[english] ?? english,
+    AppLanguage.german => _de[english] ?? english,
+    AppLanguage.french => _fr[english] ?? english,
+    AppLanguage.dutch => _nl[english] ?? english,
+    AppLanguage.portuguese => _pt[english] ?? english,
+    AppLanguage.chinese => _zh[english] ?? english,
   };
 }
 
