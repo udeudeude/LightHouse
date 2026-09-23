@@ -221,6 +221,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('every polyhedral result orientation paints without errors', (
+    tester,
+  ) async {
+    const cases = <(String, int)>[
+      ('d4', 4),
+      ('d8', 8),
+      ('d10', 10),
+      ('d12', 12),
+      ('d20', 20),
+    ];
+
+    var revision = 100;
+    for (final dieCase in cases) {
+      for (var face = 0; face < dieCase.$2; face += 1) {
+        final id = '${dieCase.$1}#1';
+        await tester.pumpWidget(
+          MaterialApp(
+            home: SizedBox(
+              width: 360,
+              height: 640,
+              child: DiceBubble(
+                snapshot: DiceBubbleSnapshot(
+                  revision: revision,
+                  rollSerial: revision,
+                  selectedIds: [id],
+                  faces: {id: face},
+                  xFraction: 0.5,
+                  yFraction: 0.4,
+                  sizeScale: face.isEven ? 0.7 : 1.9,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '${dieCase.$1} face ${face + 1} should paint cleanly',
+        );
+        revision += 1;
+      }
+    }
+  });
+
   testWidgets('zero-dice selector renders all die artwork and closes cleanly', (
     tester,
   ) async {

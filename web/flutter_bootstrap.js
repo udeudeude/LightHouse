@@ -1,7 +1,7 @@
 {{flutter_js}}
 {{flutter_build_config}}
 
-const lighthouseBuildVersion = '25';
+const lighthouseBuildVersion = '26';
 
 for (const build of (_flutter.buildConfig?.builds ?? [])) {
   if (build.mainJsPath) {
@@ -10,6 +10,4 @@ for (const build of (_flutter.buildConfig?.builds ?? [])) {
   }
 }
 
-Promise.resolve(window.lighthousePrepareFreshRuntime)
-  .catch(() => {})
-  .finally(() => _flutter.loader.load());
+_flutter.loader.load();
