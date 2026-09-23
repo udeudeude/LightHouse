@@ -112,10 +112,10 @@ ArcadeDieChoice? arcadeDieChoiceForInstance(String instanceId) {
       .firstOrNull;
 }
 
-int arcadeDieSidesForInstance(String instanceId) =>
-    arcadeDieChoiceForInstance(instanceId) case final choice?
-    ? arcadeDieSides(choice.kind)
-    : 6;
+int arcadeDieSidesForInstance(String instanceId) {
+  final choice = arcadeDieChoiceForInstance(instanceId);
+  return choice == null ? 6 : arcadeDieSides(choice.kind);
+}
 
 class DiceBubbleSnapshot {
   const DiceBubbleSnapshot({
