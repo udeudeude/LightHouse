@@ -17,5 +17,14 @@ jobs:
       - run: |
           dart format lib test
           git diff --exit-code -- lib test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: formatted-fixes
+          path: |
+            lib/application/app_language.dart
+            lib/ui/board_screen.dart
+            lib/ui/dice_bubble.dart
+            test/ui/remote_overlay_snapshot_test.dart
       - run: flutter analyze
       - run: flutter test
