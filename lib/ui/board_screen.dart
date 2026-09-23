@@ -462,7 +462,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _motionPermissionAttempted = false;
       if (!force) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Motion access was not granted.')),
+        SnackBar(content: Text(tr('Motion access was not granted.'))),
       );
     }
   }
@@ -2413,11 +2413,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   await Clipboard.setData(ClipboardData(text: normalizedCode));
                   if (!dialogContext.mounted) return;
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Pairing code copied.')),
+                    SnackBar(content: Text(tr('Pairing code copied.'))),
                   );
                 },
                 icon: const Icon(Icons.copy),
-                label: const Text('Copy Code'),
+                label: Text(tr('Copy Code')),
               )
             else
               TextButton.icon(
@@ -2425,15 +2425,15 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   await Clipboard.setData(ClipboardData(text: join));
                   if (!dialogContext.mounted) return;
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Pairing link copied.')),
+                    SnackBar(content: Text(tr('Pairing link copied.'))),
                   );
                 },
                 icon: const Icon(Icons.copy),
-                label: const Text('Copy Link'),
+                label: Text(tr('Copy Link')),
               ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text(session.peerSeen ? 'Done' : 'Hide'),
+              child: Text(tr(session.peerSeen ? 'Done' : 'Hide')),
             ),
           ],
         ),
@@ -2462,7 +2462,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           }
 
           return AlertDialog(
-            title: Text('${role.label} · Pair by Code'),
+            title: Text('${tr(role.label)} · ${tr('Pair by Code')}'),
             content: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 340),
               child: TextField(
@@ -2495,9 +2495,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
+                child: Text(tr('Cancel')),
               ),
-              FilledButton(onPressed: submit, child: const Text('Pair')),
+              FilledButton(onPressed: submit, child: Text(tr('Pair'))),
             ],
           );
         },
@@ -2722,7 +2722,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       children: [
         status,
         IconButton(
-          tooltip: 'Disconnect Table Display',
+          tooltip: tr('Disconnect Table Display'),
           visualDensity: VisualDensity.compact,
           onPressed: _disconnectRemote,
           icon: const Icon(Icons.link_off, color: Colors.white70),
@@ -2742,7 +2742,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: 'Table Display shape interaction',
+            tooltip: tr('Table Display shape interaction'),
             visualDensity: VisualDensity.compact,
             onPressed: () => unawaited(
               _setBoardUnitInteractions(
@@ -2757,7 +2757,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ),
           ),
           IconButton(
-            tooltip: 'Table Display shapes visible',
+            tooltip: tr('Table Display shapes visible'),
             visualDensity: VisualDensity.compact,
             onPressed: () => unawaited(
               _setBoardUnitShapesVisible(
@@ -2774,7 +2774,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ),
           ),
           IconButton(
-            tooltip: 'Turn off all ripples',
+            tooltip: tr('Turn off all ripples'),
             visualDensity: VisualDensity.compact,
             onPressed: _remoteControlState.rippleLevels.isEmpty
                 ? null
@@ -3323,7 +3323,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Table name'),
+        title: Text(tr('Table name')),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -3337,7 +3337,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('OK'),
+            child: Text(tr('OK')),
           ),
         ],
       ),
@@ -3350,7 +3350,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Restore previous autosave?'),
+        title: Text(tr('Restore previous autosave?')),
         content: const Text(
           'Replace the current table with the previous autosaved snapshot? '
           'You can use Undo immediately afterward to return to the current table.',
@@ -3362,7 +3362,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Restore'),
+            child: Text(tr('Restore')),
           ),
         ],
       ),
@@ -3376,7 +3376,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Previous autosave restored. Undo can reverse it.'),
+        content: Text(tr('Previous autosave restored. Undo can reverse it.')),
       ),
     );
   }
@@ -3409,7 +3409,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() => _activeSavedId = id);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(asCopy ? 'Saved a copy.' : 'Table saved.')),
+      SnackBar(content: Text(tr(asCopy ? 'Saved a copy.' : 'Table saved.'))),
     );
   }
 
@@ -3424,7 +3424,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           child: SizedBox(
             height: math.min(MediaQuery.sizeOf(context).height * 0.7, 520),
             child: summaries.isEmpty
-                ? const Center(child: Text('No saved tables yet.'))
+                ? Center(child: Text(tr('No saved tables yet.')))
                 : ListView.builder(
                     itemCount: summaries.length,
                     itemBuilder: (context, index) {
@@ -3448,7 +3448,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                           }
                         },
                         trailing: IconButton(
-                          tooltip: 'Delete saved table',
+                          tooltip: tr('Delete saved table'),
                           icon: const Icon(Icons.delete_outline),
                           onPressed: () async {
                             await _store.deleteNamed(item.id);
@@ -3480,7 +3480,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
     if (!mounted || saved == null) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Table JSON saved.')));
+        .showSnackBar(SnackBar(content: Text(tr('Table JSON saved.'))));
   }
 
   Future<void> _importTableFile() async {
@@ -3495,7 +3495,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       if (table == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('That file is not a LightHouse table.')),
+          SnackBar(content: Text(tr('That file is not a LightHouse table.'))),
         );
         return;
       }
@@ -3508,7 +3508,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not read that table file.')),
+        SnackBar(content: Text(tr('Could not read that table file.'))),
       );
     }
   }
@@ -3531,7 +3531,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not open Android display settings.'),
+          content: Text(tr('Could not open Android display settings.')),
         ),
       );
     }
@@ -3544,7 +3544,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Orientation lock'),
+        title: Text(tr('Orientation lock')),
         content: Text(
           isAndroid
               ? 'LightHouse locks the table to one orientation while it is open. Android can open the system Display settings directly.'
@@ -3559,11 +3559,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 Navigator.pop(dialogContext);
                 _openAndroidDisplaySettings();
               },
-              child: const Text('Display settings'),
+              child: Text(tr('Display settings')),
             ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Done'),
+            child: Text(tr('Done')),
           ),
         ],
       ),
@@ -3574,10 +3574,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (kIsWeb) {
       await showDialog<void>(
         context: context,
-        builder: (context) => const AlertDialog(
-          title: Text('Brightness'),
+        builder: (context) => AlertDialog(
+          title: Text(tr('Brightness')),
           content: Text(
-            'Browsers cannot control screen brightness. Use the device brightness control.',
+            tr('Browsers cannot control screen brightness. Use the device brightness control.'),
           ),
         ),
       );
@@ -3590,7 +3590,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Table brightness'),
+          title: Text(tr('Table brightness')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -3606,9 +3606,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 },
               ),
               if (defaultTargetPlatform == TargetPlatform.iOS)
-                const Text(
-                  'iOS does not expose a supported deep link to its Brightness panel; use Control Center for the system setting.',
-                  style: TextStyle(color: Colors.white60, fontSize: 12),
+                Text(
+                  tr('iOS does not expose a supported deep link to its Brightness panel; use Control Center for the system setting.'),
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
                 ),
             ],
           ),
@@ -3619,7 +3619,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                     .resetApplicationScreenBrightness();
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
-              child: const Text('Use system'),
+              child: Text(tr('Use system')),
             ),
             if (isAndroid)
               TextButton(
@@ -3627,11 +3627,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   Navigator.pop(dialogContext);
                   _openAndroidDisplaySettings();
                 },
-                child: const Text('Display settings'),
+                child: Text(tr('Display settings')),
               ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Done'),
+              child: Text(tr('Done')),
             ),
           ],
         ),
@@ -3653,12 +3653,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Size',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            Text(
+              tr('Size'),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 14),
-            const Text('A Large upright pyramid should fit this square:'),
+            Text(tr('A Large upright pyramid should fit this square:')),
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.bottomLeft,
@@ -3669,7 +3669,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               ),
             ),
             const SizedBox(height: 18),
-            const Text('Cross-check: this bar should measure exactly 25 mm:'),
+            Text(tr('Cross-check: this bar should measure exactly 25 mm:')),
             const SizedBox(height: 10),
             Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
             const SizedBox(height: 10),
@@ -3680,12 +3680,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(sheetContext, true),
-                  child: const Text('Recalibrate'),
+                  child: Text(tr('Recalibrate')),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
                   onPressed: () => Navigator.pop(sheetContext, false),
-                  child: const Text('Looks right'),
+                  child: Text(tr('Looks right')),
                 ),
               ],
             ),
@@ -3699,10 +3699,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Future<void> _showWebInstallHelp() async {
     await showDialog<void>(
       context: context,
-      builder: (context) => const AlertDialog(
-        title: Text('Full-screen'),
+      builder: (context) => AlertDialog(
+        title: Text(tr('Full-screen')),
         content: Text(
-          'On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.',
+          tr('On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.'),
         ),
       ),
     );
@@ -4063,13 +4063,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Different rule',
+                      tooltip: tr('Different rule'),
                       visualDensity: VisualDensity.compact,
                       onPressed: _chooseNextZendoRule,
                       icon: const Icon(Icons.shuffle, size: 18),
                     ),
                     IconButton(
-                      tooltip: 'Hide rule',
+                      tooltip: tr('Hide rule'),
                       visualDensity: VisualDensity.compact,
                       onPressed: () =>
                           setState(() => _zendoRuleVisible = false),
