@@ -3375,7 +3375,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     });
     if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(tr('Previous autosave restored. Undo can reverse it.')),
       ),
     );
@@ -3530,7 +3530,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(tr('Could not open Android display settings.')),
         ),
       );
