@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'web install metadata uses the manifest as the icon source of truth',
+    'web install metadata supports manifest installs and iOS Home Screen',
     () {
       final manifest = jsonDecode(
         File('web/manifest.json').readAsStringSync(),
@@ -30,11 +30,16 @@ void main() {
       );
 
       final index = File('web/index.html').readAsStringSync();
-      expect(index, contains('rel="manifest" href="manifest.json?v=26"'));
-      expect(index, isNot(contains('apple-touch-icon')));
+      expect(index, contains('rel="manifest" href="manifest.json?v=27"'));
+      expect(
+        index,
+        contains(
+          'rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png"',
+        ),
+      );
 
       final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
-      expect(bootstrap, contains("lighthouseBuildVersion = '26'"));
+      expect(bootstrap, contains("lighthouseBuildVersion = '27'"));
       expect(bootstrap, isNot(contains('lighthousePrepareFreshRuntime')));
     },
   );
