@@ -4684,7 +4684,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                       child: TextButton(
                         onPressed: _showLanguageMenu,
                         child: const Text(
-                          'A↔あ',
+                          languagePickerGlyph,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
