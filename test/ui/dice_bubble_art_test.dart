@@ -42,6 +42,30 @@ void main() {
     expect(isKnownArcadeDieInstance('fate#17'), isTrue);
   });
 
+  test('polyhedral dice expose their proper face counts', () {
+    expect(arcadeDieSides(ArcadeDieKind.d4), 4);
+    expect(arcadeDieSides(ArcadeDieKind.d8), 8);
+    expect(arcadeDieSides(ArcadeDieKind.d10), 10);
+    expect(arcadeDieSides(ArcadeDieKind.d12), 12);
+    expect(arcadeDieSides(ArcadeDieKind.d20), 20);
+    expect(isKnownArcadeDieInstance('d20#99'), isTrue);
+  });
+
+  test('saved polyhedral results retain faces above six', () {
+    final restored = DiceBubbleSnapshot.fromJson({
+      'revision': 4,
+      'rollSerial': 8,
+      'selectedIds': ['d20#2', 'd10#3'],
+      'faces': {'d20#2': 19, 'd10#3': 9},
+      'xFraction': 0.4,
+      'yFraction': 0.5,
+    });
+
+    expect(restored, isNotNull);
+    expect(restored!.faces['d20#2'], 19);
+    expect(restored.faces['d10#3'], 9);
+  });
+
   test('selector tile cycle respects remaining three-die capacity', () {
     expect(
       [
@@ -144,6 +168,7 @@ void main() {
 
     expect(find.text('Dice · 0/3 selected'), findsOneWidget);
     for (final choice in arcadeDiceChoices) {
+      await tester.ensureVisible(find.byTooltip(choice.label));
       expect(find.byTooltip(choice.label), findsOneWidget);
     }
     expect(tester.takeException(), isNull);

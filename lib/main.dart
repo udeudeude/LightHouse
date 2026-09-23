@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'application/app_language.dart';
 import 'application/board_store.dart';
 import 'application/display_calibration.dart';
 import 'application/remote_session.dart';
@@ -7,8 +8,9 @@ import 'domain/board_state.dart';
 import 'ui/board_screen.dart';
 import 'ui/calibration_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppLanguageController.load();
   runApp(const LightHouseApp());
 }
 
@@ -100,14 +102,15 @@ class _LightHouseAppState extends State<LightHouseApp> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context) => ValueListenableBuilder<AppLanguage>(
+    valueListenable: AppLanguageController.notifier,
+    builder: (context, language, _) => MaterialApp(
       title: 'LightHouse',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
       home: _buildHome(),
-    );
-  }
+    ),
+  );
 
   Widget _buildHome() {
     if (_board == null || _resolvingCalibration) {

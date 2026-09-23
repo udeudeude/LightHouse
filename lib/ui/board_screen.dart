@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../application/app_language.dart';
 import '../application/board_controller.dart';
 import '../application/board_store.dart';
 import '../application/remote_control_state.dart';
@@ -34,7 +35,6 @@ import 'dice_bubble.dart';
 import 'remote_board_viewport.dart';
 import 'ripple_overlay.dart';
 import 'pyramid_love_board_icon.dart';
-import 'pyramid_love_toy_icon.dart';
 import 'toy_overlay.dart';
 import 'zendo_rule_library.dart';
 import 'zendo_stones.dart';
@@ -462,7 +462,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       _motionPermissionAttempted = false;
       if (!force) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Motion access was not granted.')),
+        SnackBar(content: Text(tr('Motion access was not granted.'))),
       );
     }
   }
@@ -2413,11 +2413,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   await Clipboard.setData(ClipboardData(text: normalizedCode));
                   if (!dialogContext.mounted) return;
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Pairing code copied.')),
+                    SnackBar(content: Text(tr('Pairing code copied.'))),
                   );
                 },
                 icon: const Icon(Icons.copy),
-                label: const Text('Copy Code'),
+                label: Text(tr('Copy Code')),
               )
             else
               TextButton.icon(
@@ -2425,15 +2425,15 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   await Clipboard.setData(ClipboardData(text: join));
                   if (!dialogContext.mounted) return;
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Pairing link copied.')),
+                    SnackBar(content: Text(tr('Pairing link copied.'))),
                   );
                 },
                 icon: const Icon(Icons.copy),
-                label: const Text('Copy Link'),
+                label: Text(tr('Copy Link')),
               ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text(session.peerSeen ? 'Done' : 'Hide'),
+              child: Text(tr(session.peerSeen ? 'Done' : 'Hide')),
             ),
           ],
         ),
@@ -2462,7 +2462,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           }
 
           return AlertDialog(
-            title: Text('${role.label} · Pair by Code'),
+            title: Text('${tr(role.label)} · ${tr('Pair by Code')}'),
             content: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 340),
               child: TextField(
@@ -2495,9 +2495,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
+                child: Text(tr('Cancel')),
               ),
-              FilledButton(onPressed: submit, child: const Text('Pair')),
+              FilledButton(onPressed: submit, child: Text(tr('Pair'))),
             ],
           );
         },
@@ -2722,7 +2722,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       children: [
         status,
         IconButton(
-          tooltip: 'Disconnect Table Display',
+          tooltip: tr('Disconnect Table Display'),
           visualDensity: VisualDensity.compact,
           onPressed: _disconnectRemote,
           icon: const Icon(Icons.link_off, color: Colors.white70),
@@ -2742,7 +2742,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: 'Table Display shape interaction',
+            tooltip: tr('Table Display shape interaction'),
             visualDensity: VisualDensity.compact,
             onPressed: () => unawaited(
               _setBoardUnitInteractions(
@@ -2757,7 +2757,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ),
           ),
           IconButton(
-            tooltip: 'Table Display shapes visible',
+            tooltip: tr('Table Display shapes visible'),
             visualDensity: VisualDensity.compact,
             onPressed: () => unawaited(
               _setBoardUnitShapesVisible(
@@ -2774,7 +2774,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             ),
           ),
           IconButton(
-            tooltip: 'Turn off all ripples',
+            tooltip: tr('Turn off all ripples'),
             visualDensity: VisualDensity.compact,
             onPressed: _remoteControlState.rippleLevels.isEmpty
                 ? null
@@ -3323,7 +3323,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Table name'),
+        title: Text(tr('Table name')),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -3337,7 +3337,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('OK'),
+            child: Text(tr('OK')),
           ),
         ],
       ),
@@ -3350,7 +3350,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Restore previous autosave?'),
+        title: Text(tr('Restore previous autosave?')),
         content: const Text(
           'Replace the current table with the previous autosaved snapshot? '
           'You can use Undo immediately afterward to return to the current table.',
@@ -3362,7 +3362,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Restore'),
+            child: Text(tr('Restore')),
           ),
         ],
       ),
@@ -3375,8 +3375,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     });
     if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Previous autosave restored. Undo can reverse it.'),
+      SnackBar(
+        content: Text(tr('Previous autosave restored. Undo can reverse it.')),
       ),
     );
   }
@@ -3409,7 +3409,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() => _activeSavedId = id);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(asCopy ? 'Saved a copy.' : 'Table saved.')),
+      SnackBar(content: Text(tr(asCopy ? 'Saved a copy.' : 'Table saved.'))),
     );
   }
 
@@ -3424,7 +3424,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           child: SizedBox(
             height: math.min(MediaQuery.sizeOf(context).height * 0.7, 520),
             child: summaries.isEmpty
-                ? const Center(child: Text('No saved tables yet.'))
+                ? Center(child: Text(tr('No saved tables yet.')))
                 : ListView.builder(
                     itemCount: summaries.length,
                     itemBuilder: (context, index) {
@@ -3448,7 +3448,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                           }
                         },
                         trailing: IconButton(
-                          tooltip: 'Delete saved table',
+                          tooltip: tr('Delete saved table'),
                           icon: const Icon(Icons.delete_outline),
                           onPressed: () async {
                             await _store.deleteNamed(item.id);
@@ -3480,7 +3480,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
     if (!mounted || saved == null) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Table JSON saved.')));
+        .showSnackBar(SnackBar(content: Text(tr('Table JSON saved.'))));
   }
 
   Future<void> _importTableFile() async {
@@ -3495,7 +3495,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       if (table == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('That file is not a LightHouse table.')),
+          SnackBar(content: Text(tr('That file is not a LightHouse table.'))),
         );
         return;
       }
@@ -3508,7 +3508,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not read that table file.')),
+        SnackBar(content: Text(tr('Could not read that table file.'))),
       );
     }
   }
@@ -3530,8 +3530,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open Android display settings.'),
+        SnackBar(
+          content: Text(tr('Could not open Android display settings.')),
         ),
       );
     }
@@ -3544,7 +3544,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Orientation lock'),
+        title: Text(tr('Orientation lock')),
         content: Text(
           isAndroid
               ? 'LightHouse locks the table to one orientation while it is open. Android can open the system Display settings directly.'
@@ -3559,11 +3559,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 Navigator.pop(dialogContext);
                 _openAndroidDisplaySettings();
               },
-              child: const Text('Display settings'),
+              child: Text(tr('Display settings')),
             ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Done'),
+            child: Text(tr('Done')),
           ),
         ],
       ),
@@ -3574,10 +3574,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     if (kIsWeb) {
       await showDialog<void>(
         context: context,
-        builder: (context) => const AlertDialog(
-          title: Text('Brightness'),
+        builder: (context) => AlertDialog(
+          title: Text(tr('Brightness')),
           content: Text(
-            'Browsers cannot control screen brightness. Use the device brightness control.',
+            tr('Browsers cannot control screen brightness. Use the device brightness control.'),
           ),
         ),
       );
@@ -3590,7 +3590,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Table brightness'),
+          title: Text(tr('Table brightness')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -3606,9 +3606,9 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 },
               ),
               if (defaultTargetPlatform == TargetPlatform.iOS)
-                const Text(
-                  'iOS does not expose a supported deep link to its Brightness panel; use Control Center for the system setting.',
-                  style: TextStyle(color: Colors.white60, fontSize: 12),
+                Text(
+                  tr('iOS does not expose a supported deep link to its Brightness panel; use Control Center for the system setting.'),
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
                 ),
             ],
           ),
@@ -3619,7 +3619,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                     .resetApplicationScreenBrightness();
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
-              child: const Text('Use system'),
+              child: Text(tr('Use system')),
             ),
             if (isAndroid)
               TextButton(
@@ -3627,11 +3627,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   Navigator.pop(dialogContext);
                   _openAndroidDisplaySettings();
                 },
-                child: const Text('Display settings'),
+                child: Text(tr('Display settings')),
               ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Done'),
+              child: Text(tr('Done')),
             ),
           ],
         ),
@@ -3653,12 +3653,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Size',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            Text(
+              tr('Size'),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 14),
-            const Text('A Large upright pyramid should fit this square:'),
+            Text(tr('A Large upright pyramid should fit this square:')),
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.bottomLeft,
@@ -3669,7 +3669,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               ),
             ),
             const SizedBox(height: 18),
-            const Text('Cross-check: this bar should measure exactly 25 mm:'),
+            Text(tr('Cross-check: this bar should measure exactly 25 mm:')),
             const SizedBox(height: 10),
             Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
             const SizedBox(height: 10),
@@ -3680,12 +3680,12 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(sheetContext, true),
-                  child: const Text('Recalibrate'),
+                  child: Text(tr('Recalibrate')),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
                   onPressed: () => Navigator.pop(sheetContext, false),
-                  child: const Text('Looks right'),
+                  child: Text(tr('Looks right')),
                 ),
               ],
             ),
@@ -3699,10 +3699,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   Future<void> _showWebInstallHelp() async {
     await showDialog<void>(
       context: context,
-      builder: (context) => const AlertDialog(
-        title: Text('Full-screen'),
+      builder: (context) => AlertDialog(
+        title: Text(tr('Full-screen')),
         content: Text(
-          'On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.',
+          tr('On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.'),
         ),
       ),
     );
@@ -3717,7 +3717,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Widget _menu() => IconButton(
-    tooltip: 'Menu',
+    tooltip: tr('Menu'),
     onPressed: _showMainMenu,
     icon: SizedBox(
       width: 36,
@@ -3747,7 +3747,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         else
           leading ?? Icon(icon, size: 19),
         const SizedBox(width: 10),
-        Text(label),
+        Text(tr(label)),
       ],
     ),
   );
@@ -4063,13 +4063,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Different rule',
+                      tooltip: tr('Different rule'),
                       visualDensity: VisualDensity.compact,
                       onPressed: _chooseNextZendoRule,
                       icon: const Icon(Icons.shuffle, size: 18),
                     ),
                     IconButton(
-                      tooltip: 'Hide rule',
+                      tooltip: tr('Hide rule'),
                       visualDensity: VisualDensity.compact,
                       onPressed: () =>
                           setState(() => _zendoRuleVisible = false),
@@ -4166,33 +4166,35 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   Future<void> _showRotationSnapMenu() async {
     const options = <double>[15, 30, 45, 90];
-    final degrees = _rotationSnapDegrees;
-    final choice = await _showCompactMenu([
-      for (final option in options)
+    while (mounted) {
+      final degrees = _rotationSnapDegrees;
+      final choice = await _showCompactMenu([
+        for (final option in options)
+          _compactMenuItem(
+            's${option.toInt()}',
+            Icons.radio_button_unchecked,
+            '${option.toInt()}° increments',
+            checked: degrees == option,
+          ),
+        const PopupMenuDivider(),
         _compactMenuItem(
-          's${option.toInt()}',
-          Icons.radio_button_unchecked,
-          '${option.toInt()}° increments',
-          checked: degrees == option,
+          'now',
+          Icons.auto_fix_high,
+          'Snap Now',
+          enabled: degrees != null,
         ),
-      const PopupMenuDivider(),
-      _compactMenuItem(
-        'now',
-        Icons.auto_fix_high,
-        'Snap Now',
-        enabled: degrees != null,
-      ),
-    ]);
-    if (choice == null) return;
-    if (choice == 'now') {
-      final snap = _rotationSnapDegrees;
-      if (snap != null) {
-        _controller.snapAllHeadings(snap);
-        HapticFeedback.selectionClick();
+      ]);
+      if (!mounted || choice == null) return;
+      if (choice == 'now') {
+        final snap = _rotationSnapDegrees;
+        if (snap != null) {
+          _controller.snapAllHeadings(snap);
+          HapticFeedback.selectionClick();
+        }
+      } else {
+        await _setRotationSnap(double.parse(choice.substring(1)));
       }
-      return;
     }
-    await _setRotationSnap(double.parse(choice.substring(1)));
   }
 
   void _toggleUnderlaySelection(BoardUnderlay underlay) {
@@ -4293,49 +4295,30 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Widget _toyIcon(_ToyKind toy, Color color, {required bool inMenu}) {
-    if (inMenu) {
-      switch (toy) {
-        case _ToyKind.nestCycle:
-          return Text(
+    switch (toy) {
+      case _ToyKind.nestCycle:
+        return Center(
+          child: Text(
             '⧈',
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: color,
-              fontSize: 25,
+              fontSize: 23,
               height: 1,
               fontWeight: FontWeight.w500,
             ),
-          );
-        case _ToyKind.zendoStones:
-          return Icon(Icons.circle_outlined, size: 18, color: color);
-        case _ToyKind.triangleBounce:
-          return Icon(Icons.change_history, size: 18, color: color);
-        default:
-          break;
-      }
+          ),
+        );
+      case _ToyKind.zendoStones:
+        return Icon(Icons.circle_outlined, size: 18, color: color);
+      case _ToyKind.triangleBounce:
+        return Icon(Icons.change_history, size: 18, color: color);
+      default:
+        final icon = toy == _ToyKind.entropy
+            ? (_entropyEnabled ? Icons.hourglass_top : Icons.hourglass_bottom)
+            : toy.icon;
+        return Icon(icon, size: 21, color: color);
     }
-
-    final artwork = switch (toy) {
-      _ToyKind.nestCycle => PyramidLoveToyIconKind.nest,
-      _ToyKind.zendoStones => PyramidLoveToyIconKind.zendoMarkers,
-      _ToyKind.triangleBounce => PyramidLoveToyIconKind.eastQueen,
-      _ => null,
-    };
-    if (artwork != null) {
-      final size = switch (toy) {
-        _ToyKind.nestCycle => 36.0,
-        _ToyKind.zendoStones || _ToyKind.triangleBounce => 21.0,
-        _ => 21.0,
-      };
-      final icon = PyramidLoveToyIcon(artwork, color: color, size: size);
-      if (toy == _ToyKind.nestCycle) {
-        return Transform.translate(offset: const Offset(0, -6), child: icon);
-      }
-      return icon;
-    }
-    final icon = toy == _ToyKind.entropy
-        ? (_entropyEnabled ? Icons.hourglass_top : Icons.hourglass_bottom)
-        : toy.icon;
-    return Icon(icon, size: 21, color: color);
   }
 
   Future<void> _showToyMenu() async {
@@ -4349,7 +4332,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         child: Align(
           alignment: Alignment.bottomLeft,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 56),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
             child: StatefulBuilder(
               builder: (context, setDialogState) => Material(
                 color: const Color(0xFF202020),
@@ -4368,7 +4351,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                           children: [
                             for (final toy in _ToyKind.values)
                               Tooltip(
-                                message: toy.label,
+                                message: tr(toy.label),
                                 preferBelow: false,
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(6),
@@ -4473,6 +4456,46 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _showHistoryControls();
   }
 
+  Future<void> _showLanguageMenu() async {
+    final selected = await showModalBottomSheet<AppLanguage>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFF202020),
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+              child: Text(
+                tr('Thanks for playing with LightHouse!'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            for (final language in AppLanguage.values)
+              ListTile(
+                title: Text(language.selfName),
+                trailing: language == AppLanguageController.current
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, language),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null) return;
+    await AppLanguageController.set(selected);
+    if (mounted) setState(() {});
+  }
+
   Widget _instructionsPane() {
     final size = MediaQuery.sizeOf(context);
     final isDesktop =
@@ -4562,7 +4585,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                       children: [
                         Expanded(
                           child: Text(
-                            'Instructions · $deviceName',
+                            '${tr('Instructions')} · ${tr(deviceName)}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -4571,7 +4594,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Close instructions',
+                          tooltip: tr('Close instructions'),
                           visualDensity: VisualDensity.compact,
                           onPressed: () =>
                               setState(() => _instructionsVisible = false),
@@ -4597,18 +4620,32 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                                     ),
                                     children: [
                                       TextSpan(
-                                        text: '${item.$1}: ',
+                                        text: '${tr(item.$1)}: ',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      TextSpan(text: item.$2),
+                                      TextSpan(text: tr(item.$2)),
                                     ],
                                   ),
                                 ),
                               ),
                           ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: _showLanguageMenu,
+                        child: const Text(
+                          'A↔あ',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -4626,7 +4663,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     final active = _toyIsActive(toy);
     if (toy == _ToyKind.turnTimer) {
       return Tooltip(
-        message: toy.label,
+        message: tr(toy.label),
         triggerMode: TooltipTriggerMode.longPress,
         child: SizedBox(
           width: 40,
@@ -4679,7 +4716,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     }
     if (toy == _ToyKind.redSweep) {
       return Tooltip(
-        message: toy.label,
+        message: tr(toy.label),
         triggerMode: TooltipTriggerMode.longPress,
         child: SizedBox(
           width: 40,
@@ -4731,7 +4768,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       );
     }
     return IconButton(
-      tooltip: toy.label,
+      tooltip: tr(toy.label),
       visualDensity: VisualDensity.compact,
       onPressed:
           _randomizerRunning &&
@@ -4800,13 +4837,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: 'Undo',
+            tooltip: tr('Undo'),
             visualDensity: VisualDensity.compact,
             onPressed: _controller.canUndo ? _undoFromUi : null,
             icon: const Icon(Icons.undo, size: 21),
           ),
           IconButton(
-            tooltip: 'Redo',
+            tooltip: tr('Redo'),
             visualDensity: VisualDensity.compact,
             onPressed: _controller.canRedo ? _redoFromUi : null,
             icon: const Icon(Icons.redo, size: 21),
