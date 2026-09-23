@@ -2355,9 +2355,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         animation: session,
         builder: (context, _) => AlertDialog(
           title: Text(
-            session.role == RemoteRole.display
-                ? (session.peerSeen ? 'Add Controller' : 'Pair Controller')
-                : 'Pair Table Display',
+            tr(
+              session.role == RemoteRole.display
+                  ? (session.peerSeen ? 'Add Controller' : 'Pair Controller')
+                  : 'Pair Table Display',
+            ),
           ),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 340),
@@ -2365,8 +2367,8 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (normalizedCode != null) ...[
-                  const Text(
-                    'Enter this same code on the other device and choose the opposite role.',
+                  Text(
+                    tr('Enter this same code on the other device and choose the opposite role.'),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
@@ -2389,10 +2391,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 10),
                 Text(
                   session.peerSeen
-                      ? 'Paired · ${session.transportLabel}'
+                      ? '${tr('Paired')} · ${session.transportLabel}'
                       : session.phase == RemoteConnectionPhase.failed
-                      ? 'Pairing service unavailable.'
-                      : 'Waiting for the other device · ${session.transportLabel}',
+                      ? tr('Pairing service unavailable.')
+                      : '${tr('Waiting for the other device')} · ${session.transportLabel}',
                   textAlign: TextAlign.center,
                 ),
                 if (session.errorMessage case final error?) ...[
@@ -2454,7 +2456,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             );
             if (!RemoteSession.isValidPairingCode(normalized)) {
               setDialogState(() {
-                validationError = 'Enter exactly 6 letters or digits.';
+                validationError = tr('Enter exactly 6 letters or digits.');
               });
               return;
             }
@@ -2479,10 +2481,10 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                   ),
                 ],
                 decoration: InputDecoration(
-                  labelText: 'Pairing code',
+                  labelText: tr('Pairing code'),
                   hintText: 'K7M4Q2',
                   errorText: validationError,
-                  helperText: 'Type the same 6-character code on both devices.',
+                  helperText: tr('Type the same 6-character code on both devices.'),
                 ),
                 onChanged: (_) {
                   if (validationError != null) {
@@ -3546,11 +3548,13 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       builder: (dialogContext) => AlertDialog(
         title: Text(tr('Orientation lock')),
         content: Text(
-          isAndroid
-              ? 'LightHouse locks the table to one orientation while it is open. Android can open the system Display settings directly.'
-              : isIos
-              ? 'LightHouse locks the table while it is open. iOS does not provide a supported app link to Rotation Lock; change it in Control Center.'
-              : 'Orientation locking depends on browser and platform support.',
+          tr(
+            isAndroid
+                ? 'LightHouse locks the table to one orientation while it is open. Android can open the system Display settings directly.'
+                : isIos
+                ? 'LightHouse locks the table while it is open. iOS does not provide a supported app link to Rotation Lock; change it in Control Center.'
+                : 'Orientation locking depends on browser and platform support.',
+          ),
         ),
         actions: [
           if (isAndroid)
@@ -3673,7 +3677,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
             const SizedBox(height: 10),
             Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
             const SizedBox(height: 10),
-            Text(widget.calibrationLabel),
+            Text(tr(widget.calibrationLabel)),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -3883,7 +3887,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
         _compactMenuItem(
           'difficulty',
           Icons.tune,
-          'Difficulty: ${_zendoRuleDifficulty.label}',
+          '${tr('Difficulty')}: ${tr(_zendoRuleDifficulty.label)}',
         ),
         _compactMenuItem(
           'complex',
@@ -4173,7 +4177,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
           _compactMenuItem(
             's${option.toInt()}',
             Icons.radio_button_unchecked,
-            '${option.toInt()}° increments',
+            '${option.toInt()}° ${tr('increments')}',
             checked: degrees == option,
           ),
         const PopupMenuDivider(),
@@ -4783,20 +4787,25 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _toyControls() => ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: 260),
-    child: Wrap(
-      alignment: WrapAlignment.end,
-      runAlignment: WrapAlignment.end,
-      verticalDirection: VerticalDirection.down,
-      spacing: 0,
-      runSpacing: 0,
-      children: [
-        for (final toy in _ToyKind.values)
-          if (_toyVisible[toy] ?? toy.defaultVisible) _toyControl(toy),
-      ],
-    ),
-  );
+  Widget _toyControls() {
+    final toys = [
+      for (final toy in _ToyKind.values)
+        if (_toyVisible[toy] ?? toy.defaultVisible) toy,
+    ];
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        runAlignment: WrapAlignment.end,
+        verticalDirection: VerticalDirection.up,
+        spacing: 0,
+        runSpacing: 0,
+        children: [
+          for (final toy in toys.reversed) _toyControl(toy),
+        ],
+      ),
+    );
+  }
 
   Widget _gunAimHandle(int index, Alignment alignment) {
     final size = 132.0 * _remoteUiScale;
