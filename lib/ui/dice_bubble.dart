@@ -1903,45 +1903,49 @@ class _DiceBubblePainter extends CustomPainter {
 
       final worldCenter = _averageVertices(mesh.vertices, face.vertices);
       final rotatedCenter = _rotate(worldCenter, rotation);
-      final labelCenter = _project(rotatedCenter, center, meshScale);
+      final projectedWorldCenter = _project(
+        rotatedCenter,
+        center,
+        meshScale,
+      );
+      final labelCenter =
+          polygon.fold<Offset>(
+            Offset.zero,
+            (sum, point) => sum + point,
+          ) /
+          polygon.length.toDouble();
       final axisPoint = _project(
         _rotate(worldCenter + face.xAxis.scale(0.24), rotation),
         center,
         meshScale,
       );
       var labelAngle = math.atan2(
-        axisPoint.dy - labelCenter.dy,
-        axisPoint.dx - labelCenter.dx,
+        axisPoint.dy - projectedWorldCenter.dy,
+        axisPoint.dx - projectedWorldCenter.dx,
       );
       if (math.cos(labelAngle) < 0) labelAngle += math.pi;
 
-      final cosAngle = math.cos(labelAngle);
-      final sinAngle = math.sin(labelAngle);
-      final localPolygon = <Offset>[
-        for (final point in polygon)
-          Offset(
-            (point.dx - labelCenter.dx) * cosAngle +
-                (point.dy - labelCenter.dy) * sinAngle,
-            -(point.dx - labelCenter.dx) * sinAngle +
-                (point.dy - labelCenter.dy) * cosAngle,
-          ),
-      ];
-      var left = double.infinity;
-      var right = double.infinity;
-      var up = double.infinity;
-      var down = double.infinity;
-      for (final point in localPolygon) {
-        if (point.dx < 0) left = math.min(left, -point.dx);
-        if (point.dx > 0) right = math.min(right, point.dx);
-        if (point.dy < 0) up = math.min(up, -point.dy);
-        if (point.dy > 0) down = math.min(down, point.dy);
+      // Fit the label to a finite circle centered inside the projected face.
+      // The previous vertex-quadrant fit could leave a dimension at infinity
+      // after perspective projection, which produced an infinite font size
+      // and made polyhedral numbers disappear.
+      var labelRadius = double.infinity;
+      for (var i = 0; i < polygon.length; i += 1) {
+        final a = polygon[i] - labelCenter;
+        final b = polygon[(i + 1) % polygon.length] - labelCenter;
+        final edgeVector = b - a;
+        final edgeLength = edgeVector.distance;
+        if (edgeLength <= 0.0001) continue;
+        final distanceToEdge =
+            (a.dx * b.dy - a.dy * b.dx).abs() / edgeLength;
+        labelRadius = math.min(labelRadius, distanceToEdge);
       }
-      final symmetricWidth = 2 * math.min(left, right);
-      final symmetricHeight = 2 * math.min(up, down);
+      if (!labelRadius.isFinite || labelRadius <= 0) continue;
+
       final faceFill = switch (face.vertices.length) {
-        3 => 0.92,
-        4 => 0.92,
-        _ => 0.88,
+        3 => 0.96,
+        4 => 0.96,
+        _ => 0.94,
       };
       final value = face.index + 1;
       const sampleFontSize = 100.0;
@@ -1956,12 +1960,13 @@ class _DiceBubblePainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      final widthScale =
-          (symmetricWidth * faceFill) / math.max(1.0, samplePainter.width);
-      final heightScale =
-          (symmetricHeight * faceFill) / math.max(1.0, samplePainter.height);
+      final sampleDiagonal = math.sqrt(
+        samplePainter.width * samplePainter.width +
+            samplePainter.height * samplePainter.height,
+      );
       final fontSize =
-          sampleFontSize * math.max(0.01, math.min(widthScale, heightScale));
+          sampleFontSize *
+          ((2 * labelRadius * faceFill) / math.max(1.0, sampleDiagonal));
       final painter = TextPainter(
         text: TextSpan(
           text: '$value',
