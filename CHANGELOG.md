@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added Italian (Italiano) to the interface language selector with translation coverage matching the existing non-English languages.
 - Made polyhedral die numbers occupy most of each projected face and scale continuously with die and Dice Bubble size, including double-digit faces.
 - Enlarged the 3D polyhedral dice; made Dice Bubble persistently resizable by two-finger pinch while scaling its dice but keeping the hidden spider optically small; replaced the pixelated Home Screen icon with antialiased vector-derived artwork; and changed the language selector to a responsive two- or three-column grid.
 - Added true 3D D4, D8, D10, D12, and D20 dice to Dice Bubble using explicit polyhedron meshes, perspective projection, face-aware result orientations, flat LightHouse styling, and saved/Remote support for values above six.
