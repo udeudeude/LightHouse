@@ -1915,27 +1915,53 @@ class _DiceBubblePainter extends CustomPainter {
       );
       if (math.cos(labelAngle) < 0) labelAngle += math.pi;
 
-      var minX = polygon.first.dx;
-      var maxX = polygon.first.dx;
-      var minY = polygon.first.dy;
-      var maxY = polygon.first.dy;
-      for (final point in polygon.skip(1)) {
-        minX = math.min(minX, point.dx);
-        maxX = math.max(maxX, point.dx);
-        minY = math.min(minY, point.dy);
-        maxY = math.max(maxY, point.dy);
+      final cosAngle = math.cos(labelAngle);
+      final sinAngle = math.sin(labelAngle);
+      final localPolygon = <Offset>[
+        for (final point in polygon)
+          Offset(
+            (point.dx - labelCenter.dx) * cosAngle +
+                (point.dy - labelCenter.dy) * sinAngle,
+            -(point.dx - labelCenter.dx) * sinAngle +
+                (point.dy - labelCenter.dy) * cosAngle,
+          ),
+      ];
+      var left = double.infinity;
+      var right = double.infinity;
+      var up = double.infinity;
+      var down = double.infinity;
+      for (final point in localPolygon) {
+        if (point.dx < 0) left = math.min(left, -point.dx);
+        if (point.dx > 0) right = math.min(right, point.dx);
+        if (point.dy < 0) up = math.min(up, -point.dy);
+        if (point.dy > 0) down = math.min(down, point.dy);
       }
-      final shortSpan = math.min(maxX - minX, maxY - minY);
-      final value = face.index + 1;
-      final faceFactor = switch (kind) {
-        ArcadeDieKind.d10 => 0.40,
-        ArcadeDieKind.d12 => 0.45,
-        ArcadeDieKind.d20 => 0.43,
-        _ => 0.46,
+      final symmetricWidth = 2 * math.min(left, right);
+      final symmetricHeight = 2 * math.min(up, down);
+      final faceFill = switch (face.vertices.length) {
+        3 => 0.92,
+        4 => 0.92,
+        _ => 0.88,
       };
-      final fontSize = (shortSpan * faceFactor)
-          .clamp(4.6, value >= 10 ? 10.5 : 12.5)
-          .toDouble();
+      final value = face.index + 1;
+      const sampleFontSize = 100.0;
+      final samplePainter = TextPainter(
+        text: TextSpan(
+          text: '$value',
+          style: const TextStyle(
+            fontSize: sampleFontSize,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final widthScale =
+          (symmetricWidth * faceFill) / math.max(1.0, samplePainter.width);
+      final heightScale =
+          (symmetricHeight * faceFill) / math.max(1.0, samplePainter.height);
+      final fontSize =
+          sampleFontSize * math.max(0.01, math.min(widthScale, heightScale));
       final painter = TextPainter(
         text: TextSpan(
           text: '$value',
