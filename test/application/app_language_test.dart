@@ -8,6 +8,12 @@ void main() {
     AppLanguageController.notifier.value = AppLanguage.english;
   });
 
+
+  test('language picker arrow explicitly requests text presentation', () {
+    expect(languagePickerGlyph.runes.toList(), <int>[0x41, 0x2194, 0xFE0E, 0x3042]);
+    expect(languagePickerGlyph.codeUnits.contains(0xFE0F), isFalse);
+  });
+
   test('toki pona has the standard language code and interface name', () {
     expect(AppLanguage.tokiPona.code, 'tok');
     expect(AppLanguage.tokiPona.selfName, 'toki pona');
