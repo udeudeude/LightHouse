@@ -4788,22 +4788,28 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   }
 
   Widget _toyControls() {
+    const columns = 6;
     final toys = [
       for (final toy in _ToyKind.values)
         if (_toyVisible[toy] ?? toy.defaultVisible) toy,
     ];
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 260),
-      child: Wrap(
-        alignment: WrapAlignment.end,
-        runAlignment: WrapAlignment.end,
-        verticalDirection: VerticalDirection.up,
-        spacing: 0,
-        runSpacing: 0,
-        children: [
-          for (final toy in toys.reversed) _toyControl(toy),
-        ],
-      ),
+    final rows = <Widget>[];
+    for (var start = 0; start < toys.length; start += columns) {
+      final end = math.min(start + columns, toys.length);
+      rows.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            for (final toy in toys.sublist(start, end)) _toyControl(toy),
+          ],
+        ),
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: rows,
     );
   }
 
