@@ -23,12 +23,33 @@ void main() {
   });
 
   test('dice selector exposes each die kind once', () {
-    expect(arcadeDiceChoices, hasLength(6));
+    expect(arcadeDiceChoices, hasLength(11));
     expect(
       arcadeDiceChoices.map((choice) => choice.kind).toSet(),
-      hasLength(6),
+      hasLength(11),
     );
     expect(arcadeDiceChoices.map((choice) => choice.id), contains('fate'));
+    expect(
+      arcadeDiceChoices.map((choice) => choice.id),
+      containsAll(['d4', 'd8', 'd10', 'd12', 'd20']),
+    );
+  });
+
+  test('polyhedral die snapshots retain values above six', () {
+    const source = DiceBubbleSnapshot(
+      revision: 11,
+      rollSerial: 9,
+      selectedIds: ['d20#4', 'd12#5', 'd10#6'],
+      faces: {'d20#4': 19, 'd12#5': 11, 'd10#6': 9},
+      xFraction: 0.4,
+      yFraction: 0.5,
+    );
+    final decoded = DiceBubbleSnapshot.fromJson(source.toJson());
+    expect(decoded, isNotNull);
+    expect(decoded!.selectedIds, source.selectedIds);
+    expect(decoded.faces['d20#4'], 19);
+    expect(decoded.faces['d12#5'], 11);
+    expect(decoded.faces['d10#6'], 9);
   });
 
   test('legacy physical dice identifiers remain readable', () {

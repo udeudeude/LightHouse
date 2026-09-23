@@ -88,6 +88,11 @@ const arcadeDiceChoices = <ArcadeDieChoice>[
   ArcadeDieChoice('treehouse', ArcadeDieKind.treehouse, 'Treehouse die'),
   ArcadeDieChoice('color', ArcadeDieKind.color, 'Color die'),
   ArcadeDieChoice('fate', ArcadeDieKind.fate, 'Fudge / Fate die'),
+  ArcadeDieChoice('d4', ArcadeDieKind.d4, 'D4'),
+  ArcadeDieChoice('d8', ArcadeDieKind.d8, 'D8'),
+  ArcadeDieChoice('d10', ArcadeDieKind.d10, 'D10'),
+  ArcadeDieChoice('d12', ArcadeDieKind.d12, 'D12'),
+  ArcadeDieChoice('d20', ArcadeDieKind.d20, 'D20'),
 ];
 
 String arcadeDieBaseId(String instanceId) {
@@ -102,9 +107,7 @@ bool isKnownArcadeDieInstance(String instanceId) =>
 
 ArcadeDieChoice? arcadeDieChoiceForInstance(String instanceId) {
   final baseId = arcadeDieBaseId(instanceId);
-  return arcadeDiceChoices
-      .where((choice) => choice.id == baseId)
-      .firstOrNull;
+  return arcadeDiceChoices.where((choice) => choice.id == baseId).firstOrNull;
 }
 
 int arcadeDieSidesForInstance(String instanceId) {
@@ -334,9 +337,9 @@ class _DiceBubbleState extends State<DiceBubble>
     for (final id in _selectedIds) {
       final oldFace = previousFaces[id] ?? _faces[id] ?? 0;
       final face = _faces[id] ?? 0;
-      final sides = arcadeDieSides(_choice(id).kind);
-      final start = _targetForFace(oldFace, sides: sides);
-      final target = _targetForFace(face, sides: sides);
+      final kind = _choice(id).kind;
+      final start = _targetForFace(oldFace, kind: kind);
+      final target = _targetForFace(face, kind: kind);
       _plans[id] = _SpinPlan(
         start: start,
         end: _Rotation3(
@@ -429,15 +432,11 @@ class _DiceBubbleState extends State<DiceBubble>
   double _normalize(double radians) =>
       ((radians + math.pi) % (2 * math.pi)) - math.pi;
 
-  _Rotation3 _targetForFace(int face, {int sides = 6}) {
-    if (sides != 6) {
-      final angle = face * 2 * math.pi / sides;
-      return _Rotation3(
-        0.34 * math.sin(angle * 1.7),
-        0.30 * math.cos(angle * 1.3),
-        angle,
-      );
-    }
+  _Rotation3 _targetForFace(
+    int face, {
+    ArcadeDieKind kind = ArcadeDieKind.standard,
+  }) {
+    if (_isPolyhedralKind(kind)) return _polyTargetForFace(kind, face);
     return switch (face) {
       0 => const _Rotation3(0, 0, 0),
       1 => const _Rotation3(-math.pi / 2, 0, 0),
@@ -467,14 +466,14 @@ class _DiceBubbleState extends State<DiceBubble>
       final sides = arcadeDieSides(choice.kind);
       final old =
           _plans[id]?.rotationAt(1) ??
-          _targetForFace(_faces[id] ?? 0, sides: sides);
+          _targetForFace(_faces[id] ?? 0, kind: choice.kind);
       final start = _Rotation3(
         _normalize(old.x),
         _normalize(old.y),
         _normalize(old.z),
       );
       final face = _random.nextInt(sides);
-      final target = _targetForFace(face, sides: sides);
+      final target = _targetForFace(face, kind: choice.kind);
       _faces[id] = face;
       _plans[id] = _SpinPlan(
         start: start,
@@ -547,130 +546,135 @@ class _DiceBubbleState extends State<DiceBubble>
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
-                      child: Text(
-                        '${tr('Dice')} · ${_selectedIds.length}/3 ${tr('selected')}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
+                        child: Text(
+                          '${tr('Dice')} · ${_selectedIds.length}/3 ${tr('selected')}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 9,
-                            crossAxisSpacing: 9,
-                            mainAxisExtent: 112,
-                          ),
-                      itemCount: arcadeDiceChoices.length,
-                      itemBuilder: (context, index) {
-                        final choice = arcadeDiceChoices[index];
-                        final count = _choiceCount(choice.id);
-                        final canAdd = count < _maximumChoiceCount(choice);
-                        return Tooltip(
-                          message: tr(choice.label),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: () {
-                              _cycleChoice(choice);
-                              setSheetState(() {});
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: count > 0
-                                    ? Colors.white.withValues(alpha: 0.10)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 9,
+                              crossAxisSpacing: 9,
+                              mainAxisExtent: 112,
+                            ),
+                        itemCount: arcadeDiceChoices.length,
+                        itemBuilder: (context, index) {
+                          final choice = arcadeDiceChoices[index];
+                          final count = _choiceCount(choice.id);
+                          final canAdd = count < _maximumChoiceCount(choice);
+                          return Tooltip(
+                            message: tr(choice.label),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () {
+                                _cycleChoice(choice);
+                                setSheetState(() {});
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
                                   color: count > 0
-                                      ? Colors.white
-                                      : Colors.white24,
-                                  width: count > 0 ? 2 : 1,
+                                      ? Colors.white.withValues(alpha: 0.10)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: count > 0
+                                        ? Colors.white
+                                        : Colors.white24,
+                                    width: count > 0 ? 2 : 1,
+                                  ),
                                 ),
-                              ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  _selectorImage(choice),
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: Container(
-                                      constraints: const BoxConstraints(
-                                        minWidth: 20,
-                                        minHeight: 20,
-                                      ),
-                                      alignment: Alignment.center,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Text(
-                                        '$count',
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    _selectorImage(choice),
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Container(
+                                        constraints: const BoxConstraints(
+                                          minWidth: 20,
+                                          minHeight: 20,
+                                        ),
+                                        alignment: Alignment.center,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '$count',
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  Positioned(
-                                    left: 2,
-                                    bottom: 2,
-                                    child: IconButton(
-                                      tooltip: '${tr('Remove one')} ${tr(choice.label)}',
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 30,
-                                        minHeight: 30,
+                                    Positioned(
+                                      left: 2,
+                                      bottom: 2,
+                                      child: IconButton(
+                                        tooltip:
+                                            '${tr('Remove one')} ${tr(choice.label)}',
+                                        visualDensity: VisualDensity.compact,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 30,
+                                          minHeight: 30,
+                                        ),
+                                        onPressed: count == 0
+                                            ? null
+                                            : () {
+                                                _removeChoice(choice);
+                                                setSheetState(() {});
+                                              },
+                                        icon: const Icon(
+                                          Icons.remove,
+                                          size: 18,
+                                        ),
                                       ),
-                                      onPressed: count == 0
-                                          ? null
-                                          : () {
-                                              _removeChoice(choice);
-                                              setSheetState(() {});
-                                            },
-                                      icon: const Icon(Icons.remove, size: 18),
                                     ),
-                                  ),
-                                  Positioned(
-                                    right: 2,
-                                    bottom: 2,
-                                    child: IconButton(
-                                      tooltip: '${tr('Add one')} ${tr(choice.label)}',
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 30,
-                                        minHeight: 30,
+                                    Positioned(
+                                      right: 2,
+                                      bottom: 2,
+                                      child: IconButton(
+                                        tooltip:
+                                            '${tr('Add one')} ${tr(choice.label)}',
+                                        visualDensity: VisualDensity.compact,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 30,
+                                          minHeight: 30,
+                                        ),
+                                        onPressed: canAdd
+                                            ? () {
+                                                _addChoice(choice);
+                                                setSheetState(() {});
+                                              }
+                                            : null,
+                                        icon: const Icon(Icons.add, size: 18),
                                       ),
-                                      onPressed: canAdd
-                                          ? () {
-                                              _addChoice(choice);
-                                              setSheetState(() {});
-                                            }
-                                          : null,
-                                      icon: const Icon(Icons.add, size: 18),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1034,12 +1038,7 @@ class _DieSelectorMarkPainter extends CustomPainter {
     );
   }
 
-  void _paintPolySelector(
-    Canvas canvas,
-    Offset center,
-    Size size,
-    int sides,
-  ) {
+  void _paintPolySelector(Canvas canvas, Offset center, Size size, int sides) {
     final unit = size.shortestSide;
     final outline = Paint()
       ..color = foreground
@@ -1142,7 +1141,24 @@ class _V3 {
   final double z;
 
   _V3 operator +(_V3 other) => _V3(x + other.x, y + other.y, z + other.z);
+  _V3 operator -(_V3 other) => _V3(x - other.x, y - other.y, z - other.z);
   _V3 scale(double amount) => _V3(x * amount, y * amount, z * amount);
+
+  double dot(_V3 other) => x * other.x + y * other.y + z * other.z;
+
+  _V3 cross(_V3 other) => _V3(
+    y * other.z - z * other.y,
+    z * other.x - x * other.z,
+    x * other.y - y * other.x,
+  );
+
+  double get length => math.sqrt(x * x + y * y + z * z);
+
+  _V3 get normalized {
+    final magnitude = length;
+    if (magnitude <= 1e-9) return const _V3(0, 0, 0);
+    return scale(1 / magnitude);
+  }
 }
 
 class _Face {
@@ -1159,6 +1175,239 @@ class _Face {
   final _V3 normal;
   final _V3 xAxis;
   final _V3 yAxis;
+}
+
+class _PolyMesh {
+  const _PolyMesh(this.vertices, this.faces);
+
+  final List<_V3> vertices;
+  final List<_Face> faces;
+}
+
+bool _isPolyhedralKind(ArcadeDieKind kind) => switch (kind) {
+  ArcadeDieKind.d4 ||
+  ArcadeDieKind.d8 ||
+  ArcadeDieKind.d10 ||
+  ArcadeDieKind.d12 ||
+  ArcadeDieKind.d20 => true,
+  _ => false,
+};
+
+_V3 _averageVertices(List<_V3> vertices, List<int> indices) {
+  var sum = const _V3(0, 0, 0);
+  for (final index in indices) {
+    sum = sum + vertices[index];
+  }
+  return sum.scale(1 / indices.length);
+}
+
+_PolyMesh _buildPolyMesh(List<_V3> rawVertices, List<List<int>> rawFaces) {
+  final maxRadius = rawVertices.map((vertex) => vertex.length).reduce(math.max);
+  final vertices = [
+    for (final vertex in rawVertices) vertex.scale(1 / maxRadius),
+  ];
+
+  final faces = <_Face>[];
+  for (var faceIndex = 0; faceIndex < rawFaces.length; faceIndex += 1) {
+    var indices = List<int>.from(rawFaces[faceIndex]);
+    var center = _averageVertices(vertices, indices);
+    var normal = (vertices[indices[1]] - vertices[indices[0]])
+        .cross(vertices[indices[2]] - vertices[indices[0]])
+        .normalized;
+    if (normal.dot(center) < 0) {
+      indices = indices.reversed.toList(growable: false);
+      center = _averageVertices(vertices, indices);
+      normal = (vertices[indices[1]] - vertices[indices[0]])
+          .cross(vertices[indices[2]] - vertices[indices[0]])
+          .normalized;
+    }
+    final xAxis = (vertices[indices[1]] - vertices[indices[0]]).normalized;
+    final yAxis = normal.cross(xAxis).normalized;
+    faces.add(
+      _Face(
+        index: faceIndex,
+        vertices: List<int>.unmodifiable(indices),
+        normal: normal,
+        xAxis: xAxis,
+        yAxis: yAxis,
+      ),
+    );
+  }
+  return _PolyMesh(
+    List<_V3>.unmodifiable(vertices),
+    List<_Face>.unmodifiable(faces),
+  );
+}
+
+final _tetrahedronMesh = _buildPolyMesh(
+  const [_V3(1, 1, 1), _V3(1, -1, -1), _V3(-1, 1, -1), _V3(-1, -1, 1)],
+  const [
+    [0, 1, 2],
+    [0, 3, 1],
+    [0, 2, 3],
+    [1, 3, 2],
+  ],
+);
+
+final _octahedronMesh = _buildPolyMesh(
+  const [
+    _V3(1, 0, 0),
+    _V3(0, 1, 0),
+    _V3(-1, 0, 0),
+    _V3(0, -1, 0),
+    _V3(0, 0, 1),
+    _V3(0, 0, -1),
+  ],
+  const [
+    [4, 0, 1],
+    [4, 1, 2],
+    [4, 2, 3],
+    [4, 3, 0],
+    [5, 1, 0],
+    [5, 2, 1],
+    [5, 3, 2],
+    [5, 0, 3],
+  ],
+);
+
+final _d10Mesh = _buildPolyMesh(
+  const [
+    _V3(0, 0.3090169944, 0.8090169944),
+    _V3(0, 0.3090169944, -0.8090169944),
+    _V3(0, -0.3090169944, 0.8090169944),
+    _V3(0, -0.3090169944, -0.8090169944),
+    _V3(0.5, 0.5, 0.5),
+    _V3(0.5, 0.5, -0.5),
+    _V3(-0.5, -0.5, 0.5),
+    _V3(-0.5, -0.5, -0.5),
+    _V3(1.3090169944, -0.8090169944, 0),
+    _V3(-1.3090169944, 0.8090169944, 0),
+    _V3(0.3090169944, 0.8090169944, 0),
+    _V3(-0.3090169944, -0.8090169944, 0),
+  ],
+  const [
+    [8, 2, 6, 11],
+    [8, 11, 7, 3],
+    [8, 3, 1, 5],
+    [8, 5, 10, 4],
+    [8, 4, 0, 2],
+    [9, 0, 4, 10],
+    [9, 10, 5, 1],
+    [9, 1, 3, 7],
+    [9, 7, 11, 6],
+    [9, 6, 2, 0],
+  ],
+);
+
+final _icosahedronMesh = _buildPolyMesh(
+  const [
+    _V3(-1, 1.61803398875, 0),
+    _V3(1, 1.61803398875, 0),
+    _V3(-1, -1.61803398875, 0),
+    _V3(1, -1.61803398875, 0),
+    _V3(0, -1, 1.61803398875),
+    _V3(0, 1, 1.61803398875),
+    _V3(0, -1, -1.61803398875),
+    _V3(0, 1, -1.61803398875),
+    _V3(1.61803398875, 0, -1),
+    _V3(1.61803398875, 0, 1),
+    _V3(-1.61803398875, 0, -1),
+    _V3(-1.61803398875, 0, 1),
+  ],
+  const [
+    [0, 11, 5],
+    [0, 5, 1],
+    [0, 1, 7],
+    [0, 7, 10],
+    [0, 10, 11],
+    [1, 5, 9],
+    [5, 11, 4],
+    [11, 10, 2],
+    [10, 7, 6],
+    [7, 1, 8],
+    [3, 9, 4],
+    [3, 4, 2],
+    [3, 2, 6],
+    [3, 6, 8],
+    [3, 8, 9],
+    [4, 9, 5],
+    [2, 4, 11],
+    [6, 2, 10],
+    [8, 6, 7],
+    [9, 8, 1],
+  ],
+);
+
+_PolyMesh _buildDodecahedronMesh() {
+  final source = _icosahedronMesh;
+  final dualVertices = [for (final face in source.faces) face.normal];
+  final dualFaces = <List<int>>[];
+  for (
+    var vertexIndex = 0;
+    vertexIndex < source.vertices.length;
+    vertexIndex += 1
+  ) {
+    final normal = source.vertices[vertexIndex].normalized;
+    final reference = normal.z.abs() < 0.9
+        ? const _V3(0, 0, 1)
+        : const _V3(1, 0, 0);
+    final axisA = normal.cross(reference).normalized;
+    final axisB = normal.cross(axisA).normalized;
+    final adjacent = <int>[
+      for (var faceIndex = 0; faceIndex < source.faces.length; faceIndex += 1)
+        if (source.faces[faceIndex].vertices.contains(vertexIndex)) faceIndex,
+    ];
+    adjacent.sort((a, b) {
+      final va = dualVertices[a];
+      final vb = dualVertices[b];
+      final aa = math.atan2(va.dot(axisB), va.dot(axisA));
+      final ab = math.atan2(vb.dot(axisB), vb.dot(axisA));
+      return aa.compareTo(ab);
+    });
+    dualFaces.add(adjacent);
+  }
+  return _buildPolyMesh(dualVertices, dualFaces);
+}
+
+final _dodecahedronMesh = _buildDodecahedronMesh();
+
+_PolyMesh _polyMeshForKind(ArcadeDieKind kind) => switch (kind) {
+  ArcadeDieKind.d4 => _tetrahedronMesh,
+  ArcadeDieKind.d8 => _octahedronMesh,
+  ArcadeDieKind.d10 => _d10Mesh,
+  ArcadeDieKind.d12 => _dodecahedronMesh,
+  ArcadeDieKind.d20 => _icosahedronMesh,
+  _ => throw ArgumentError('Not a polyhedral die: $kind'),
+};
+
+_V3 _rotatePolyVector(_V3 p, _Rotation3 rotation) {
+  final cx = math.cos(rotation.x);
+  final sx = math.sin(rotation.x);
+  final cy = math.cos(rotation.y);
+  final sy = math.sin(rotation.y);
+  final cz = math.cos(rotation.z);
+  final sz = math.sin(rotation.z);
+  var x = p.x;
+  var y = p.y * cx - p.z * sx;
+  var z = p.y * sx + p.z * cx;
+  final x2 = x * cy + z * sy;
+  final z2 = -x * sy + z * cy;
+  x = x2;
+  z = z2;
+  return _V3(x * cz - y * sz, x * sz + y * cz, z);
+}
+
+_Rotation3 _polyTargetForFace(ArcadeDieKind kind, int faceIndex) {
+  final mesh = _polyMeshForKind(kind);
+  final face = mesh.faces[faceIndex % mesh.faces.length];
+  final normal = face.normal;
+  final xRotation = math.atan2(normal.y, normal.z);
+  final yzLength = math.sqrt(normal.y * normal.y + normal.z * normal.z);
+  final yRotation = math.atan2(-normal.x, yzLength);
+  final base = _Rotation3(xRotation, yRotation, 0);
+  final alignedXAxis = _rotatePolyVector(face.xAxis, base);
+  final zRotation = -math.atan2(alignedXAxis.y, alignedXAxis.x);
+  return _Rotation3(xRotation, yRotation, zRotation);
 }
 
 class _DiceBubblePainter extends CustomPainter {
@@ -1264,15 +1513,11 @@ class _DiceBubblePainter extends CustomPainter {
     );
   }
 
-  _Rotation3 _targetForFace(int face, {int sides = 6}) {
-    if (sides != 6) {
-      final angle = face * 2 * math.pi / sides;
-      return _Rotation3(
-        0.34 * math.sin(angle * 1.7),
-        0.30 * math.cos(angle * 1.3),
-        angle,
-      );
-    }
+  _Rotation3 _targetForFace(
+    int face, {
+    ArcadeDieKind kind = ArcadeDieKind.standard,
+  }) {
+    if (_isPolyhedralKind(kind)) return _polyTargetForFace(kind, face);
     return switch (face) {
       0 => const _Rotation3(0, 0, 0),
       1 => const _Rotation3(-math.pi / 2, 0, 0),
@@ -1335,8 +1580,7 @@ class _DiceBubblePainter extends CustomPainter {
       final face = faces[instanceId] ?? 0;
       final plan = plans[instanceId];
       final rotation =
-          plan?.rotationAt(progress) ??
-          _targetForFace(face, sides: arcadeDieSides(choice.kind));
+          plan?.rotationAt(progress) ?? _targetForFace(face, kind: choice.kind);
       var dieCenter = center + offsets[i] * squeeze;
       if (plan != null && progress < 1) {
         final decay = math.pow(1 - progress, 2).toDouble();
@@ -1500,14 +1744,7 @@ class _DiceBubblePainter extends CustomPainter {
       ArcadeDieKind.d12,
       ArcadeDieKind.d20,
     }.contains(kind)) {
-      _paintPolyhedralDie(
-        canvas,
-        center,
-        scale,
-        kind,
-        rotation,
-        faceIndex + 1,
-      );
+      _paintPolyhedralDie(canvas, center, scale, kind, rotation);
       return;
     }
 
@@ -1564,147 +1801,117 @@ class _DiceBubblePainter extends CustomPainter {
     double scale,
     ArcadeDieKind kind,
     _Rotation3 rotation,
-    int value,
   ) {
-    final silhouetteVertices = switch (kind) {
-      ArcadeDieKind.d4 => 3,
-      ArcadeDieKind.d8 => 4,
-      ArcadeDieKind.d10 => 10,
-      ArcadeDieKind.d12 => 5,
-      ArcadeDieKind.d20 => 6,
-      _ => 6,
-    };
-    final radius = scale * switch (kind) {
-      ArcadeDieKind.d4 => 1.18,
-      ArcadeDieKind.d8 => 1.16,
-      ArcadeDieKind.d10 => 1.14,
-      ArcadeDieKind.d12 => 1.12,
-      ArcadeDieKind.d20 => 1.16,
-      _ => 1.0,
-    };
-    final tiltScale =
-        0.88 + 0.12 * math.cos(rotation.x) * math.cos(rotation.y);
+    final mesh = _polyMeshForKind(kind);
+    final meshScale =
+        scale *
+        switch (kind) {
+          ArcadeDieKind.d4 => 1.32,
+          ArcadeDieKind.d8 => 1.28,
+          ArcadeDieKind.d10 => 1.30,
+          ArcadeDieKind.d12 => 1.32,
+          ArcadeDieKind.d20 => 1.34,
+          _ => 1.0,
+        };
+    final rotated = [
+      for (final vertex in mesh.vertices) _rotate(vertex, rotation),
+    ];
+    final projected = [
+      for (final vertex in rotated) _project(vertex, center, meshScale),
+    ];
 
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(rotation.z * 0.22);
-
-    final points = <Offset>[];
-    for (var i = 0; i < silhouetteVertices; i += 1) {
-      final angle = -math.pi / 2 + i * 2 * math.pi / silhouetteVertices;
-      final alternating =
-          kind == ArcadeDieKind.d10 && i.isOdd ? 0.76 : 1.0;
-      points.add(
-        Offset(
-          math.cos(angle) * radius * alternating,
-          math.sin(angle) * radius * alternating * tiltScale,
-        ),
-      );
+    final visible = <({_Face face, double depth, _V3 normal})>[];
+    for (final face in mesh.faces) {
+      final normal = _rotate(face.normal, rotation);
+      if (normal.z <= 0.015) continue;
+      final depth =
+          face.vertices
+              .map((index) => rotated[index].z)
+              .reduce((a, b) => a + b) /
+          face.vertices.length;
+      visible.add((face: face, depth: depth, normal: normal));
     }
+    visible.sort((a, b) => a.depth.compareTo(b.depth));
 
-    final body = Path();
-    for (var i = 0; i < points.length; i += 1) {
-      final p = points[i];
-      if (i == 0) {
-        body.moveTo(p.dx, p.dy);
-      } else {
-        body.lineTo(p.dx, p.dy);
-      }
-    }
-    body.close();
-    canvas.drawPath(
-      body,
-      Paint()..color = Colors.white.withValues(alpha: 0.92),
-    );
+    final fill = Paint()..color = Colors.white.withValues(alpha: 0.93);
     final edge = Paint()
-      ..color = Colors.black.withValues(alpha: 0.82)
+      ..color = Colors.black.withValues(alpha: 0.88)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.0, scale * 0.075)
+      ..strokeWidth = math.max(0.9, scale * 0.072)
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(body, edge);
 
-    switch (kind) {
-      case ArcadeDieKind.d4:
-        for (final p in points) {
-          canvas.drawLine(Offset.zero, p, edge);
+    for (final item in visible) {
+      final face = item.face;
+      final polygon = <Offset>[
+        for (final index in face.vertices) projected[index],
+      ];
+      final path = Path();
+      for (var i = 0; i < polygon.length; i += 1) {
+        final point = polygon[i];
+        if (i == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
         }
-      case ArcadeDieKind.d8:
-        canvas.drawLine(points[0], points[2], edge);
-        canvas.drawLine(points[1], points[3], edge);
-        canvas.drawLine(
-          points[1],
-          Offset(0, radius * 0.28 * tiltScale),
-          edge,
-        );
-        canvas.drawLine(
-          points[3],
-          Offset(0, radius * 0.28 * tiltScale),
-          edge,
-        );
-      case ArcadeDieKind.d10:
-        for (var i = 0; i < points.length; i += 2) {
-          canvas.drawLine(Offset.zero, points[i], edge);
-        }
-      case ArcadeDieKind.d12:
-        final inner = <Offset>[
-          for (var i = 0; i < 5; i += 1)
-            Offset(
-              math.cos(-math.pi / 2 + i * 2 * math.pi / 5) * radius * 0.47,
-              math.sin(-math.pi / 2 + i * 2 * math.pi / 5) *
-                  radius *
-                  0.47 *
-                  tiltScale,
-            ),
-        ];
-        final innerPath = Path();
-        for (var i = 0; i < inner.length; i += 1) {
-          final p = inner[i];
-          if (i == 0) {
-            innerPath.moveTo(p.dx, p.dy);
-          } else {
-            innerPath.lineTo(p.dx, p.dy);
-          }
-          canvas.drawLine(p, points[i], edge);
-        }
-        innerPath.close();
-        canvas.drawPath(innerPath, edge);
-      case ArcadeDieKind.d20:
-        for (final p in points) {
-          canvas.drawLine(Offset.zero, p, edge);
-        }
-        canvas.drawLine(points[0], points[2], edge);
-        canvas.drawLine(points[2], points[4], edge);
-        canvas.drawLine(points[4], points[0], edge);
-        canvas.drawLine(points[1], points[3], edge);
-        canvas.drawLine(points[3], points[5], edge);
-        canvas.drawLine(points[5], points[1], edge);
-      default:
-        break;
-    }
+      }
+      path.close();
+      canvas.drawPath(path, fill);
+      canvas.drawPath(path, edge);
 
-    final painter = TextPainter(
-      text: TextSpan(
-        text: '$value',
-        style: TextStyle(
-          color: Colors.black,
-          fontSize: math.max(8, scale * (value >= 10 ? 0.70 : 0.82)),
-          fontWeight: FontWeight.w900,
-          height: 1,
+      final worldCenter = _averageVertices(mesh.vertices, face.vertices);
+      final rotatedCenter = _rotate(worldCenter, rotation);
+      final labelCenter = _project(rotatedCenter, center, meshScale);
+      final axisPoint = _project(
+        _rotate(worldCenter + face.xAxis.scale(0.24), rotation),
+        center,
+        meshScale,
+      );
+      var labelAngle = math.atan2(
+        axisPoint.dy - labelCenter.dy,
+        axisPoint.dx - labelCenter.dx,
+      );
+      if (math.cos(labelAngle) < 0) labelAngle += math.pi;
+
+      var minX = polygon.first.dx;
+      var maxX = polygon.first.dx;
+      var minY = polygon.first.dy;
+      var maxY = polygon.first.dy;
+      for (final point in polygon.skip(1)) {
+        minX = math.min(minX, point.dx);
+        maxX = math.max(maxX, point.dx);
+        minY = math.min(minY, point.dy);
+        maxY = math.max(maxY, point.dy);
+      }
+      final shortSpan = math.min(maxX - minX, maxY - minY);
+      final value = face.index + 1;
+      final faceFactor = switch (kind) {
+        ArcadeDieKind.d10 => 0.40,
+        ArcadeDieKind.d12 => 0.45,
+        ArcadeDieKind.d20 => 0.43,
+        _ => 0.46,
+      };
+      final fontSize = (shortSpan * faceFactor)
+          .clamp(4.6, value >= 10 ? 10.5 : 12.5)
+          .toDouble();
+      final painter = TextPainter(
+        text: TextSpan(
+          text: '$value',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: fontSize,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    final plateRadius = scale * (value >= 10 ? 0.58 : 0.52);
-    canvas.drawCircle(
-      Offset.zero,
-      plateRadius,
-      Paint()..color = Colors.white.withValues(alpha: 0.86),
-    );
-    painter.paint(
-      canvas,
-      Offset(-painter.width / 2, -painter.height / 2),
-    );
-    canvas.restore();
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      canvas.save();
+      canvas.translate(labelCenter.dx, labelCenter.dy);
+      canvas.rotate(labelAngle);
+      painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
+      canvas.restore();
+    }
   }
 
   Offset _facePoint(
