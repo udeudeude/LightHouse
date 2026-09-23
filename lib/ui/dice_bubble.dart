@@ -107,9 +107,7 @@ bool isKnownArcadeDieInstance(String instanceId) =>
 
 ArcadeDieChoice? arcadeDieChoiceForInstance(String instanceId) {
   final baseId = arcadeDieBaseId(instanceId);
-  return arcadeDiceChoices
-      .where((choice) => choice.id == baseId)
-      .firstOrNull;
+  return arcadeDiceChoices.where((choice) => choice.id == baseId).firstOrNull;
 }
 
 int arcadeDieSidesForInstance(String instanceId) {
@@ -548,130 +546,135 @@ class _DiceBubbleState extends State<DiceBubble>
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
-                      child: Text(
-                        '${tr('Dice')} · ${_selectedIds.length}/3 ${tr('selected')}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 2, 2, 10),
+                        child: Text(
+                          '${tr('Dice')} · ${_selectedIds.length}/3 ${tr('selected')}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 9,
-                            crossAxisSpacing: 9,
-                            mainAxisExtent: 112,
-                          ),
-                      itemCount: arcadeDiceChoices.length,
-                      itemBuilder: (context, index) {
-                        final choice = arcadeDiceChoices[index];
-                        final count = _choiceCount(choice.id);
-                        final canAdd = count < _maximumChoiceCount(choice);
-                        return Tooltip(
-                          message: tr(choice.label),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: () {
-                              _cycleChoice(choice);
-                              setSheetState(() {});
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: count > 0
-                                    ? Colors.white.withValues(alpha: 0.10)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 9,
+                              crossAxisSpacing: 9,
+                              mainAxisExtent: 112,
+                            ),
+                        itemCount: arcadeDiceChoices.length,
+                        itemBuilder: (context, index) {
+                          final choice = arcadeDiceChoices[index];
+                          final count = _choiceCount(choice.id);
+                          final canAdd = count < _maximumChoiceCount(choice);
+                          return Tooltip(
+                            message: tr(choice.label),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () {
+                                _cycleChoice(choice);
+                                setSheetState(() {});
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
                                   color: count > 0
-                                      ? Colors.white
-                                      : Colors.white24,
-                                  width: count > 0 ? 2 : 1,
+                                      ? Colors.white.withValues(alpha: 0.10)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: count > 0
+                                        ? Colors.white
+                                        : Colors.white24,
+                                    width: count > 0 ? 2 : 1,
+                                  ),
                                 ),
-                              ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  _selectorImage(choice),
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: Container(
-                                      constraints: const BoxConstraints(
-                                        minWidth: 20,
-                                        minHeight: 20,
-                                      ),
-                                      alignment: Alignment.center,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Text(
-                                        '$count',
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    _selectorImage(choice),
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Container(
+                                        constraints: const BoxConstraints(
+                                          minWidth: 20,
+                                          minHeight: 20,
+                                        ),
+                                        alignment: Alignment.center,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '$count',
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  Positioned(
-                                    left: 2,
-                                    bottom: 2,
-                                    child: IconButton(
-                                      tooltip: '${tr('Remove one')} ${tr(choice.label)}',
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 30,
-                                        minHeight: 30,
+                                    Positioned(
+                                      left: 2,
+                                      bottom: 2,
+                                      child: IconButton(
+                                        tooltip:
+                                            '${tr('Remove one')} ${tr(choice.label)}',
+                                        visualDensity: VisualDensity.compact,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 30,
+                                          minHeight: 30,
+                                        ),
+                                        onPressed: count == 0
+                                            ? null
+                                            : () {
+                                                _removeChoice(choice);
+                                                setSheetState(() {});
+                                              },
+                                        icon: const Icon(
+                                          Icons.remove,
+                                          size: 18,
+                                        ),
                                       ),
-                                      onPressed: count == 0
-                                          ? null
-                                          : () {
-                                              _removeChoice(choice);
-                                              setSheetState(() {});
-                                            },
-                                      icon: const Icon(Icons.remove, size: 18),
                                     ),
-                                  ),
-                                  Positioned(
-                                    right: 2,
-                                    bottom: 2,
-                                    child: IconButton(
-                                      tooltip: '${tr('Add one')} ${tr(choice.label)}',
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 30,
-                                        minHeight: 30,
+                                    Positioned(
+                                      right: 2,
+                                      bottom: 2,
+                                      child: IconButton(
+                                        tooltip:
+                                            '${tr('Add one')} ${tr(choice.label)}',
+                                        visualDensity: VisualDensity.compact,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 30,
+                                          minHeight: 30,
+                                        ),
+                                        onPressed: canAdd
+                                            ? () {
+                                                _addChoice(choice);
+                                                setSheetState(() {});
+                                              }
+                                            : null,
+                                        icon: const Icon(Icons.add, size: 18),
                                       ),
-                                      onPressed: canAdd
-                                          ? () {
-                                              _addChoice(choice);
-                                              setSheetState(() {});
-                                            }
-                                          : null,
-                                      icon: const Icon(Icons.add, size: 18),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1035,12 +1038,7 @@ class _DieSelectorMarkPainter extends CustomPainter {
     );
   }
 
-  void _paintPolySelector(
-    Canvas canvas,
-    Offset center,
-    Size size,
-    int sides,
-  ) {
+  void _paintPolySelector(Canvas canvas, Offset center, Size size, int sides) {
     final unit = size.shortestSide;
     final outline = Paint()
       ..color = foreground
@@ -1179,7 +1177,6 @@ class _Face {
   final _V3 yAxis;
 }
 
-
 class _PolyMesh {
   const _PolyMesh(this.vertices, this.faces);
 
@@ -1204,13 +1201,8 @@ _V3 _averageVertices(List<_V3> vertices, List<int> indices) {
   return sum.scale(1 / indices.length);
 }
 
-_PolyMesh _buildPolyMesh(
-  List<_V3> rawVertices,
-  List<List<int>> rawFaces,
-) {
-  final maxRadius = rawVertices
-      .map((vertex) => vertex.length)
-      .reduce(math.max);
+_PolyMesh _buildPolyMesh(List<_V3> rawVertices, List<List<int>> rawFaces) {
+  final maxRadius = rawVertices.map((vertex) => vertex.length).reduce(math.max);
   final vertices = [
     for (final vertex in rawVertices) vertex.scale(1 / maxRadius),
   ];
@@ -1219,17 +1211,15 @@ _PolyMesh _buildPolyMesh(
   for (var faceIndex = 0; faceIndex < rawFaces.length; faceIndex += 1) {
     var indices = List<int>.from(rawFaces[faceIndex]);
     var center = _averageVertices(vertices, indices);
-    var normal =
-        (vertices[indices[1]] - vertices[indices[0]])
-            .cross(vertices[indices[2]] - vertices[indices[0]])
-            .normalized;
+    var normal = (vertices[indices[1]] - vertices[indices[0]])
+        .cross(vertices[indices[2]] - vertices[indices[0]])
+        .normalized;
     if (normal.dot(center) < 0) {
       indices = indices.reversed.toList(growable: false);
       center = _averageVertices(vertices, indices);
-      normal =
-          (vertices[indices[1]] - vertices[indices[0]])
-              .cross(vertices[indices[2]] - vertices[indices[0]])
-              .normalized;
+      normal = (vertices[indices[1]] - vertices[indices[0]])
+          .cross(vertices[indices[2]] - vertices[indices[0]])
+          .normalized;
     }
     final xAxis = (vertices[indices[1]] - vertices[indices[0]]).normalized;
     final yAxis = normal.cross(xAxis).normalized;
@@ -1250,12 +1240,7 @@ _PolyMesh _buildPolyMesh(
 }
 
 final _tetrahedronMesh = _buildPolyMesh(
-  const [
-    _V3(1, 1, 1),
-    _V3(1, -1, -1),
-    _V3(-1, 1, -1),
-    _V3(-1, -1, 1),
-  ],
+  const [_V3(1, 1, 1), _V3(1, -1, -1), _V3(-1, 1, -1), _V3(-1, -1, 1)],
   const [
     [0, 1, 2],
     [0, 3, 1],
@@ -1355,11 +1340,13 @@ final _icosahedronMesh = _buildPolyMesh(
 
 _PolyMesh _buildDodecahedronMesh() {
   final source = _icosahedronMesh;
-  final dualVertices = [
-    for (final face in source.faces) face.normal,
-  ];
+  final dualVertices = [for (final face in source.faces) face.normal];
   final dualFaces = <List<int>>[];
-  for (var vertexIndex = 0; vertexIndex < source.vertices.length; vertexIndex += 1) {
+  for (
+    var vertexIndex = 0;
+    vertexIndex < source.vertices.length;
+    vertexIndex += 1
+  ) {
     final normal = source.vertices[vertexIndex].normalized;
     final reference = normal.z.abs() < 0.9
         ? const _V3(0, 0, 1)
@@ -1593,8 +1580,7 @@ class _DiceBubblePainter extends CustomPainter {
       final face = faces[instanceId] ?? 0;
       final plan = plans[instanceId];
       final rotation =
-          plan?.rotationAt(progress) ??
-          _targetForFace(face, kind: choice.kind);
+          plan?.rotationAt(progress) ?? _targetForFace(face, kind: choice.kind);
       var dieCenter = center + offsets[i] * squeeze;
       if (plan != null && progress < 1) {
         final decay = math.pow(1 - progress, 2).toDouble();
@@ -1817,14 +1803,16 @@ class _DiceBubblePainter extends CustomPainter {
     _Rotation3 rotation,
   ) {
     final mesh = _polyMeshForKind(kind);
-    final meshScale = scale * switch (kind) {
-      ArcadeDieKind.d4 => 1.32,
-      ArcadeDieKind.d8 => 1.28,
-      ArcadeDieKind.d10 => 1.30,
-      ArcadeDieKind.d12 => 1.32,
-      ArcadeDieKind.d20 => 1.34,
-      _ => 1.0,
-    };
+    final meshScale =
+        scale *
+        switch (kind) {
+          ArcadeDieKind.d4 => 1.32,
+          ArcadeDieKind.d8 => 1.28,
+          ArcadeDieKind.d10 => 1.30,
+          ArcadeDieKind.d12 => 1.32,
+          ArcadeDieKind.d20 => 1.34,
+          _ => 1.0,
+        };
     final rotated = [
       for (final vertex in mesh.vertices) _rotate(vertex, rotation),
     ];
@@ -1832,7 +1820,7 @@ class _DiceBubblePainter extends CustomPainter {
       for (final vertex in rotated) _project(vertex, center, meshScale),
     ];
 
-    final visible = <({ _Face face, double depth, _V3 normal })>[];
+    final visible = <({_Face face, double depth, _V3 normal})>[];
     for (final face in mesh.faces) {
       final normal = _rotate(face.normal, rotation);
       if (normal.z <= 0.015) continue;
@@ -1921,10 +1909,7 @@ class _DiceBubblePainter extends CustomPainter {
       canvas.save();
       canvas.translate(labelCenter.dx, labelCenter.dy);
       canvas.rotate(labelAngle);
-      painter.paint(
-        canvas,
-        Offset(-painter.width / 2, -painter.height / 2),
-      );
+      painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
       canvas.restore();
     }
   }
