@@ -101,8 +101,8 @@ const _es = <String, String>{
   'Square Chase': 'Persecución cuadrada',
   'Press/release to roll; two-finger drag moves; latch tiles cycle die counts':
       'Pulsa y suelta para lanzar; arrastra con dos dedos para mover; las fichas del cierre cambian la cantidad de dados',
-  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts':
-      'Toca o mantén y suelta para lanzar; arrastra con dos dedos para mover; las fichas del cierre cambian la cantidad de dados',
+  'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts':
+      'Toca o mantén y suelta para lanzar; arrastra con dos dedos para mover; pellizca para cambiar el tamaño; las fichas del cierre cambian la cantidad de dados',
   'Tap or drag from tray; drag stones; double-click to remove':
       'Toca o arrastra desde la bandeja; arrastra las piedras; doble clic para quitar',
   'Tap or drag from tray; drag stones; double-tap to remove':
@@ -208,8 +208,8 @@ const _ja = <String, String>{
   'Square Chase': 'スクエアチェイス',
   'Press/release to roll; two-finger drag moves; latch tiles cycle die counts':
       '押して離すとロール。2本指ドラッグで移動。ラッチでダイス数を変更',
-  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts':
-      'タップまたは長押しして離すとロール。2本指ドラッグで移動。ラッチでダイス数を変更',
+  'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts':
+      'タップまたは長押しして離すとロール。2本指ドラッグで移動。ピンチでサイズ変更。ラッチでダイス数を変更',
   'Tap or drag from tray; drag stones; double-click to remove':
       'トレイからタップまたはドラッグ。ストーンをドラッグ。ダブルクリックで削除',
   'Tap or drag from tray; drag stones; double-tap to remove':
@@ -580,7 +580,7 @@ const _de = <String, String>{
   'Different rule': 'Andere Regel',
   'Hide rule': 'Regel ausblenden',
   'Press/release to roll; two-finger drag moves; latch tiles cycle die counts': 'Drücken/loslassen zum Würfeln; Zwei-Finger-Ziehen bewegt; Verriegelungsfelder ändern die Würfelanzahl',
-  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts': 'Tippen oder halten/loslassen zum Würfeln; Zwei-Finger-Ziehen bewegt; Verriegelungsfelder ändern die Würfelanzahl',
+  'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts': 'Tippen oder halten/loslassen zum Würfeln; Zwei-Finger-Ziehen bewegt; Auf- und Zuziehen ändert die Größe; Verriegelungsfelder ändern die Würfelanzahl',
   'Tap or drag from tray; drag stones; double-click to remove': 'Aus der Ablage tippen oder ziehen; Steine ziehen; Doppelklick zum Entfernen',
   'Tap or drag from tray; drag stones; double-tap to remove': 'Aus der Ablage tippen oder ziehen; Steine ziehen; Doppeltippen zum Entfernen',
   'Place a Large pyramid upright over the filled square. Adjust the slider until its base matches the square exactly.': 'Eine große Pyramide aufrecht auf das ausgefüllte Quadrat stellen. Den Regler anpassen, bis die Grundfläche exakt passt.',
@@ -765,7 +765,7 @@ const _fr = <String, String>{
   'Different rule': 'Autre règle',
   'Hide rule': 'Masquer la règle',
   'Press/release to roll; two-finger drag moves; latch tiles cycle die counts': 'Appuyer/relâcher pour lancer ; glisser à deux doigts pour déplacer ; les tuiles de verrou changent le nombre de dés',
-  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts': 'Toucher ou maintenir/relâcher pour lancer ; glisser à deux doigts pour déplacer ; les tuiles de verrou changent le nombre de dés',
+  'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts': 'Toucher ou maintenir/relâcher pour lancer ; glisser à deux doigts pour déplacer ; pincer pour redimensionner ; les tuiles de verrou changent le nombre de dés',
   'Tap or drag from tray; drag stones; double-click to remove': 'Toucher ou faire glisser depuis le bac ; faire glisser les pierres ; double-clic pour retirer',
   'Tap or drag from tray; drag stones; double-tap to remove': 'Toucher ou faire glisser depuis le bac ; faire glisser les pierres ; double-toucher pour retirer',
   'Place a Large pyramid upright over the filled square. Adjust the slider until its base matches the square exactly.': 'Placez une grande pyramide debout sur le carré rempli. Ajustez le curseur jusqu’à ce que sa base corresponde exactement au carré.',
@@ -950,7 +950,7 @@ const _nl = <String, String>{
   'Different rule': 'Andere regel',
   'Hide rule': 'Regel verbergen',
   'Press/release to roll; two-finger drag moves; latch tiles cycle die counts': 'Indrukken/loslaten om te gooien; slepen met twee vingers verplaatst; vergrendeltegels wijzigen het aantal dobbelstenen',
-  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts': 'Tik of houd vast/laat los om te gooien; slepen met twee vingers verplaatst; vergrendeltegels wijzigen het aantal dobbelstenen',
+  'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts': 'Tik of houd vast/laat los om te gooien; slepen met twee vingers verplaatst; knijpen wijzigt de grootte; vergrendeltegels wijzigen het aantal dobbelstenen',
   'Tap or drag from tray; drag stones; double-click to remove': 'Tik of sleep vanuit de lade; sleep stenen; dubbelklik om te verwijderen',
   'Tap or drag from tray; drag stones; double-tap to remove': 'Tik of sleep vanuit de lade; sleep stenen; dubbeltik om te verwijderen',
   'Place a Large pyramid upright over the filled square. Adjust the slider until its base matches the square exactly.': 'Plaats een grote piramide rechtop op het gevulde vierkant. Pas de schuif aan tot de basis exact overeenkomt.',
@@ -1135,7 +1135,7 @@ const _pt = <String, String>{
   'Different rule': 'Outra regra',
   'Hide rule': 'Ocultar regra',
   'Press/release to roll; two-finger drag moves; latch tiles cycle die counts': 'Pressione/solte para rolar; arraste com dois dedos para mover; as peças de trava alteram a quantidade de dados',
-  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts': 'Toque ou segure/solte para rolar; arraste com dois dedos para mover; as peças de trava alteram a quantidade de dados',
+  'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts': 'Toque ou segure/solte para rolar; arraste com dois dedos para mover; faça pinça para redimensionar; as peças de trava alteram a quantidade de dados',
   'Tap or drag from tray; drag stones; double-click to remove': 'Toque ou arraste da bandeja; arraste as pedras; clique duplo para remover',
   'Tap or drag from tray; drag stones; double-tap to remove': 'Toque ou arraste da bandeja; arraste as pedras; toque duplo para remover',
   'Place a Large pyramid upright over the filled square. Adjust the slider until its base matches the square exactly.': 'Coloque uma pirâmide grande em pé sobre o quadrado preenchido. Ajuste o controle até que a base coincida exatamente.',
@@ -1320,7 +1320,7 @@ const _zh = <String, String>{
   'Different rule': '更换规则',
   'Hide rule': '隐藏规则',
   'Press/release to roll; two-finger drag moves; latch tiles cycle die counts': '按下/松开掷骰；双指拖动可移动；锁扣方块可切换骰子数量',
-  'Tap or hold/release to roll; two-finger drag moves; latch tiles cycle die counts': '点击或长按/松开掷骰；双指拖动可移动；锁扣方块可切换骰子数量',
+  'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts': '点击或长按/松开掷骰；双指拖动可移动；双指捏合可调整大小；锁扣方块可切换骰子数量',
   'Tap or drag from tray; drag stones; double-click to remove': '从托盘点击或拖出；拖动石块；双击删除',
   'Tap or drag from tray; drag stones; double-tap to remove': '从托盘点击或拖出；拖动石块；双击触摸删除',
   'Place a Large pyramid upright over the filled square. Adjust the slider until its base matches the square exactly.': '将大号金字塔直立放在实心方框上，调节滑块直到底面与方框完全吻合。',
