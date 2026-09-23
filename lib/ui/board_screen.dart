@@ -35,7 +35,6 @@ import 'dice_bubble.dart';
 import 'remote_board_viewport.dart';
 import 'ripple_overlay.dart';
 import 'pyramid_love_board_icon.dart';
-import 'pyramid_love_toy_icon.dart';
 import 'toy_overlay.dart';
 import 'zendo_rule_library.dart';
 import 'zendo_stones.dart';
