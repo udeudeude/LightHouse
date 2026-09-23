@@ -539,14 +539,19 @@ class _DiceBubbleState extends State<DiceBubble>
       await showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
+        isScrollControlled: true,
         backgroundColor: const Color(0xFF202020),
         builder: (sheetContext) => StatefulBuilder(
           builder: (context, setSheetState) {
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
@@ -671,6 +676,7 @@ class _DiceBubbleState extends State<DiceBubble>
                       },
                     ),
                   ],
+                  ),
                 ),
               ),
             );
@@ -1825,6 +1831,12 @@ class _DiceBubblePainter extends CustomPainter {
         _paintColorMark(canvas, center, scale, rotation, face, mark);
       case ArcadeDieKind.fate:
         _paintFateMark(canvas, center, scale, rotation, face, mark);
+      case ArcadeDieKind.d4:
+      case ArcadeDieKind.d8:
+      case ArcadeDieKind.d10:
+      case ArcadeDieKind.d12:
+      case ArcadeDieKind.d20:
+        break;
     }
   }
 
