@@ -88,6 +88,11 @@ const arcadeDiceChoices = <ArcadeDieChoice>[
   ArcadeDieChoice('treehouse', ArcadeDieKind.treehouse, 'Treehouse die'),
   ArcadeDieChoice('color', ArcadeDieKind.color, 'Color die'),
   ArcadeDieChoice('fate', ArcadeDieKind.fate, 'Fudge / Fate die'),
+  ArcadeDieChoice('d4', ArcadeDieKind.d4, 'D4'),
+  ArcadeDieChoice('d8', ArcadeDieKind.d8, 'D8'),
+  ArcadeDieChoice('d10', ArcadeDieKind.d10, 'D10'),
+  ArcadeDieChoice('d12', ArcadeDieKind.d12, 'D12'),
+  ArcadeDieChoice('d20', ArcadeDieKind.d20, 'D20'),
 ];
 
 String arcadeDieBaseId(String instanceId) {
@@ -334,9 +339,9 @@ class _DiceBubbleState extends State<DiceBubble>
     for (final id in _selectedIds) {
       final oldFace = previousFaces[id] ?? _faces[id] ?? 0;
       final face = _faces[id] ?? 0;
-      final sides = arcadeDieSides(_choice(id).kind);
-      final start = _targetForFace(oldFace, sides: sides);
-      final target = _targetForFace(face, sides: sides);
+      final kind = _choice(id).kind;
+      final start = _targetForFace(oldFace, kind: kind);
+      final target = _targetForFace(face, kind: kind);
       _plans[id] = _SpinPlan(
         start: start,
         end: _Rotation3(
@@ -429,15 +434,11 @@ class _DiceBubbleState extends State<DiceBubble>
   double _normalize(double radians) =>
       ((radians + math.pi) % (2 * math.pi)) - math.pi;
 
-  _Rotation3 _targetForFace(int face, {int sides = 6}) {
-    if (sides != 6) {
-      final angle = face * 2 * math.pi / sides;
-      return _Rotation3(
-        0.34 * math.sin(angle * 1.7),
-        0.30 * math.cos(angle * 1.3),
-        angle,
-      );
-    }
+  _Rotation3 _targetForFace(
+    int face, {
+    ArcadeDieKind kind = ArcadeDieKind.standard,
+  }) {
+    if (_isPolyhedralKind(kind)) return _polyTargetForFace(kind, face);
     return switch (face) {
       0 => const _Rotation3(0, 0, 0),
       1 => const _Rotation3(-math.pi / 2, 0, 0),
@@ -467,14 +468,14 @@ class _DiceBubbleState extends State<DiceBubble>
       final sides = arcadeDieSides(choice.kind);
       final old =
           _plans[id]?.rotationAt(1) ??
-          _targetForFace(_faces[id] ?? 0, sides: sides);
+          _targetForFace(_faces[id] ?? 0, kind: choice.kind);
       final start = _Rotation3(
         _normalize(old.x),
         _normalize(old.y),
         _normalize(old.z),
       );
       final face = _random.nextInt(sides);
-      final target = _targetForFace(face, sides: sides);
+      final target = _targetForFace(face, kind: choice.kind);
       _faces[id] = face;
       _plans[id] = _SpinPlan(
         start: start,
@@ -1264,15 +1265,11 @@ class _DiceBubblePainter extends CustomPainter {
     );
   }
 
-  _Rotation3 _targetForFace(int face, {int sides = 6}) {
-    if (sides != 6) {
-      final angle = face * 2 * math.pi / sides;
-      return _Rotation3(
-        0.34 * math.sin(angle * 1.7),
-        0.30 * math.cos(angle * 1.3),
-        angle,
-      );
-    }
+  _Rotation3 _targetForFace(
+    int face, {
+    ArcadeDieKind kind = ArcadeDieKind.standard,
+  }) {
+    if (_isPolyhedralKind(kind)) return _polyTargetForFace(kind, face);
     return switch (face) {
       0 => const _Rotation3(0, 0, 0),
       1 => const _Rotation3(-math.pi / 2, 0, 0),
@@ -1336,7 +1333,7 @@ class _DiceBubblePainter extends CustomPainter {
       final plan = plans[instanceId];
       final rotation =
           plan?.rotationAt(progress) ??
-          _targetForFace(face, sides: arcadeDieSides(choice.kind));
+          _targetForFace(face, kind: choice.kind);
       var dieCenter = center + offsets[i] * squeeze;
       if (plan != null && progress < 1) {
         final decay = math.pow(1 - progress, 2).toDouble();
