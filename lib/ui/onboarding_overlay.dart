@@ -119,8 +119,7 @@ class OnboardingGesturePainter extends CustomPainter {
 
   double get _drawProgress => (phase / 0.68).clamp(0.0, 1.0).toDouble();
 
-  double get _hollowDrawProgress =>
-      (phase / 0.42).clamp(0.0, 1.0).toDouble();
+  double get _hollowDrawProgress => (phase / 0.42).clamp(0.0, 1.0).toDouble();
 
   double get _alpha {
     if (phase <= 0.82) return 1;
@@ -210,13 +209,7 @@ class OnboardingGesturePainter extends CustomPainter {
     for (var index = 0; index <= steps; index += 1) {
       final fraction = progress * index / steps;
       final angle = startAngle + math.pi * 2 * fraction;
-      final point = _ellipsePoint(
-        center,
-        radiusX,
-        radiusY,
-        rotation,
-        angle,
-      );
+      final point = _ellipsePoint(center, radiusX, radiusY, rotation, angle);
       if (index == 0) {
         path.moveTo(point.dx, point.dy);
       } else {
@@ -267,16 +260,15 @@ class OnboardingGesturePainter extends CustomPainter {
   ) {
     final length = math.max(6.0, requestedLength);
     final magnitude = direction.distance;
-    final unit = magnitude <= 0.001 ? const Offset(1, 0) : direction / magnitude;
+    final unit = magnitude <= 0.001
+        ? const Offset(1, 0)
+        : direction / magnitude;
     final normal = Offset(-unit.dy, unit.dx);
     final back = tip - unit * length;
     final halfWidth = length * 0.48;
     final path = Path()
       ..moveTo(tip.dx, tip.dy)
-      ..lineTo(
-        back.dx + normal.dx * halfWidth,
-        back.dy + normal.dy * halfWidth,
-      )
+      ..lineTo(back.dx + normal.dx * halfWidth, back.dy + normal.dy * halfWidth)
       ..moveTo(tip.dx, tip.dy)
       ..lineTo(
         back.dx - normal.dx * halfWidth,
