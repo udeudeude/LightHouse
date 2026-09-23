@@ -34,6 +34,7 @@ void main() {
               showTapTap: true,
               tipTarget: square,
               hollowTarget: square,
+              transformTarget: square,
             ),
           ),
         ),
@@ -42,6 +43,7 @@ void main() {
 
     expect(find.text(onboardingHaiku), findsOneWidget);
     expect(find.text('Tap. Tap.'), findsOneWidget);
+    expect(onboardingHaikuFadeDuration, const Duration(milliseconds: 1500));
   });
 
   test('first-use defaults and timing remain deliberately sparse', () {
@@ -58,21 +60,40 @@ void main() {
     expect(
       source,
       contains(
-        'static const Duration _onboardingWait = Duration(seconds: 50);',
+        'static const Duration _onboardingWait = Duration(seconds: 35);',
       ),
     );
     expect(
       source,
       contains(
-        'static const Duration _onboardingHaikuHold = Duration(seconds: 14);',
+        'static const Duration _onboardingHaikuHold = Duration(seconds: 7);',
       ),
     );
     expect(
       source,
       contains(
-        'static const Duration _onboardingHintDuration = Duration(seconds: 8);',
+        'static const Duration _onboardingTransformWait = '
+        'Duration(seconds: 60);',
       ),
     );
+    expect(
+      source,
+      contains(
+        'static const Duration _onboardingMenuWait = Duration(seconds: 90);',
+      ),
+    );
+    expect(source, contains("tr('Show gestures again')"));
+    expect(source, contains('_recordOnboardingMenuOpened();'));
+  });
+
+  test('hollow gesture is a faster diagonal ellipse with a leading arrow', () {
+    final source = File('lib/ui/onboarding_overlay.dart').readAsStringSync();
+
+    expect(source, contains('(phase / 0.42)'));
+    expect(source, contains('final radiusX = base * 0.92;'));
+    expect(source, contains('final radiusY = base * 0.70;'));
+    expect(source, contains('const rotation = -math.pi / 9;'));
+    expect(source, contains('_paintArrowHead(canvas, end, tangent'));
   });
 
   test('opening haiku text is exact', () {
