@@ -593,6 +593,7 @@ const _de = <String, String>{
   'On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.': 'Auf iPhone oder iPad diese Seite in Safari öffnen, Teilen antippen und Zum Home-Bildschirm wählen. Auf Desktop-Browsern die angebotene App-Installation verwenden.',
   '6-Character Code': '6-stelliger Code',
   'QR / Link': 'QR / Link',
+  'Could not open Android display settings.': 'Android-Anzeigeeinstellungen konnten nicht geöffnet werden.',
 };
 
 const _fr = <String, String>{
@@ -777,6 +778,7 @@ const _fr = <String, String>{
   'On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.': 'Sur iPhone ou iPad, ouvrez ce site dans Safari, touchez Partager puis Sur l’écran d’accueil. Sur ordinateur, utilisez la commande d’installation de l’application lorsqu’elle est proposée.',
   '6-Character Code': 'Code à 6 caractères',
   'QR / Link': 'QR / lien',
+  'Could not open Android display settings.': 'Impossible d’ouvrir les réglages d’affichage Android.',
 };
 
 const _nl = <String, String>{
@@ -961,6 +963,7 @@ const _nl = <String, String>{
   'On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.': 'Open deze site op iPhone of iPad in Safari, tik op Delen en vervolgens op Zet op beginscherm. Gebruik op desktop de installatieoptie van de browser wanneer die wordt aangeboden.',
   '6-Character Code': 'Code van 6 tekens',
   'QR / Link': 'QR / link',
+  'Could not open Android display settings.': 'Kon de Android-weergave-instellingen niet openen.',
 };
 
 const _pt = <String, String>{
@@ -1145,6 +1148,7 @@ const _pt = <String, String>{
   'On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.': 'No iPhone ou iPad, abra este site no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início. No computador, use o comando de instalar aplicativo quando oferecido.',
   '6-Character Code': 'Código de 6 caracteres',
   'QR / Link': 'QR / link',
+  'Could not open Android display settings.': 'Não foi possível abrir as configurações de tela do Android.',
 };
 
 const _zh = <String, String>{
@@ -1329,4 +1333,5 @@ const _zh = <String, String>{
   'On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.': '在 iPhone 或 iPad 上用 Safari 打开本网站，点“共享”，再点“添加到主屏幕”。在桌面浏览器中，当出现安装应用选项时使用它。',
   '6-Character Code': '6 位代码',
   'QR / Link': '二维码 / 链接',
+  'Could not open Android display settings.': '无法打开 Android 显示设置。',
 };
