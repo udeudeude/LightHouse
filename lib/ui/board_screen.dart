@@ -32,6 +32,7 @@ import '../platform/motion_permission.dart';
 import 'board_painter.dart';
 import 'credits_overlay.dart';
 import 'dice_bubble.dart';
+import 'onboarding_overlay.dart';
 import 'remote_board_viewport.dart';
 import 'ripple_overlay.dart';
 import 'pyramid_love_board_icon.dart';
@@ -40,8 +41,8 @@ import 'zendo_rule_library.dart';
 import 'zendo_stones.dart';
 
 enum _ToyKind {
-  lightLottery('Light Lottery', Icons.auto_awesome, true),
-  entropy('Entropy Delete', Icons.hourglass_bottom, true),
+  lightLottery('Light Lottery', Icons.auto_awesome, false),
+  entropy('Entropy Delete', Icons.hourglass_bottom, false),
   turnTimer('Turn Timer', Icons.timer_outlined, false),
   redSweep('Red Sweep', Icons.swap_vert, false),
   ghostPaths('Ghost Paths', Icons.timeline, false),
@@ -88,10 +89,20 @@ class BoardScreen extends StatefulWidget {
   State<BoardScreen> createState() => _BoardScreenState();
 }
 
-class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
+class _BoardScreenState extends State<BoardScreen>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   static const double _interactionHaloMm = 7;
   static const double _tapTravelMm = 2;
   static const double _minimumLineGestureMm = 1.5;
+  static const Duration _onboardingWait = Duration(seconds: 50);
+  static const Duration _onboardingHintDuration = Duration(seconds: 8);
+  static const Duration _onboardingHaikuHold = Duration(seconds: 14);
+  static const String _onboardingCreatedKey =
+      'lighthouse.onboarding.created.v1';
+  static const String _onboardingTippedKey =
+      'lighthouse.onboarding.tipped.v1';
+  static const String _onboardingHollowedKey =
+      'lighthouse.onboarding.hollowed.v1';
   static const MethodChannel _displayChannel = MethodChannel(
     'lighthouse/display',
   );
@@ -214,12 +225,39 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
   int _faceUpStableSamples = 0;
   double? _lastDominantZSign;
 
+  late final AnimationController _onboardingAnimation;
+  SharedPreferences? _onboardingPreferences;
+  Timer? _onboardingHaikuTimer;
+  Timer? _onboardingCreateTimer;
+  Timer? _onboardingTipTimer;
+  Timer? _onboardingHollowTimer;
+  Timer? _onboardingHintHideTimer;
+  bool _onboardingInitialized = false;
+  bool _onboardingCreated = false;
+  bool _onboardingTipped = false;
+  bool _onboardingHollowed = false;
+  bool _onboardingCreateHintShown = false;
+  bool _onboardingTipHintShown = false;
+  bool _onboardingHollowHintShown = false;
+  bool _onboardingHaikuVisible = false;
+  bool _onboardingTapTapVisible = false;
+  String? _onboardingTipTargetId;
+  String? _onboardingHollowTargetId;
+  Map<String, LightElement> _onboardingPreviousElements = const {};
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _controller = BoardController(initialState: widget.initialState)
       ..addListener(_refresh);
+    _onboardingAnimation = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    _onboardingPreviousElements = {
+      for (final element in widget.initialState.elements) element.id: element,
+    };
     _restoreTableData(widget.initialState.tableData);
     WakelockPlus.enable();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -283,6 +321,11 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _faceDownTimer?.cancel();
     _webMotionTimer?.cancel();
+    _onboardingHaikuTimer?.cancel();
+    _onboardingCreateTimer?.cancel();
+    _onboardingTipTimer?.cancel();
+    _onboardingHollowTimer?.cancel();
+    _onboardingHintHideTimer?.cancel();
     _saveDebounceTimer?.cancel();
     _remotePublishTimer?.cancel();
     _remoteRuntimeTimer?.cancel();
@@ -295,6 +338,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
     _entropyTimer?.cancel();
     _toyTicker?.cancel();
     _toyRevision.dispose();
+    _onboardingAnimation.dispose();
     _effectGeneration += 1;
     _entropyGeneration += 1;
     _accelerometerSubscription?.cancel();
@@ -404,6 +448,250 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
     if (_activeToys.contains(_ToyKind.squareChase)) {
       _squareChaseSeed = _random.nextInt(0x7fffffff);
+    }
+  }
+
+  void _initializeOnboarding(SharedPreferences preferences) {
+    if (_onboardingInitialized || widget.remoteLaunch != null || !mounted) {
+      return;
+    }
+
+    _onboardingPreferences = preferences;
+    final elements = _controller.state.elements;
+    final hasFootprint = elements.isNotEmpty;
+    final hasFlat = elements.any((element) => element.pose == PyramidPose.flat);
+    final hasHollow = elements.any(
+      (element) => element.illumination == IlluminationPattern.wall,
+    );
+
+    _onboardingCreated =
+        preferences.getBool(_onboardingCreatedKey) ?? hasFootprint;
+    _onboardingTipped =
+        preferences.getBool(_onboardingTippedKey) ?? hasFlat;
+    _onboardingHollowed =
+        preferences.getBool(_onboardingHollowedKey) ?? hasHollow;
+    _onboardingPreviousElements = {
+      for (final element in elements) element.id: element,
+    };
+    _onboardingInitialized = true;
+
+    if (hasFootprint && preferences.getBool(_onboardingCreatedKey) != true) {
+      unawaited(preferences.setBool(_onboardingCreatedKey, true));
+    }
+    if (hasFlat && preferences.getBool(_onboardingTippedKey) != true) {
+      unawaited(preferences.setBool(_onboardingTippedKey, true));
+    }
+    if (hasHollow && preferences.getBool(_onboardingHollowedKey) != true) {
+      unawaited(preferences.setBool(_onboardingHollowedKey, true));
+    }
+
+    if (!hasFootprint) {
+      setState(() => _onboardingHaikuVisible = true);
+      _onboardingHaikuTimer = Timer(_onboardingHaikuHold, () {
+        if (!mounted) return;
+        setState(() => _onboardingHaikuVisible = false);
+      });
+    }
+
+    if (!_onboardingCreated) {
+      _scheduleCreateHint();
+    } else if (!_onboardingTipped) {
+      _scheduleTipHintIfPossible();
+    } else if (!_onboardingHollowed) {
+      _scheduleHollowHintIfPossible();
+    }
+  }
+
+  LightElement? get _onboardingSquare => _controller.state.elements
+      .where(
+        (element) =>
+            element.kind == LightPieceKind.pyramid &&
+            element.pose == PyramidPose.upright,
+      )
+      .firstOrNull;
+
+  void _scheduleCreateHint() {
+    if (!_onboardingInitialized ||
+        _onboardingCreated ||
+        _onboardingCreateHintShown ||
+        _onboardingCreateTimer != null) {
+      return;
+    }
+    _onboardingCreateTimer = Timer(_onboardingWait, () {
+      _onboardingCreateTimer = null;
+      if (!mounted ||
+          _onboardingCreated ||
+          _controller.state.elements.isNotEmpty) {
+        return;
+      }
+      _onboardingCreateHintShown = true;
+      setState(() => _onboardingTapTapVisible = true);
+      _showOnboardingHintFor(_onboardingHintDuration);
+    });
+  }
+
+  void _scheduleTipHintIfPossible() {
+    if (!_onboardingInitialized ||
+        !_onboardingCreated ||
+        _onboardingTipped ||
+        _onboardingTipHintShown ||
+        _onboardingTipTimer != null ||
+        _onboardingSquare == null) {
+      return;
+    }
+    _onboardingTipTimer = Timer(_onboardingWait, () {
+      _onboardingTipTimer = null;
+      if (!mounted || _onboardingTipped) return;
+      final target = _onboardingSquare;
+      if (target == null) return;
+      _onboardingTipHintShown = true;
+      setState(() => _onboardingTipTargetId = target.id);
+      _showOnboardingHintFor(_onboardingHintDuration);
+    });
+  }
+
+  void _scheduleHollowHintIfPossible() {
+    if (!_onboardingInitialized ||
+        !_onboardingTipped ||
+        _onboardingHollowed ||
+        _onboardingHollowHintShown ||
+        _onboardingHollowTimer != null ||
+        _onboardingSquare == null) {
+      return;
+    }
+    _onboardingHollowTimer = Timer(_onboardingWait, () {
+      _onboardingHollowTimer = null;
+      if (!mounted || _onboardingHollowed) return;
+      final target = _onboardingSquare;
+      if (target == null) return;
+      _onboardingHollowHintShown = true;
+      setState(() => _onboardingHollowTargetId = target.id);
+      _showOnboardingHintFor(_onboardingHintDuration);
+    });
+  }
+
+  void _showOnboardingHintFor(Duration duration) {
+    _onboardingHintHideTimer?.cancel();
+    _syncOnboardingAnimation();
+    _onboardingHintHideTimer = Timer(duration, () {
+      if (!mounted) return;
+      setState(() {
+        _onboardingTapTapVisible = false;
+        _onboardingTipTargetId = null;
+        _onboardingHollowTargetId = null;
+      });
+      _syncOnboardingAnimation();
+    });
+  }
+
+  void _syncOnboardingAnimation() {
+    final active =
+        _onboardingTapTapVisible ||
+        _onboardingTipTargetId != null ||
+        _onboardingHollowTargetId != null;
+    if (active) {
+      if (!_onboardingAnimation.isAnimating) {
+        _onboardingAnimation.repeat();
+      }
+    } else {
+      _onboardingAnimation.stop();
+      _onboardingAnimation.value = 0;
+    }
+  }
+
+  void _recordOnboardingCreated() {
+    if (!_onboardingInitialized || _onboardingCreated) return;
+    _onboardingCreated = true;
+    _onboardingCreateTimer?.cancel();
+    _onboardingCreateTimer = null;
+    _onboardingHintHideTimer?.cancel();
+    _onboardingHintHideTimer = null;
+    if (mounted) {
+      setState(() => _onboardingTapTapVisible = false);
+    }
+    _syncOnboardingAnimation();
+    final preferences = _onboardingPreferences;
+    if (preferences != null) {
+      unawaited(preferences.setBool(_onboardingCreatedKey, true));
+    }
+    _scheduleTipHintIfPossible();
+  }
+
+  void _recordOnboardingTipped() {
+    if (!_onboardingInitialized || _onboardingTipped) return;
+    _onboardingTipped = true;
+    _onboardingTipTimer?.cancel();
+    _onboardingTipTimer = null;
+    _onboardingHintHideTimer?.cancel();
+    _onboardingHintHideTimer = null;
+    if (mounted) {
+      setState(() => _onboardingTipTargetId = null);
+    }
+    _syncOnboardingAnimation();
+    final preferences = _onboardingPreferences;
+    if (preferences != null) {
+      unawaited(preferences.setBool(_onboardingTippedKey, true));
+    }
+    _scheduleHollowHintIfPossible();
+  }
+
+  void _recordOnboardingHollowed() {
+    if (!_onboardingInitialized || _onboardingHollowed) return;
+    _onboardingHollowed = true;
+    _onboardingHollowTimer?.cancel();
+    _onboardingHollowTimer = null;
+    _onboardingHintHideTimer?.cancel();
+    _onboardingHintHideTimer = null;
+    if (mounted) {
+      setState(() => _onboardingHollowTargetId = null);
+    }
+    _syncOnboardingAnimation();
+    final preferences = _onboardingPreferences;
+    if (preferences != null) {
+      unawaited(preferences.setBool(_onboardingHollowedKey, true));
+    }
+  }
+
+  void _observeOnboardingState() {
+    final current = {
+      for (final element in _controller.state.elements) element.id: element,
+    };
+    final previous = _onboardingPreviousElements;
+    _onboardingPreviousElements = current;
+    if (!_onboardingInitialized) return;
+
+    if (!_onboardingCreated && current.length > previous.length) {
+      _recordOnboardingCreated();
+    }
+
+    if (!_onboardingTipped) {
+      for (final entry in current.entries) {
+        final before = previous[entry.key];
+        if (before != null &&
+            before.pose == PyramidPose.upright &&
+            entry.value.pose == PyramidPose.flat) {
+          _recordOnboardingTipped();
+          break;
+        }
+      }
+    }
+
+    if (!_onboardingHollowed) {
+      for (final entry in current.entries) {
+        final before = previous[entry.key];
+        if (before != null &&
+            before.illumination != IlluminationPattern.wall &&
+            entry.value.illumination == IlluminationPattern.wall) {
+          _recordOnboardingHollowed();
+          break;
+        }
+      }
+    }
+
+    if (_onboardingCreated && !_onboardingTipped) {
+      _scheduleTipHintIfPossible();
+    } else if (_onboardingTipped && !_onboardingHollowed) {
+      _scheduleHollowHintIfPossible();
     }
   }
 
@@ -546,6 +834,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
       setState(() => _restoreTableData(widget.initialState.tableData));
       if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
     }
+    _initializeOnboarding(preferences);
   }
 
   Future<void> _setRotationSnap(double? degrees) async {
@@ -2812,6 +3101,7 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
 
   void _refresh() {
     if (!mounted) return;
+    _observeOnboardingState();
     _elementVerticalBounds.clear();
     if (_ghostTrailActive) {
       final liveIds = _controller.state.elements
@@ -5073,6 +5363,22 @@ class _BoardScreenState extends State<BoardScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
+          ),
+        ),
+        Padding(
+          padding: safePadding,
+          child: OnboardingOverlay(
+            animation: _onboardingAnimation,
+            logicalPixelsPerMm: _pixelsPerMm,
+            geometry: _controller.geometry,
+            showHaiku: _onboardingHaikuVisible,
+            showTapTap: _onboardingTapTapVisible,
+            tipTarget: _onboardingTipTargetId == null
+                ? null
+                : _controller.state.elementById(_onboardingTipTargetId!),
+            hollowTarget: _onboardingHollowTargetId == null
+                ? null
+                : _controller.state.elementById(_onboardingHollowTargetId!),
           ),
         ),
         if (_activeToys.contains(_ToyKind.wireDie))
