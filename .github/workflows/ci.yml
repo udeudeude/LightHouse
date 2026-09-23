@@ -14,8 +14,13 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: |
-          dart format lib test
-          git diff --exit-code -- lib test
+      - run: dart format lib test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: formatted-sources
+          path: |
+            lib/application/app_language.dart
+            lib/ui/dice_bubble.dart
+      - run: git diff --exit-code -- lib test
       - run: flutter analyze
       - run: flutter test
