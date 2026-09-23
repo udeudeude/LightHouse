@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="favicon.png?v=25">
 
   <title>LightHouse</title>
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json?v=26">
 </head>
 <body style="margin:0;background:#000000;">
   <script>
@@ -84,44 +84,8 @@
         '=; Max-Age=0; Path=/; SameSite=Lax; Secure';
     };
 
-    window.lighthousePrepareFreshRuntime = (async function () {
-      try {
-        if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          const lighthouseRegistrations = registrations.filter(function (registration) {
-            try {
-              const scopePath = new URL(registration.scope).pathname;
-              return scopePath.startsWith('/LightHouse/') ||
-                scopePath.startsWith('/LightHouse-StashBoard/');
-            } catch (_) {
-              return false;
-            }
-          });
-          await Promise.all(
-            lighthouseRegistrations.map(function (registration) {
-              return registration.unregister();
-            }),
-          );
-        }
 
-        if ('caches' in window) {
-          const cacheNames = await caches.keys();
-          const legacyFlutterCaches = new Set([
-            'flutter-app-cache',
-            'flutter-temp-cache',
-            'flutter-app-manifest',
-          ]);
-          await Promise.all(
-            cacheNames
-              .filter(function (name) { return legacyFlutterCaches.has(name); })
-              .map(function (name) { return caches.delete(name); }),
-          );
-        }
-      } catch (_) {
-        // Cache repair is best-effort. Never block LightHouse from starting.
-      }
-    })();
   </script>
-  <script src="flutter_bootstrap.js?v=25" async></script>
+  <script src="flutter_bootstrap.js?v=26" async></script>
 </body>
 </html>
