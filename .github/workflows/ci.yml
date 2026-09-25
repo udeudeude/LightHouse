@@ -14,7 +14,6 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: dart format --output=show test/ui/remote_ui_regression_test.dart
       - run: |
           find lib test -name '*.dart' \
             ! -path 'lib/application/app_language.dart' \
