@@ -8,14 +8,13 @@ void main() {
     AppLanguageController.notifier.value = AppLanguage.english;
   });
 
-  test('language picker arrow explicitly requests text presentation', () {
-    expect(languagePickerGlyph.runes.toList(), <int>[
-      0x41,
-      0x2194,
-      0xFE0E,
-      0x3042,
-    ]);
-    expect(languagePickerGlyph.codeUnits.contains(0xFE0F), isFalse);
+  test('Chinese covers remote runtime status and gesture replay text', () {
+    AppLanguageController.notifier.value = AppLanguage.chinese;
+    expect(tr('Encrypted relay'), '加密中继');
+    expect(tr('Controller'), '控制器');
+    expect(tr('Remote device disconnected.'), '远程设备已断开连接。');
+    expect(tr('Show gestures again'), '再次显示手势');
+    expect(tr('Percentile D10'), '百分位 D10');
   });
 
   test('toki pona has the standard language code and interface name', () {
@@ -48,7 +47,7 @@ void main() {
 
     final italianKeys = keysFor('_it');
     final tokiPonaKeys = keysFor('_tok');
-    expect(italianKeys, hasLength(182));
+    expect(italianKeys, hasLength(193));
     expect(tokiPonaKeys, italianKeys);
   });
 }
