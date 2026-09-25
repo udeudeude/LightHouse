@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Replaced the symbolic polyhedral dice picker icons with miniature solid dice rendered by the same 3D mesh, face-label, and perspective code used inside the Dice Bubble.
 - Added a percentile D10 (D%) using the standard D10 geometry with faces 00–90.
 - Moved remote-controller quick controls above the primary control row so they no longer overlap toy controls on narrow phones.
 - Replaced the language picker’s Unicode double-arrow character with a vector-drawn arrow so iOS cannot substitute the ↔️ emoji.

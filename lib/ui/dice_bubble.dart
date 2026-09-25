@@ -64,6 +64,15 @@ String arcadePolyhedralFaceLabel(ArcadeDieKind kind, int faceIndex) =>
     ? '${faceIndex * 10}'.padLeft(2, '0')
     : '${faceIndex + 1}';
 
+int arcadePolyhedralPreviewFace(ArcadeDieKind kind) => switch (kind) {
+  ArcadeDieKind.d4 => 3,
+  ArcadeDieKind.d8 => 7,
+  ArcadeDieKind.d10 || ArcadeDieKind.dPercentile => 9,
+  ArcadeDieKind.d12 => 11,
+  ArcadeDieKind.d20 => 19,
+  _ => 0,
+};
+
 int nextArcadeDieCount({required int current, required int otherSelected}) {
   final maximum = (3 - otherSelected).clamp(0, 3).toInt();
   if (maximum == 0 || current >= maximum) return 0;
@@ -537,14 +546,16 @@ class _DiceBubbleState extends State<DiceBubble>
 
   Widget _selectorImage(ArcadeDieChoice choice) {
     final darkBody = arcadeDieUsesDarkBody(choice.kind);
+    final polyhedral = _isPolyhedralKind(choice.kind);
+    final darkTile = darkBody || polyhedral;
     final foreground = darkBody ? Colors.white : Colors.black;
     return Container(
       width: 58,
       height: 58,
       decoration: BoxDecoration(
-        color: darkBody ? Colors.black : Colors.white.withValues(alpha: 0.92),
+        color: darkTile ? Colors.black : Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: darkBody ? Colors.white70 : Colors.black87),
+        border: Border.all(color: darkTile ? Colors.white70 : Colors.black87),
       ),
       child: CustomPaint(
         painter: _DieSelectorMarkPainter(
@@ -869,17 +880,12 @@ class _DieSelectorMarkPainter extends CustomPainter {
       case ArcadeDieKind.fate:
         _paintFate(canvas, center, size);
       case ArcadeDieKind.d4:
-        _paintPolySelector(canvas, center, size, 4);
       case ArcadeDieKind.d8:
-        _paintPolySelector(canvas, center, size, 8);
       case ArcadeDieKind.d10:
-        _paintPolySelector(canvas, center, size, 10);
       case ArcadeDieKind.dPercentile:
-        _paintPolySelector(canvas, center, size, 10, label: 'D%');
       case ArcadeDieKind.d12:
-        _paintPolySelector(canvas, center, size, 12);
       case ArcadeDieKind.d20:
-        _paintPolySelector(canvas, center, size, 20);
+        _paintPolyhedralPreview(canvas, center, size, kind);
     }
   }
 
@@ -1089,75 +1095,19 @@ class _DieSelectorMarkPainter extends CustomPainter {
     );
   }
 
-  void _paintPolySelector(
+  void _paintPolyhedralPreview(
     Canvas canvas,
     Offset center,
     Size size,
-    int sides, {
-    String? label,
-  }) {
-    final unit = size.shortestSide;
-    final outline = Paint()
-      ..color = foreground
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.4, unit * 0.04)
-      ..strokeJoin = StrokeJoin.round;
-    final radius = unit * 0.31;
-    final vertices = switch (sides) {
-      4 => 3,
-      8 => 4,
-      10 => 10,
-      12 => 5,
-      _ => 6,
-    };
-    final path = Path();
-    for (var i = 0; i < vertices; i += 1) {
-      final angle = -math.pi / 2 + i * 2 * math.pi / vertices;
-      final r = sides == 10 && i.isOdd ? radius * 0.88 : radius;
-      final point = center + Offset(math.cos(angle), math.sin(angle)) * r;
-      if (i == 0) {
-        path.moveTo(point.dx, point.dy);
-      } else {
-        path.lineTo(point.dx, point.dy);
-      }
-    }
-    path.close();
-    canvas.drawPath(path, outline);
-
-    if (sides == 8) {
-      canvas.drawLine(
-        center + Offset(-radius, 0),
-        center + Offset(radius, 0),
-        outline,
-      );
-    } else if (sides == 12) {
-      canvas.drawCircle(center, radius * 0.46, outline);
-    } else if (sides == 20) {
-      for (var i = 0; i < 3; i += 1) {
-        final angle = -math.pi / 2 + i * 2 * math.pi / 3;
-        canvas.drawLine(
-          center,
-          center + Offset(math.cos(angle), math.sin(angle)) * radius,
-          outline,
-        );
-      }
-    }
-
-    final painter = TextPainter(
-      text: TextSpan(
-        text: label ?? 'D$sides',
-        style: TextStyle(
-          color: foreground,
-          fontSize: unit * 0.22,
-          fontWeight: FontWeight.w900,
-          height: 1,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    painter.paint(
+    ArcadeDieKind kind,
+  ) {
+    final face = arcadePolyhedralPreviewFace(kind);
+    _paintPolyhedralSolid(
       canvas,
-      center - Offset(painter.width / 2, painter.height / 2),
+      center,
+      size.shortestSide * 0.23,
+      kind,
+      _polyTargetForFace(kind, face),
     );
   }
 
@@ -1507,6 +1457,156 @@ _Rotation3 _polyTargetForFace(ArcadeDieKind kind, int faceIndex) {
   final alignedXAxis = _rotatePolyVector(face.xAxis, base);
   final zRotation = -math.atan2(alignedXAxis.y, alignedXAxis.x);
   return _Rotation3(xRotation, yRotation, zRotation);
+}
+
+Offset _projectPolyVector(_V3 point, Offset center, double scale) {
+  const camera = 4.6;
+  final perspective = camera / (camera - point.z);
+  return Offset(
+    center.dx + point.x * scale * perspective,
+    center.dy + point.y * scale * perspective,
+  );
+}
+
+void _paintPolyhedralSolid(
+  Canvas canvas,
+  Offset center,
+  double scale,
+  ArcadeDieKind kind,
+  _Rotation3 rotation,
+) {
+  final mesh = _polyMeshForKind(kind);
+  final meshScale =
+      scale *
+      switch (kind) {
+        ArcadeDieKind.d4 => 1.58,
+        ArcadeDieKind.d8 => 1.54,
+        ArcadeDieKind.d10 => 1.56,
+        ArcadeDieKind.dPercentile => 1.56,
+        ArcadeDieKind.d12 => 1.58,
+        ArcadeDieKind.d20 => 1.60,
+        _ => 1.0,
+      };
+  final rotated = [
+    for (final vertex in mesh.vertices) _rotatePolyVector(vertex, rotation),
+  ];
+  final projected = [
+    for (final vertex in rotated) _projectPolyVector(vertex, center, meshScale),
+  ];
+
+  final visible = <({_Face face, double depth, _V3 normal})>[];
+  for (final face in mesh.faces) {
+    final normal = _rotatePolyVector(face.normal, rotation);
+    if (normal.z <= 0.015) continue;
+    final depth =
+        face.vertices.map((index) => rotated[index].z).reduce((a, b) => a + b) /
+        face.vertices.length;
+    visible.add((face: face, depth: depth, normal: normal));
+  }
+  visible.sort((a, b) => a.depth.compareTo(b.depth));
+
+  final fill = Paint()..color = Colors.white.withValues(alpha: 0.93);
+  final edge = Paint()
+    ..color = Colors.black.withValues(alpha: 0.88)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = math.max(0.9, scale * 0.072)
+    ..strokeJoin = StrokeJoin.round;
+
+  for (final item in visible) {
+    final face = item.face;
+    final polygon = <Offset>[
+      for (final index in face.vertices) projected[index],
+    ];
+    final path = Path();
+    for (var index = 0; index < polygon.length; index += 1) {
+      final point = polygon[index];
+      if (index == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, fill);
+    canvas.drawPath(path, edge);
+
+    final worldCenter = _averageVertices(mesh.vertices, face.vertices);
+    final rotatedCenter = _rotatePolyVector(worldCenter, rotation);
+    final projectedWorldCenter = _projectPolyVector(
+      rotatedCenter,
+      center,
+      meshScale,
+    );
+    final labelCenter =
+        polygon.fold<Offset>(Offset.zero, (sum, point) => sum + point) /
+        polygon.length.toDouble();
+    final axisPoint = _projectPolyVector(
+      _rotatePolyVector(worldCenter + face.xAxis.scale(0.24), rotation),
+      center,
+      meshScale,
+    );
+    var labelAngle = math.atan2(
+      axisPoint.dy - projectedWorldCenter.dy,
+      axisPoint.dx - projectedWorldCenter.dx,
+    );
+    if (math.cos(labelAngle) < 0) labelAngle += math.pi;
+
+    var labelRadius = double.infinity;
+    for (var index = 0; index < polygon.length; index += 1) {
+      final a = polygon[index] - labelCenter;
+      final b = polygon[(index + 1) % polygon.length] - labelCenter;
+      final edgeVector = b - a;
+      final edgeLength = edgeVector.distance;
+      if (edgeLength <= 0.0001) continue;
+      final distanceToEdge = (a.dx * b.dy - a.dy * b.dx).abs() / edgeLength;
+      labelRadius = math.min(labelRadius, distanceToEdge);
+    }
+    if (!labelRadius.isFinite || labelRadius <= 0) continue;
+
+    final faceFill = switch (face.vertices.length) {
+      3 => 0.96,
+      4 => 0.96,
+      _ => 0.94,
+    };
+    final value = arcadePolyhedralFaceLabel(kind, face.index);
+    const sampleFontSize = 100.0;
+    final samplePainter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: const TextStyle(
+          fontSize: sampleFontSize,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final sampleDiagonal = math.sqrt(
+      samplePainter.width * samplePainter.width +
+          samplePainter.height * samplePainter.height,
+    );
+    final fontSize =
+        sampleFontSize *
+        ((2 * labelRadius * faceFill) / math.max(1.0, sampleDiagonal));
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    canvas.save();
+    canvas.translate(labelCenter.dx, labelCenter.dy);
+    canvas.rotate(labelAngle);
+    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
+    canvas.restore();
+  }
 }
 
 class _DiceBubblePainter extends CustomPainter {
@@ -1904,140 +2004,7 @@ class _DiceBubblePainter extends CustomPainter {
     ArcadeDieKind kind,
     _Rotation3 rotation,
   ) {
-    final mesh = _polyMeshForKind(kind);
-    final meshScale =
-        scale *
-        switch (kind) {
-          ArcadeDieKind.d4 => 1.58,
-          ArcadeDieKind.d8 => 1.54,
-          ArcadeDieKind.d10 => 1.56,
-          ArcadeDieKind.dPercentile => 1.56,
-          ArcadeDieKind.d12 => 1.58,
-          ArcadeDieKind.d20 => 1.60,
-          _ => 1.0,
-        };
-    final rotated = [
-      for (final vertex in mesh.vertices) _rotate(vertex, rotation),
-    ];
-    final projected = [
-      for (final vertex in rotated) _project(vertex, center, meshScale),
-    ];
-
-    final visible = <({_Face face, double depth, _V3 normal})>[];
-    for (final face in mesh.faces) {
-      final normal = _rotate(face.normal, rotation);
-      if (normal.z <= 0.015) continue;
-      final depth =
-          face.vertices
-              .map((index) => rotated[index].z)
-              .reduce((a, b) => a + b) /
-          face.vertices.length;
-      visible.add((face: face, depth: depth, normal: normal));
-    }
-    visible.sort((a, b) => a.depth.compareTo(b.depth));
-
-    final fill = Paint()..color = Colors.white.withValues(alpha: 0.93);
-    final edge = Paint()
-      ..color = Colors.black.withValues(alpha: 0.88)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(0.9, scale * 0.072)
-      ..strokeJoin = StrokeJoin.round;
-
-    for (final item in visible) {
-      final face = item.face;
-      final polygon = <Offset>[
-        for (final index in face.vertices) projected[index],
-      ];
-      final path = Path();
-      for (var i = 0; i < polygon.length; i += 1) {
-        final point = polygon[i];
-        if (i == 0) {
-          path.moveTo(point.dx, point.dy);
-        } else {
-          path.lineTo(point.dx, point.dy);
-        }
-      }
-      path.close();
-      canvas.drawPath(path, fill);
-      canvas.drawPath(path, edge);
-
-      final worldCenter = _averageVertices(mesh.vertices, face.vertices);
-      final rotatedCenter = _rotate(worldCenter, rotation);
-      final projectedWorldCenter = _project(rotatedCenter, center, meshScale);
-      final labelCenter =
-          polygon.fold<Offset>(Offset.zero, (sum, point) => sum + point) /
-          polygon.length.toDouble();
-      final axisPoint = _project(
-        _rotate(worldCenter + face.xAxis.scale(0.24), rotation),
-        center,
-        meshScale,
-      );
-      var labelAngle = math.atan2(
-        axisPoint.dy - projectedWorldCenter.dy,
-        axisPoint.dx - projectedWorldCenter.dx,
-      );
-      if (math.cos(labelAngle) < 0) labelAngle += math.pi;
-
-      // Fit the label to a finite circle centered inside the projected face.
-      // The previous vertex-quadrant fit could leave a dimension at infinity
-      // after perspective projection, which produced an infinite font size
-      // and made polyhedral numbers disappear.
-      var labelRadius = double.infinity;
-      for (var i = 0; i < polygon.length; i += 1) {
-        final a = polygon[i] - labelCenter;
-        final b = polygon[(i + 1) % polygon.length] - labelCenter;
-        final edgeVector = b - a;
-        final edgeLength = edgeVector.distance;
-        if (edgeLength <= 0.0001) continue;
-        final distanceToEdge = (a.dx * b.dy - a.dy * b.dx).abs() / edgeLength;
-        labelRadius = math.min(labelRadius, distanceToEdge);
-      }
-      if (!labelRadius.isFinite || labelRadius <= 0) continue;
-
-      final faceFill = switch (face.vertices.length) {
-        3 => 0.96,
-        4 => 0.96,
-        _ => 0.94,
-      };
-      final value = arcadePolyhedralFaceLabel(kind, face.index);
-      const sampleFontSize = 100.0;
-      final samplePainter = TextPainter(
-        text: TextSpan(
-          text: value,
-          style: const TextStyle(
-            fontSize: sampleFontSize,
-            fontWeight: FontWeight.w900,
-            height: 1,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      final sampleDiagonal = math.sqrt(
-        samplePainter.width * samplePainter.width +
-            samplePainter.height * samplePainter.height,
-      );
-      final fontSize =
-          sampleFontSize *
-          ((2 * labelRadius * faceFill) / math.max(1.0, sampleDiagonal));
-      final painter = TextPainter(
-        text: TextSpan(
-          text: value,
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: fontSize,
-            fontWeight: FontWeight.w900,
-            height: 1,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      canvas.save();
-      canvas.translate(labelCenter.dx, labelCenter.dy);
-      canvas.rotate(labelAngle);
-      painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
-      canvas.restore();
-    }
+    _paintPolyhedralSolid(canvas, center, scale, kind, rotation);
   }
 
   Offset _facePoint(
