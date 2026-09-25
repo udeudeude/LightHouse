@@ -25,15 +25,15 @@ void main() {
   });
 
   test('dice selector exposes each die kind once', () {
-    expect(arcadeDiceChoices, hasLength(11));
+    expect(arcadeDiceChoices, hasLength(12));
     expect(
       arcadeDiceChoices.map((choice) => choice.kind).toSet(),
-      hasLength(11),
+      hasLength(12),
     );
     expect(arcadeDiceChoices.map((choice) => choice.id), contains('fate'));
     expect(
       arcadeDiceChoices.map((choice) => choice.id),
-      containsAll(['d4', 'd8', 'd10', 'd12', 'd20']),
+      containsAll(['d4', 'd8', 'd10', 'dPercentile', 'd12', 'd20']),
     );
   });
 
