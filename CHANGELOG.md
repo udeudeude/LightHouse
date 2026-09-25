@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Made Remote ripples nearly twice as slow and far-reaching, with brighter strokes that remain visible farther into each pulse.
+- Removed the remaining QR/link pairing path from the Remote interface; Remote pairing now uses the 6-character code flow only.
 - Replaced the symbolic polyhedral dice picker icons with miniature solid dice rendered by the same 3D mesh, face-label, and perspective code used inside the Dice Bubble.
 - Added a percentile D10 (D%) using the standard D10 geometry with faces 00–90.
 - Moved remote-controller quick controls above the primary control row so they no longer overlap toy controls on narrow phones.

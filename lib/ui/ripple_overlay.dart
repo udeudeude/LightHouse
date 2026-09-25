@@ -8,6 +8,13 @@ import '../domain/light_element.dart';
 import '../domain/physical_point.dart';
 import '../domain/pyramid_geometry.dart';
 
+const remoteRipplePeriodSeconds = 2.25;
+const remoteRippleNormalTravelMm = 16.0;
+const remoteRippleDimTravelMm = 10.4;
+const remoteRippleNormalAlpha = 0.78;
+const remoteRippleDimAlpha = 0.42;
+const remoteRippleFadePower = 1.25;
+
 class RippleOverlayPainter extends CustomPainter {
   const RippleOverlayPainter({
     required this.elements,
@@ -54,22 +61,25 @@ class RippleOverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (levels.isEmpty) return;
-    const period = 1.18;
-    final t = (phaseSeconds % period) / period;
-    final fade = math.pow(1 - t, 2).toDouble();
+    final t =
+        (phaseSeconds % remoteRipplePeriodSeconds) / remoteRipplePeriodSeconds;
+    final fade = math.pow(1 - t, remoteRippleFadePower).toDouble();
 
     for (final element in elements) {
       final level = levels[element.id];
       if (level == null) continue;
       final normal = level == RemoteRippleLevel.normal;
-      final travelMm = normal ? 8.0 : 5.2;
-      final alpha = (normal ? 0.52 : 0.25) * fade;
+      final travelMm = normal
+          ? remoteRippleNormalTravelMm
+          : remoteRippleDimTravelMm;
+      final alpha =
+          (normal ? remoteRippleNormalAlpha : remoteRippleDimAlpha) * fade;
       canvas.drawPath(
         _expandedPerimeter(element, travelMm * t),
         Paint()
           ..color = Colors.white.withValues(alpha: alpha)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = normal ? 1.35 : 0.9
+          ..strokeWidth = normal ? 1.6 : 1.0
           ..strokeJoin = StrokeJoin.round,
       );
     }

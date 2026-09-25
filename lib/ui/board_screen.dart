@@ -9,7 +9,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -2573,7 +2572,7 @@ class _BoardScreenState extends State<BoardScreen>
     if (!mounted) return;
     _startRemoteRuntimePublisher();
     await _sendRemoteHello();
-    if (showPairingDialog && (session.isCreator || pairingCode != null)) {
+    if (showPairingDialog && pairingCode != null) {
       await _showPairingDialog(session, pairingCode: pairingCode);
     }
   }
@@ -2818,13 +2817,10 @@ class _BoardScreenState extends State<BoardScreen>
 
   Future<void> _showPairingDialog(
     RemoteSession session, {
-    String? pairingCode,
+    required String pairingCode,
   }) async {
     if (!mounted || _remoteSession != session) return;
-    final normalizedCode = pairingCode == null
-        ? null
-        : RemoteSession.normalizePairingCode(pairingCode);
-    final join = session.joinUri(Uri.base).toString();
+    final normalizedCode = RemoteSession.normalizePairingCode(pairingCode);
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AnimatedBuilder(
@@ -2842,28 +2838,21 @@ class _BoardScreenState extends State<BoardScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (normalizedCode != null) ...[
-                  Text(
-                    tr('Enter this same code on the other device and choose the opposite role.'),
-                    textAlign: TextAlign.center,
+                Text(
+                  tr(
+                    'Enter this same code on the other device and choose the opposite role.',
                   ),
-                  const SizedBox(height: 12),
-                  SelectableText(
-                    normalizedCode,
-                    style: const TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 7,
-                    ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                SelectableText(
+                  normalizedCode,
+                  style: const TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 7,
                   ),
-                ] else ...[
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.all(12),
-                    child: QrImageView(data: join, size: 230),
-                  ),
-                  const SizedBox(height: 14),
-                ],
+                ),
                 const SizedBox(height: 10),
                 Text(
                   session.peerSeen
@@ -2885,30 +2874,17 @@ class _BoardScreenState extends State<BoardScreen>
             ),
           ),
           actions: [
-            if (normalizedCode != null)
-              TextButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: normalizedCode));
-                  if (!dialogContext.mounted) return;
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    SnackBar(content: Text(tr('Pairing code copied.'))),
-                  );
-                },
-                icon: const Icon(Icons.copy),
-                label: Text(tr('Copy Code')),
-              )
-            else
-              TextButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: join));
-                  if (!dialogContext.mounted) return;
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    SnackBar(content: Text(tr('Pairing link copied.'))),
-                  );
-                },
-                icon: const Icon(Icons.copy),
-                label: Text(tr('Copy Link')),
-              ),
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: normalizedCode));
+                if (!dialogContext.mounted) return;
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(content: Text(tr('Pairing code copied.'))),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: Text(tr('Copy Code')),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(tr(session.peerSeen ? 'Done' : 'Hide')),
@@ -2996,28 +2972,8 @@ class _BoardScreenState extends State<BoardScreen>
     await _startRemoteSession(session, pairingCode: code);
   }
 
-  Future<void> _showRemoteSetup(RemoteRole role) async {
-    final method = await _showCompactMenu([
-      _compactMenuItem(
-        'code',
-        Icons.pin_outlined,
-        'Pair with 6-Character Code',
-      ),
-      _compactMenuItem('qr', Icons.qr_code_2, 'Pair with QR / Link'),
-    ]);
-    if (!mounted || method == null) return;
-    switch (method) {
-      case 'code':
-        await _startRemoteByCode(role);
-      case 'qr':
-        final session = await RemoteSession.createShareable(role);
-        if (!mounted) {
-          await session.close();
-          return;
-        }
-        await _startRemoteSession(session);
-    }
-  }
+  Future<void> _showRemoteSetup(RemoteRole role) =>
+      _startRemoteByCode(role);
 
   Future<void> _disconnectRemote() async {
     final session = _remoteSession;
@@ -3068,20 +3024,8 @@ class _BoardScreenState extends State<BoardScreen>
 
   Future<void> _showAddControllerPairing(RemoteSession session) async {
     final code = session.pairingCode;
-    if (code == null) {
-      await _showPairingDialog(session);
-      return;
-    }
-    final method = await _showCompactMenu([
-      _compactMenuItem('code', Icons.pin_outlined, '6-Character Code'),
-      _compactMenuItem('qr', Icons.qr_code_2, 'QR / Link'),
-    ]);
-    if (!mounted || method == null) return;
-    if (method == 'code') {
-      await _showPairingDialog(session, pairingCode: code);
-    } else {
-      await _showPairingDialog(session);
-    }
+    if (code == null) return;
+    await _showPairingDialog(session, pairingCode: code);
   }
 
   String _translatedRemoteTransportLabel(RemoteSession session) {
@@ -3133,13 +3077,13 @@ class _BoardScreenState extends State<BoardScreen>
           Icons.pin_outlined,
           'Pair with 6-Character Code',
         ),
-      if (session.role == RemoteRole.display || !session.peerSeen)
+      if (session.role == RemoteRole.display &&
+          session.peerSeen &&
+          session.pairingCode != null)
         _compactMenuItem(
-          'pair',
-          Icons.qr_code_2,
-          session.role == RemoteRole.display && session.peerSeen
-              ? 'Add Another Controller'
-              : 'Show Pairing QR',
+          'addController',
+          Icons.person_add_alt_1_outlined,
+          'Add Another Controller',
         ),
       if (session.role == RemoteRole.controller && session.peerSeen) ...[
         _compactMenuItem(
@@ -3177,12 +3121,8 @@ class _BoardScreenState extends State<BoardScreen>
         await _disconnectRemote();
         if (!mounted) return;
         await _startRemoteByCode(session.role);
-      case 'pair':
-        if (session.role == RemoteRole.display && session.peerSeen) {
-          await _showAddControllerPairing(session);
-        } else {
-          await _showPairingDialog(session, pairingCode: session.pairingCode);
-        }
+      case 'addController':
+        await _showAddControllerPairing(session);
       case 'boardInteraction':
         await _setBoardUnitInteractions(
           !_remoteControlState.displayInteractionsEnabled,
