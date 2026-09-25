@@ -5714,6 +5714,50 @@ class _BoardScreenState extends State<BoardScreen>
   );
 }
 
+
+class _LanguageArrowPainter extends CustomPainter {
+  const _LanguageArrowPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    final left = 2.0;
+    final right = size.width - 2.0;
+    final paint = Paint()
+      ..color = Colors.white70
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    const head = 4.0;
+
+    canvas.drawLine(Offset(left, centerY), Offset(right, centerY), paint);
+    canvas.drawLine(
+      Offset(left, centerY),
+      Offset(left + head, centerY - head),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(left, centerY),
+      Offset(left + head, centerY + head),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(right, centerY),
+      Offset(right - head, centerY - head),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(right, centerY),
+      Offset(right - head, centerY + head),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _LanguageArrowPainter oldDelegate) => false;
+}
+
 class _MenuCirclePainter extends CustomPainter {
   const _MenuCirclePainter({required this.snapDegrees});
 
