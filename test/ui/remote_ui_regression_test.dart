@@ -17,16 +17,19 @@ void main() {
     );
   });
 
-  test('language picker uses a drawn arrow rather than an emoji-capable glyph', () {
-    final source = File('lib/ui/board_screen.dart').readAsStringSync();
-    final languageSource =
-        File('lib/application/app_language.dart').readAsStringSync();
+  test(
+    'language picker uses a drawn arrow rather than an emoji-capable glyph',
+    () {
+      final source = File('lib/ui/board_screen.dart').readAsStringSync();
+      final languageSource =
+          File('lib/application/app_language.dart').readAsStringSync();
 
-    expect(source, contains('painter: _LanguageArrowPainter()'));
-    expect(source, isNot(contains('languagePickerGlyph')));
-    expect(languageSource, isNot(contains('languagePickerGlyph')));
-    expect(languageSource, isNot(contains(r'\uFE0F')));
-  });
+      expect(source, contains('painter: _LanguageArrowPainter()'));
+      expect(source, isNot(contains('languagePickerGlyph')));
+      expect(languageSource, isNot(contains('languagePickerGlyph')));
+      expect(languageSource, isNot(contains(r'\uFE0F')));
+    },
+  );
 
   test('remote status composition is translated before display', () {
     final source = File('lib/ui/board_screen.dart').readAsStringSync();
