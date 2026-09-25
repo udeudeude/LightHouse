@@ -1491,8 +1491,7 @@ void _paintPolyhedralSolid(
     for (final vertex in mesh.vertices) _rotatePolyVector(vertex, rotation),
   ];
   final projected = [
-    for (final vertex in rotated)
-      _projectPolyVector(vertex, center, meshScale),
+    for (final vertex in rotated) _projectPolyVector(vertex, center, meshScale),
   ];
 
   final visible = <({_Face face, double depth, _V3 normal})>[];
@@ -1500,9 +1499,7 @@ void _paintPolyhedralSolid(
     final normal = _rotatePolyVector(face.normal, rotation);
     if (normal.z <= 0.015) continue;
     final depth =
-        face.vertices
-            .map((index) => rotated[index].z)
-            .reduce((a, b) => a + b) /
+        face.vertices.map((index) => rotated[index].z).reduce((a, b) => a + b) /
         face.vertices.length;
     visible.add((face: face, depth: depth, normal: normal));
   }
