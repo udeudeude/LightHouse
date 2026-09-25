@@ -2745,9 +2745,11 @@ class _BoardScreenState extends State<BoardScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                session.multipleControllers
-                    ? 'A Remote controller disconnected.'
-                    : 'Remote device disconnected.',
+                tr(
+                  session.multipleControllers
+                      ? 'A Remote controller disconnected.'
+                      : 'Remote device disconnected.',
+                ),
               ),
             ),
           );
@@ -2865,16 +2867,16 @@ class _BoardScreenState extends State<BoardScreen>
                 const SizedBox(height: 10),
                 Text(
                   session.peerSeen
-                      ? '${tr('Paired')} · ${session.transportLabel}'
+                      ? '${tr('Paired')} · ${_translatedRemoteTransportLabel(session)}'
                       : session.phase == RemoteConnectionPhase.failed
                       ? tr('Pairing service unavailable.')
-                      : '${tr('Waiting for the other device')} · ${session.transportLabel}',
+                      : '${tr('Waiting for the other device')} · ${_translatedRemoteTransportLabel(session)}',
                   textAlign: TextAlign.center,
                 ),
                 if (session.errorMessage case final error?) ...[
                   const SizedBox(height: 8),
                   Text(
-                    error,
+                    tr(error),
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.orangeAccent),
                   ),
@@ -3081,6 +3083,2738 @@ class _BoardScreenState extends State<BoardScreen>
       await _showPairingDialog(session);
     }
   }
+
+  String _translatedRemoteTransportLabel(RemoteSession session) {
+    final raw = session.transportLabel;
+    final countMatch = RegExp(
+      r'^Encrypted relay · (\d+) controllers
+    final session = _remoteSession;
+    if (session == null) {
+      final choice = await _showCompactMenu([
+        _compactMenuItem(
+          'display',
+          Icons.desktop_windows_outlined,
+          'This Device: Table Display',
+        ),
+        _compactMenuItem('controller', Icons.tune, 'This Device: Controller'),
+      ]);
+      if (!mounted || choice == null) return;
+      final role = choice == 'display'
+          ? RemoteRole.display
+          : RemoteRole.controller;
+      await _showRemoteSetup(role);
+      return;
+    }
+
+    final items = <PopupMenuEntry<String>>[
+      _compactMenuItem(
+        'status',
+        Icons.link,
+        _translatedRemoteStatus(session),
+        enabled: false,
+      ),
+      if (!session.peerSeen)
+        _compactMenuItem(
+          'code',
+          Icons.pin_outlined,
+          'Pair with 6-Character Code',
+        ),
+      if (session.role == RemoteRole.display || !session.peerSeen)
+        _compactMenuItem(
+          'pair',
+          Icons.qr_code_2,
+          session.role == RemoteRole.display && session.peerSeen
+              ? 'Add Another Controller'
+              : 'Show Pairing QR',
+        ),
+      if (session.role == RemoteRole.controller && session.peerSeen) ...[
+        _compactMenuItem(
+          'boardInteraction',
+          Icons.touch_app_outlined,
+          'Table Display Shape Interaction',
+          checked: _remoteControlState.displayInteractionsEnabled,
+        ),
+        _compactMenuItem(
+          'shapeVisibility',
+          Icons.visibility_outlined,
+          'Table Display Shapes Visible',
+          checked: _remoteControlState.displayShapesVisible,
+        ),
+        _compactMenuItem(
+          'clearRipples',
+          Icons.waves_outlined,
+          'Turn Off All Ripples',
+          enabled: _remoteControlState.rippleLevels.isNotEmpty,
+        ),
+      ],
+      _compactMenuItem(
+        'swap',
+        Icons.swap_horiz,
+        'Swap Roles',
+        enabled: !session.multipleControllers,
+      ),
+      _compactMenuItem('disconnect', Icons.link_off, 'Disconnect'),
+    ];
+
+    final choice = await _showCompactMenu(items);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'code':
+        await _disconnectRemote();
+        if (!mounted) return;
+        await _startRemoteByCode(session.role);
+      case 'pair':
+        if (session.role == RemoteRole.display && session.peerSeen) {
+          await _showAddControllerPairing(session);
+        } else {
+          await _showPairingDialog(session, pairingCode: session.pairingCode);
+        }
+      case 'boardInteraction':
+        await _setBoardUnitInteractions(
+          !_remoteControlState.displayInteractionsEnabled,
+        );
+      case 'shapeVisibility':
+        await _setBoardUnitShapesVisible(
+          !_remoteControlState.displayShapesVisible,
+        );
+      case 'clearRipples':
+        await _clearAllRipples();
+      case 'swap':
+        await _swapRemoteRoles();
+      case 'disconnect':
+        await _disconnectRemote();
+    }
+  }
+
+  Widget _remoteStatusButton() {
+    final session = _remoteSession;
+    if (session == null) return const SizedBox.shrink();
+    final status = IconButton(
+      tooltip: _translatedRemoteStatus(session),
+      onPressed: _showRemoteMenu,
+      icon: Icon(
+        session.peerSeen ? Icons.link : Icons.link_off,
+        color: session.peerSeen ? Colors.white70 : Colors.orangeAccent,
+      ),
+    );
+    if (session.role != RemoteRole.display) return status;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        status,
+        IconButton(
+          tooltip: tr('Disconnect Table Display'),
+          visualDensity: VisualDensity.compact,
+          onPressed: _disconnectRemote,
+          icon: const Icon(Icons.link_off, color: Colors.white70),
+        ),
+      ],
+    );
+  }
+
+  Widget _remoteControllerQuickControls() {
+    if (!_remoteControllerMode || _remoteSession?.peerSeen != true) {
+      return const SizedBox.shrink();
+    }
+    return Material(
+      color: const Color(0xAA171717),
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: tr('Table Display shape interaction'),
+            visualDensity: VisualDensity.compact,
+            onPressed: () => unawaited(
+              _setBoardUnitInteractions(
+                !_remoteControlState.displayInteractionsEnabled,
+              ),
+            ),
+            icon: Icon(
+              Icons.touch_app_outlined,
+              color: _remoteControlState.displayInteractionsEnabled
+                  ? Colors.white
+                  : Colors.white54,
+            ),
+          ),
+          IconButton(
+            tooltip: tr('Table Display shapes visible'),
+            visualDensity: VisualDensity.compact,
+            onPressed: () => unawaited(
+              _setBoardUnitShapesVisible(
+                !_remoteControlState.displayShapesVisible,
+              ),
+            ),
+            icon: Icon(
+              _remoteControlState.displayShapesVisible
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
+              color: _remoteControlState.displayShapesVisible
+                  ? Colors.white
+                  : Colors.white54,
+            ),
+          ),
+          IconButton(
+            tooltip: tr('Turn off all ripples'),
+            visualDensity: VisualDensity.compact,
+            onPressed: _remoteControlState.rippleLevels.isEmpty
+                ? null
+                : () => unawaited(_clearAllRipples()),
+            icon: const Icon(Icons.waves_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _scheduleSave() {
+    _pendingSaveState = _stateForPersistence();
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _saveDebounceTimer = null;
+      unawaited(_flushPendingSave());
+    });
+  }
+
+  Future<void> _flushPendingSave() async {
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = null;
+    final state = _pendingSaveState;
+    if (state == null) return;
+    _pendingSaveState = null;
+    try {
+      await _store.save(state);
+    } on Object {
+      // Persistence must never block interaction. A later state change retries.
+    }
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    _observeOnboardingState();
+    _elementVerticalBounds.clear();
+    if (_ghostTrailActive) {
+      final liveIds = _controller.state.elements
+          .map((element) => element.id)
+          .toSet();
+      _ghostTrails.removeWhere((id, _) => !liveIds.contains(id));
+      for (final element in _controller.state.elements) {
+        final trail = _ghostTrails.putIfAbsent(
+          element.id,
+          () => <PhysicalPoint>[],
+        );
+        if (trail.isEmpty || trail.last.distanceTo(element.position) >= 2.4) {
+          trail.add(element.position);
+          if (trail.length > 84) trail.removeAt(0);
+        }
+      }
+    }
+    final liveIds = _controller.state.elements.map((e) => e.id).toSet();
+    _constellationElementIds = [
+      for (final id in _constellationElementIds)
+        if (liveIds.contains(id)) id,
+    ];
+    final retainedControls = _remoteControlState.retainElementIds(liveIds);
+    final ripplesChanged = !identical(retainedControls, _remoteControlState);
+    setState(() {
+      if (_selectedId != null &&
+          _controller.state.elementById(_selectedId!) == null) {
+        _selectedId = null;
+      }
+      if (ripplesChanged) _remoteControlState = retainedControls;
+    });
+    if (ripplesChanged) {
+      _syncRippleTicker();
+      if (_remoteDisplayMode) unawaited(_broadcastRemoteControlState());
+    }
+    _scheduleSave();
+    _scheduleRemotePublish();
+  }
+
+  PhysicalPoint _toPhysical(Offset point) =>
+      PhysicalPoint(point.dx / _pixelsPerMm, point.dy / _pixelsPerMm);
+
+  LightElement? get _selected =>
+      _selectedId == null ? null : _controller.state.elementById(_selectedId!);
+
+  bool _containsPoint(LightElement element, PhysicalPoint point) {
+    final polygon = polygonForElement(element, _controller.geometry);
+    double? sign;
+    for (var i = 0; i < polygon.length; i += 1) {
+      final a = polygon[i];
+      final b = polygon[(i + 1) % polygon.length];
+      final cross =
+          (b.xMm - a.xMm) * (point.yMm - a.yMm) -
+          (b.yMm - a.yMm) * (point.xMm - a.xMm);
+      if (cross.abs() < 0.0001) continue;
+      final currentSign = cross.sign;
+      sign ??= currentSign;
+      if (currentSign != sign) return false;
+    }
+    return true;
+  }
+
+  LightElement? _exactHit(PhysicalPoint point) {
+    for (final element in _controller.state.elements.reversed) {
+      if (_containsPoint(element, point)) return element;
+    }
+    return null;
+  }
+
+  void _handleDoubleTapDown(TapDownDetails details) {
+    if (_creditsVisible) return;
+    final point = _toPhysical(details.localPosition);
+    final target = _controller.hitTest(point, haloMm: _interactionHaloMm);
+    if (target == null) {
+      _controller.createAt(point, mode: _zendoPieceMode);
+    } else {
+      _controller.cycleSizeOrDelete(target, mode: _zendoPieceMode);
+    }
+    HapticFeedback.selectionClick();
+  }
+
+  void _onScaleStart(ScaleStartDetails details) {
+    if (_mouseTransform || _creditsVisible) return;
+    final point = _toPhysical(details.localFocalPoint);
+    _preciseTarget = _exactHit(point);
+    _transformTarget = _controller.hitTest(point, haloMm: _interactionHaloMm);
+    _oneFingerStart = point;
+    _oneFingerLast = point;
+    _oneFingerPath
+      ..clear()
+      ..add(point);
+    _lastRotation = 0;
+    _transformStarted = false;
+    _transformTranslated = false;
+    if (_transformTarget != null) {
+      setState(() => _selectedId = _transformTarget!.id);
+    }
+
+    if (details.pointerCount >= 2 && _transformTarget != null) {
+      _controller.beginTransform(_transformTarget!);
+      _transformStarted = true;
+    }
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    if (_mouseTransform || _creditsVisible) return;
+    final current = _toPhysical(details.localFocalPoint);
+
+    if (details.pointerCount >= 2) {
+      _transformTarget ??= _controller.hitTest(
+        current,
+        haloMm: _interactionHaloMm,
+      );
+      final target = _transformTarget;
+      if (target == null) return;
+      if (!_transformStarted) {
+        _controller.beginTransform(target);
+        _transformStarted = true;
+        _lastRotation = details.rotation;
+        return;
+      }
+      final delta = PhysicalPoint(
+        details.focalPointDelta.dx / _pixelsPerMm,
+        details.focalPointDelta.dy / _pixelsPerMm,
+      );
+      final rotationDelta = details.rotation - _lastRotation;
+      _lastRotation = details.rotation;
+      if (delta.distanceTo(PhysicalPoint.zero) > 0.35) {
+        _transformTranslated = true;
+      }
+      if (rotationDelta.abs() > 0.025) {
+        _transformRotated = true;
+      }
+      _queueTransform(delta, rotationDelta);
+      return;
+    }
+
+    if (_transformStarted) return;
+    _oneFingerLast = current;
+    if (_oneFingerPath.isEmpty ||
+        _oneFingerPath.last.distanceTo(current) >= 0.7) {
+      _oneFingerPath.add(current);
+    }
+  }
+
+  void _queueTransform(PhysicalPoint delta, double rotationDelta) {
+    _pendingTransformDelta = _pendingTransformDelta + delta;
+    _pendingTransformRotation += rotationDelta;
+    if (_transformFrameScheduled) return;
+    _transformFrameScheduled = true;
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _transformFrameScheduled = false;
+      _flushQueuedTransform();
+    });
+  }
+
+  void _flushQueuedTransform() {
+    final delta = _pendingTransformDelta;
+    final rotation = _pendingTransformRotation;
+    _pendingTransformDelta = PhysicalPoint.zero;
+    _pendingTransformRotation = 0;
+    if (!_transformStarted ||
+        (delta == PhysicalPoint.zero && rotation.abs() < 0.000001)) {
+      return;
+    }
+    _controller.transformBy(delta, rotation);
+  }
+
+  void _onScaleEnd(ScaleEndDetails details) {
+    if (_mouseTransform || _creditsVisible) return;
+    if (_transformStarted) {
+      _flushQueuedTransform();
+      _endTransformWithSnaps();
+      HapticFeedback.lightImpact();
+      _clearGesture();
+      return;
+    }
+
+    final start = _oneFingerStart;
+    final end = _oneFingerLast;
+    if (start == null || end == null) {
+      _clearGesture();
+      return;
+    }
+
+    final encircled = _recognizeEncirclement();
+    if (encircled != null) {
+      _controller.toggleIllumination(encircled);
+      HapticFeedback.selectionClick();
+      _clearGesture();
+      return;
+    }
+
+    final drag = end - start;
+    final displacement = start.distanceTo(end);
+    final exact = _preciseTarget;
+
+    if (exact != null &&
+        exact.pose == PyramidPose.upright &&
+        displacement >= _minimumLineGestureMm &&
+        !_containsPoint(exact, end)) {
+      // Tip: begin inside the actual square and cross its real edge. No halo.
+      _controller.tipOrStand(exact, drag);
+      HapticFeedback.mediumImpact();
+      _clearGesture();
+      return;
+    }
+
+    if (exact != null &&
+        exact.pose == PyramidPose.flat &&
+        displacement >= _minimumLineGestureMm &&
+        _crossesFlatBaseEdge(exact, start, end)) {
+      // Stand: begin inside the actual triangle and cross its short base
+      // edge. This mirrors tipping: inside-to-outside, with no halo.
+      _controller.tipOrStand(exact, drag);
+      HapticFeedback.mediumImpact();
+      _clearGesture();
+      return;
+    }
+
+    if (displacement <= _tapTravelMm) {
+      final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
+      setState(() => _selectedId = tapped?.id);
+    }
+    _clearGesture();
+  }
+
+  double _flatFootprintLengthMm(LightElement element) {
+    final base = _controller.geometry.baseMm(element.size);
+    final height = _controller.geometry.flatLengthMm(element.size);
+    return switch (element.kind) {
+      LightPieceKind.pyramid || LightPieceKind.block => height,
+      LightPieceKind.wedge =>
+        element.wedgeFlatFace == WedgeFlatFace.rectangle
+            ? math.sqrt(base * base + height * height)
+            : height,
+    };
+  }
+
+  bool _crossesFlatBaseEdge(
+    LightElement element,
+    PhysicalPoint start,
+    PhysicalPoint end,
+  ) {
+    if (!_containsPoint(element, start) || _containsPoint(element, end)) {
+      return false;
+    }
+    final localStart = rotateVector(
+      start - element.position,
+      -element.headingDegrees,
+    );
+    final localEnd = rotateVector(
+      end - element.position,
+      -element.headingDegrees,
+    );
+    final halfLength = _flatFootprintLengthMm(element) / 2;
+    final halfBase = _controller.geometry.baseMm(element.size) / 2;
+    final deltaY = localEnd.yMm - localStart.yMm;
+    if (deltaY <= 0 || localEnd.yMm <= halfLength) return false;
+
+    final crossing = (halfLength - localStart.yMm) / deltaY;
+    if (crossing <= 0 || crossing >= 1) return false;
+    final xAtBase = localStart.xMm + (localEnd.xMm - localStart.xMm) * crossing;
+    return xAtBase.abs() <= halfBase;
+  }
+
+  LightElement? _recognizeEncirclement() {
+    if (_oneFingerPath.length < 7) return null;
+
+    LightElement? best;
+    var bestScore = double.negativeInfinity;
+
+    for (final element in _controller.state.elements.reversed) {
+      if (element.pose != PyramidPose.upright) continue;
+      final base = _controller.geometry.baseMm(element.size);
+      var winding = 0.0;
+      var pathLength = 0.0;
+      var radiusTotal = 0.0;
+      var minimumRadius = double.infinity;
+
+      for (var i = 1; i < _oneFingerPath.length; i += 1) {
+        final previous = _oneFingerPath[i - 1];
+        final current = _oneFingerPath[i];
+        pathLength += previous.distanceTo(current);
+
+        final a = previous - element.position;
+        final b = current - element.position;
+        final radiusA = math.sqrt(a.xMm * a.xMm + a.yMm * a.yMm);
+        final radiusB = math.sqrt(b.xMm * b.xMm + b.yMm * b.yMm);
+        minimumRadius = math.min(minimumRadius, math.min(radiusA, radiusB));
+        radiusTotal += radiusB;
+
+        if (radiusA < 0.5 || radiusB < 0.5) continue;
+        final angleA = math.atan2(a.yMm, a.xMm);
+        final angleB = math.atan2(b.yMm, b.xMm);
+        winding += normalizeRadians(angleB - angleA);
+      }
+
+      final closure = _oneFingerPath.first.distanceTo(_oneFingerPath.last);
+      final averageRadius = radiusTotal / (_oneFingerPath.length - 1);
+      final enoughTurn = winding.abs() >= math.pi * 1.55;
+      final enoughPath = pathLength >= base * 2.4;
+      final reasonablyClosed = closure <= math.max(14, base * 1.2);
+      final staysAroundCenter = minimumRadius >= base * 0.28;
+      final notRemote = averageRadius <= base * 1.8 + 18;
+
+      if (!enoughTurn ||
+          !enoughPath ||
+          !reasonablyClosed ||
+          !staysAroundCenter ||
+          !notRemote) {
+        continue;
+      }
+
+      // Winding angle is the important signal. Radius only breaks ties when a
+      // loop happens to surround more than one footprint.
+      final score = winding.abs() * 10 - averageRadius;
+      if (score > bestScore) {
+        best = element;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    // Safari will not expose motion data until permission is requested from a
+    // real user gesture. Piggyback that handshake on the first ordinary board
+    // touch so the face-down behavior stays undisclosed in the interface.
+    if (kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        !_motionPermissionAttempted) {
+      unawaited(_ensureMotionPermission());
+    }
+
+    if (_creditsVisible ||
+        event.kind != PointerDeviceKind.mouse ||
+        event.buttons != kPrimaryMouseButton) {
+      return;
+    }
+    final point = _toPhysical(event.localPosition);
+    _mouseTransform = true;
+    _mouseLast = point;
+    _preciseTarget = _exactHit(point);
+    _transformTarget = _controller.hitTest(point, haloMm: _interactionHaloMm);
+    _oneFingerStart = point;
+    _oneFingerLast = point;
+    _oneFingerPath
+      ..clear()
+      ..add(point);
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (!_mouseTransform || event.kind != PointerDeviceKind.mouse) return;
+    final current = _toPhysical(event.localPosition);
+    final last = _mouseLast;
+    if (last == null) return;
+    _mouseLast = current;
+    _oneFingerLast = current;
+    if (_oneFingerPath.isEmpty ||
+        _oneFingerPath.last.distanceTo(current) >= 0.7) {
+      _oneFingerPath.add(current);
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    if (!_mouseTransform || event.kind != PointerDeviceKind.mouse) return;
+    final start = _oneFingerStart;
+    final end = _oneFingerLast;
+    final exact = _preciseTarget;
+
+    if (start != null && end != null) {
+      final encircled = _recognizeEncirclement();
+      if (encircled != null) {
+        _controller.toggleIllumination(encircled);
+      } else {
+        final drag = end - start;
+        final displacement = start.distanceTo(end);
+        if (exact != null &&
+            exact.pose == PyramidPose.upright &&
+            displacement >= _minimumLineGestureMm &&
+            !_containsPoint(exact, end)) {
+          _controller.tipOrStand(exact, drag);
+        } else if (exact != null &&
+            exact.pose == PyramidPose.flat &&
+            displacement >= _minimumLineGestureMm &&
+            _crossesFlatBaseEdge(exact, start, end)) {
+          _controller.tipOrStand(exact, drag);
+        } else if (displacement <= _tapTravelMm) {
+          final tapped = _controller.hitTest(start, haloMm: _interactionHaloMm);
+          setState(() => _selectedId = tapped?.id);
+        }
+      }
+    }
+
+    _mouseTransform = false;
+    _mouseLast = null;
+    _clearGesture();
+  }
+
+  void _onPointerPanZoomStart(PointerPanZoomStartEvent event) {
+    if (!kIsWeb || _creditsVisible) return;
+    final point = _toPhysical(event.localPosition);
+    final target =
+        _controller.hitTest(point, haloMm: _interactionHaloMm) ?? _selected;
+    if (target == null) return;
+    _finishDesktopScrollTransform();
+    _trackpadTransform = true;
+    _trackpadLastRotation = 0;
+    _transformTarget = target;
+    setState(() => _selectedId = target.id);
+    _controller.beginTransform(target);
+  }
+
+  void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    if (!_trackpadTransform || !kIsWeb) return;
+    final delta = PhysicalPoint(
+      event.panDelta.dx / _pixelsPerMm,
+      event.panDelta.dy / _pixelsPerMm,
+    );
+    final rotationDelta = event.rotation - _trackpadLastRotation;
+    _trackpadLastRotation = event.rotation;
+    if (delta.distanceTo(PhysicalPoint.zero) > 0.35) {
+      _transformTranslated = true;
+    }
+    if (rotationDelta.abs() > 0.025) {
+      _transformRotated = true;
+    }
+    _controller.transformBy(delta, rotationDelta);
+  }
+
+  void _onPointerPanZoomEnd(PointerPanZoomEndEvent event) {
+    if (!_trackpadTransform || !kIsWeb) return;
+    _endTransformWithSnaps();
+    _trackpadTransform = false;
+    _trackpadLastRotation = 0;
+    _transformTarget = null;
+  }
+
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (!kIsWeb ||
+        _creditsVisible ||
+        _trackpadTransform ||
+        event is! PointerScrollEvent) {
+      return;
+    }
+    final point = _toPhysical(event.localPosition);
+    final target =
+        _controller.hitTest(point, haloMm: _interactionHaloMm) ?? _selected;
+    if (target == null) return;
+
+    if (!_desktopScrollTransform || _desktopScrollTarget?.id != target.id) {
+      _finishDesktopScrollTransform();
+      _desktopScrollTransform = true;
+      _desktopScrollTarget = target;
+      setState(() => _selectedId = target.id);
+      _controller.beginTransform(target);
+    }
+
+    final keys = HardwareKeyboard.instance.logicalKeysPressed;
+    final rotate =
+        keys.contains(LogicalKeyboardKey.shiftLeft) ||
+        keys.contains(LogicalKeyboardKey.shiftRight);
+    if (rotate) {
+      final scroll = event.scrollDelta.dy.abs() >= event.scrollDelta.dx.abs()
+          ? event.scrollDelta.dy
+          : event.scrollDelta.dx;
+      if (scroll.abs() > 0.5) _transformRotated = true;
+      _controller.transformBy(const PhysicalPoint(0, 0), -scroll * 0.008);
+    } else {
+      final delta = PhysicalPoint(
+        -event.scrollDelta.dx / _pixelsPerMm,
+        -event.scrollDelta.dy / _pixelsPerMm,
+      );
+      if (delta.distanceTo(PhysicalPoint.zero) > 0.35) {
+        _transformTranslated = true;
+      }
+      _controller.transformBy(delta, 0);
+    }
+    _desktopScrollEndTimer?.cancel();
+    _desktopScrollEndTimer = Timer(
+      const Duration(milliseconds: 180),
+      _finishDesktopScrollTransform,
+    );
+  }
+
+  void _finishDesktopScrollTransform() {
+    _desktopScrollEndTimer?.cancel();
+    _desktopScrollEndTimer = null;
+    if (!_desktopScrollTransform) return;
+    _endTransformWithSnaps();
+    _desktopScrollTransform = false;
+    _desktopScrollTarget = null;
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    _controller.cancelTransform();
+    _mouseTransform = false;
+    _mouseLast = null;
+    _clearGesture();
+  }
+
+  void _clearGesture() {
+    _transformTarget = null;
+    _preciseTarget = null;
+    _oneFingerStart = null;
+    _oneFingerLast = null;
+    _oneFingerPath.clear();
+    _lastRotation = 0;
+    _transformStarted = false;
+    _transformTranslated = false;
+    _transformRotated = false;
+    _pendingTransformDelta = PhysicalPoint.zero;
+    _pendingTransformRotation = 0;
+  }
+
+  Future<String?> _askForTitle(String initial) async {
+    final controller = TextEditingController(text: initial);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(tr('Table name')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          selectAllOnFocus: true,
+          onSubmitted: (value) => Navigator.pop(context, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text(tr('OK')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _restoreAutosaveBackup(BoardState backup) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr('Restore previous autosave?')),
+        content: const Text(
+          'Replace the current table with the previous autosaved snapshot? '
+          'You can use Undo immediately afterward to return to the current table.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(tr('Restore')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    _controller.restoreState(backup);
+    setState(() {
+      _restoreTableData(backup.tableData);
+      _activeSavedId = null;
+    });
+    if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(tr('Previous autosave restored. Undo can reverse it.')),
+      ),
+    );
+  }
+
+  String _defaultTableTitle([DateTime? timestamp]) {
+    final now = timestamp ?? DateTime.now();
+    String two(int value) => value.toString().padLeft(2, '0');
+    return 'Table ${two(now.hour)}:${two(now.minute)} '
+        '${two(now.month)}/${two(now.day)}/${now.year}';
+  }
+
+  bool _isUntitledTableName(String value) {
+    final title = value.trim();
+    return title.isEmpty ||
+        title == 'Untitled Board' ||
+        title == 'Untitled Table';
+  }
+
+  Future<void> _saveBoard({bool asCopy = false}) async {
+    final currentTitle = _controller.state.title;
+    final title = await _askForTitle(
+      _isUntitledTableName(currentTitle) ? _defaultTableTitle() : currentTitle,
+    );
+    if (title == null || title.trim().isEmpty) return;
+    _controller.renameBoard(title);
+    final id = await _store.saveNamed(
+      _stateForPersistence(),
+      id: asCopy ? null : _activeSavedId,
+    );
+    if (!mounted) return;
+    setState(() => _activeSavedId = id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(tr(asCopy ? 'Saved a copy.' : 'Table saved.'))),
+    );
+  }
+
+  Future<void> _manageSavedBoards() async {
+    final summaries = await _store.listSavedBoards();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SizedBox(
+            height: math.min(MediaQuery.sizeOf(context).height * 0.7, 520),
+            child: summaries.isEmpty
+                ? Center(child: Text(tr('No saved tables yet.')))
+                : ListView.builder(
+                    itemCount: summaries.length,
+                    itemBuilder: (context, index) {
+                      final item = summaries[index];
+                      return ListTile(
+                        title: Text(item.title),
+                        subtitle: Text(item.updatedAt.toLocal().toString()),
+                        onTap: () async {
+                          final board = await _store.loadNamed(item.id);
+                          if (board == null || !mounted) return;
+                          _controller.replaceState(board);
+                          setState(() {
+                            _restoreTableData(board.tableData);
+                            _activeSavedId = item.id;
+                          });
+                          if (_needsToyTicker && !_remoteDisplayMode) {
+                            _ensureToyTicker();
+                          }
+                          if (sheetContext.mounted) {
+                            Navigator.pop(sheetContext);
+                          }
+                        },
+                        trailing: IconButton(
+                          tooltip: tr('Delete saved table'),
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            await _store.deleteNamed(item.id);
+                            summaries.removeAt(index);
+                            setSheetState(() {});
+                          },
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportTableFile() async {
+    final raw = _store.exportJson(_stateForPersistence());
+    final cleaned = _controller.state.title
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final name = cleaned.isEmpty ? 'lighthouse-table' : cleaned;
+    final saved = await FileSaver.instance.saveAs(
+      name: name,
+      bytes: Uint8List.fromList(utf8.encode(raw)),
+      fileExtension: 'json',
+      mimeType: MimeType.json,
+    );
+    if (!mounted || saved == null) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(tr('Table JSON saved.'))));
+  }
+
+  Future<void> _importTableFile() async {
+    final file = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+    );
+    if (file == null) return;
+    try {
+      final raw = utf8.decode(await file.readAsBytes());
+      final table = _store.importJson(raw);
+      if (!mounted) return;
+      if (table == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('That file is not a LightHouse table.'))),
+        );
+        return;
+      }
+      _controller.replaceState(table);
+      setState(() {
+        _restoreTableData(table.tableData);
+        _activeSavedId = null;
+      });
+      if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('Could not read that table file.'))),
+      );
+    }
+  }
+
+  Future<void> _renameBoard() async {
+    final title = await _askForTitle(_controller.state.title);
+    if (title == null) return;
+    _controller.renameBoard(title);
+  }
+
+  void _selectUnderlay(BoardUnderlay underlay) {
+    _controller.setUnderlay(underlay);
+  }
+
+  Future<void> _openAndroidDisplaySettings() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _displayChannel.invokeMethod<bool>('openDisplaySettings');
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('Could not open Android display settings.')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showOrientationLockInfo() async {
+    final isAndroid =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr('Orientation lock')),
+        content: Text(
+          tr(
+            isAndroid
+                ? 'LightHouse locks the table to one orientation while it is open. Android can open the system Display settings directly.'
+                : isIos
+                ? 'LightHouse locks the table while it is open. iOS does not provide a supported app link to Rotation Lock; change it in Control Center.'
+                : 'Orientation locking depends on browser and platform support.',
+          ),
+        ),
+        actions: [
+          if (isAndroid)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _openAndroidDisplaySettings();
+              },
+              child: Text(tr('Display settings')),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(tr('Done')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showBrightnessDialog() async {
+    if (kIsWeb) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(tr('Brightness')),
+          content: Text(
+            tr('Browsers cannot control screen brightness. Use the device brightness control.'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+    var value = _brightness;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(tr('Table brightness')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Slider(
+                min: 0.25,
+                max: 1,
+                value: value,
+                onChanged: (next) {
+                  value = next;
+                  setDialogState(() {});
+                  setState(() => _brightness = next);
+                  _applyBrightness();
+                },
+              ),
+              if (defaultTargetPlatform == TargetPlatform.iOS)
+                Text(
+                  tr('iOS does not expose a supported deep link to its Brightness panel; use Control Center for the system setting.'),
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await ScreenBrightness.instance
+                    .resetApplicationScreenBrightness();
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+              },
+              child: Text(tr('Use system')),
+            ),
+            if (isAndroid)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _openAndroidDisplaySettings();
+                },
+                child: Text(tr('Display settings')),
+              ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(tr('Done')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCalibrationCheck() async {
+    final pixelsPerMm = _pixelsPerMm;
+    final largeBase = _controller.geometry.baseMm(PyramidSize.large);
+    final recalibrate = await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('Size'),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 14),
+            Text(tr('A Large upright pyramid should fit this square:')),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: SizedBox(
+                width: largeBase * pixelsPerMm,
+                height: largeBase * pixelsPerMm,
+                child: const ColoredBox(color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(tr('Cross-check: this bar should measure exactly 25 mm:')),
+            const SizedBox(height: 10),
+            Container(width: 25 * pixelsPerMm, height: 6, color: Colors.white),
+            const SizedBox(height: 10),
+            Text(tr(widget.calibrationLabel)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(sheetContext, true),
+                  child: Text(tr('Recalibrate')),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () => Navigator.pop(sheetContext, false),
+                  child: Text(tr('Looks right')),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    if (recalibrate == true) widget.onRecalibrate(_controller.state);
+  }
+
+  Future<void> _showWebInstallHelp() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(tr('Full-screen')),
+        content: Text(
+          tr('On iPhone or iPad, open this site in Safari, tap Share, then Add to Home Screen. On desktop browsers, use the browser install-app command when offered.'),
+        ),
+      ),
+    );
+  }
+
+  void _newBoard() {
+    _controller.newBoard();
+    setState(() {
+      _activeSavedId = null;
+      _selectedId = null;
+    });
+  }
+
+  Widget _menu() => AnimatedBuilder(
+    animation: _onboardingAnimation,
+    builder: (context, child) {
+      final breath = _onboardingMenuCueVisible
+          ? 0.5 - 0.5 * math.cos(_onboardingAnimation.value * math.pi * 2)
+          : 0.0;
+      return Transform.scale(
+        scale: 1 + breath * 0.08,
+        child: Opacity(
+          opacity: 0.82 + breath * 0.18,
+          child: child,
+        ),
+      );
+    },
+    child: IconButton(
+      tooltip: tr('Menu'),
+      onPressed: _showMainMenu,
+      icon: SizedBox(
+        width: 36,
+        height: 36,
+        child: CustomPaint(
+          painter: _MenuCirclePainter(snapDegrees: _rotationSnapDegrees),
+        ),
+      ),
+    ),
+  );
+
+  PopupMenuItem<String> _compactMenuItem(
+    String value,
+    IconData icon,
+    String label, {
+    bool enabled = true,
+    bool checked = false,
+    Widget? leading,
+  }) => PopupMenuItem<String>(
+    value: value,
+    enabled: enabled,
+    height: 40,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (checked)
+          const Icon(Icons.check, size: 19)
+        else
+          leading ?? Icon(icon, size: 19),
+        const SizedBox(width: 10),
+        Text(tr(label)),
+      ],
+    ),
+  );
+
+  Future<String?> _showCompactMenu(List<PopupMenuEntry<String>> items) =>
+      showModalBottomSheet<String>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        isDismissible: true,
+        enableDrag: true,
+        useSafeArea: true,
+        isScrollControlled: true,
+        builder: (sheetContext) => Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.pop(sheetContext),
+              child: const SizedBox.expand(),
+            ),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 50),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: Material(
+                    color: const Color(0xFF202020),
+                    elevation: 10,
+                    borderRadius: BorderRadius.circular(8),
+                    clipBehavior: Clip.antiAlias,
+                    child: IntrinsicWidth(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: math.max(
+                            120.0,
+                            MediaQuery.sizeOf(sheetContext).height - 80,
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: items,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Future<void> _showMainMenu() async {
+    _recordOnboardingMenuOpened();
+    await _ensureMotionPermission();
+    if (!mounted) return;
+    final choice = await _showCompactMenu([
+      _compactMenuItem('file', Icons.folder_outlined, 'File'),
+      _compactMenuItem('edit', Icons.edit_outlined, 'Edit'),
+      _compactMenuItem('boards', Icons.grid_on, 'Boards'),
+      _compactMenuItem('toys', Icons.toys_outlined, 'Toys'),
+      _compactMenuItem('zendo', Icons.change_history_outlined, 'ZENDO'),
+      _compactMenuItem('display', Icons.display_settings, 'Display'),
+      _compactMenuItem('remote', Icons.devices_outlined, 'Remote'),
+      _compactMenuItem('instructions', Icons.help_outline, 'Instructions'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'file':
+        await _showFileMenu();
+      case 'edit':
+        await _showEditMenu();
+      case 'boards':
+        await _showBoardsMenu();
+      case 'toys':
+        await _showToyMenu();
+      case 'zendo':
+        await _showZendoMenu();
+      case 'display':
+        await _showDisplayMenu();
+      case 'remote':
+        await _showRemoteMenu();
+      case 'instructions':
+        setState(() => _instructionsVisible = true);
+    }
+  }
+
+  Future<void> _showZendoMenu() async {
+    while (mounted) {
+      final ruleActive = _zendoRuleIndex >= 0;
+      final choice = await _showCompactMenu([
+        _compactMenuItem(
+          'zendoOff',
+          Icons.power_settings_new,
+          'Zendo Off · Normal LightHouse',
+        ),
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'stones',
+          Icons.circle_outlined,
+          'Zendo Stones',
+          checked: _activeToys.contains(_ToyKind.zendoStones),
+        ),
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'classic',
+          Icons.change_history_outlined,
+          'Classic',
+          checked: _zendoPieceMode == PieceCycleMode.classic,
+        ),
+        _compactMenuItem(
+          'zendo20',
+          Icons.category_outlined,
+          'Zendo 2.0',
+          checked: _zendoPieceMode == PieceCycleMode.zendo20,
+        ),
+        _compactMenuItem(
+          'both',
+          Icons.view_comfy_alt_outlined,
+          'Classic + Zendo 2.0',
+          checked: _zendoPieceMode == PieceCycleMode.both,
+        ),
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'newRule',
+          Icons.shuffle,
+          ruleActive ? 'Different Zendo Rule' : 'Zendo Rule',
+        ),
+        _compactMenuItem(
+          'difficulty',
+          Icons.tune,
+          '${tr('Difficulty')}: ${tr(_zendoRuleDifficulty.label)}',
+        ),
+        _compactMenuItem(
+          'complex',
+          Icons.psychology_alt_outlined,
+          'Complex Rules',
+          checked: _zendoComplexRules,
+        ),
+        if (ruleActive)
+          _compactMenuItem(
+            'ruleVisibility',
+            _zendoRuleVisible ? Icons.visibility_off : Icons.visibility,
+            _zendoRuleVisible ? 'Hide Active Rule' : 'Show Active Rule',
+          ),
+      ]);
+      if (!mounted || choice == null) return;
+      switch (choice) {
+        case 'zendoOff':
+          _turnOffZendo();
+          _scheduleSave();
+          return;
+        case 'stones':
+          _toggleOverlayToy(_ToyKind.zendoStones);
+          unawaited(_sendRemoteRuntimeIfChanged(force: true));
+        case 'classic':
+          setState(() => _zendoPieceMode = PieceCycleMode.classic);
+        case 'zendo20':
+          setState(() => _zendoPieceMode = PieceCycleMode.zendo20);
+          _ensureRuleStillCompatible();
+        case 'both':
+          setState(() => _zendoPieceMode = PieceCycleMode.both);
+        case 'newRule':
+          _chooseNextZendoRule();
+        case 'difficulty':
+          await _showZendoDifficultyMenu();
+        case 'complex':
+          setState(() {
+            _zendoComplexRules = !_zendoComplexRules;
+            if (!_zendoComplexRules) {
+              _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
+            }
+          });
+          _ensureRuleStillCompatible();
+        case 'ruleVisibility':
+          setState(() => _zendoRuleVisible = !_zendoRuleVisible);
+      }
+      _scheduleSave();
+    }
+  }
+
+  void _turnOffZendo() {
+    final stonesWereActive = _activeToys.remove(_ToyKind.zendoStones);
+    setState(() {
+      _zendoPieceMode = PieceCycleMode.classic;
+      _zendoRuleIndex = -1;
+      _zendoRuleVisible = false;
+      _zendoComplexRules = false;
+      _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
+    });
+    if (stonesWereActive) {
+      unawaited(_sendRemoteRuntimeIfChanged(force: true));
+    }
+  }
+
+  Future<void> _showZendoDifficultyMenu() async {
+    final available = _zendoComplexRules
+        ? ZendoRuleDifficulty.values
+        : const [ZendoRuleDifficulty.easy];
+    final choice = await _showCompactMenu([
+      for (final difficulty in available)
+        _compactMenuItem(
+          difficulty.name,
+          Icons.radio_button_unchecked,
+          difficulty.label,
+          checked: _zendoRuleDifficulty == difficulty,
+        ),
+    ]);
+    if (!mounted || choice == null) return;
+    final difficulty = ZendoRuleDifficulty.values
+        .where((value) => value.name == choice)
+        .firstOrNull;
+    if (difficulty == null) return;
+    setState(() => _zendoRuleDifficulty = difficulty);
+    _chooseNextZendoRule();
+  }
+
+  bool _ruleCompatible(ZendoRule rule) {
+    if (rule.difficulty != _zendoRuleDifficulty) return false;
+    if (!_zendoComplexRules && rule.difficulty != ZendoRuleDifficulty.easy) {
+      return false;
+    }
+    if (_zendoPieceMode == PieceCycleMode.zendo20 && !rule.suitableForZendo20) {
+      return false;
+    }
+    return true;
+  }
+
+  void _ensureRuleStillCompatible() {
+    final index = _zendoRuleIndex;
+    if (index < 0 || index >= zendoRules.length) return;
+    if (_ruleCompatible(zendoRules[index])) return;
+    _chooseNextZendoRule();
+  }
+
+  void _chooseNextZendoRule() {
+    final compatible = <int>[
+      for (var i = 0; i < zendoRules.length; i += 1)
+        if (_ruleCompatible(zendoRules[i])) i,
+    ];
+    if (compatible.isEmpty) return;
+    final withoutCurrent = compatible
+        .where((index) => index != _zendoRuleIndex)
+        .toList(growable: false);
+    final pool = withoutCurrent.isEmpty ? compatible : withoutCurrent;
+    final next = pool[_random.nextInt(pool.length)];
+    setState(() {
+      _zendoRuleIndex = next;
+      _zendoRuleVisible = true;
+    });
+  }
+
+  Widget _zendoRuleCard() {
+    if (!_zendoRuleVisible ||
+        _zendoRuleIndex < 0 ||
+        _zendoRuleIndex >= zendoRules.length ||
+        _remoteDisplayMode) {
+      return const SizedBox.shrink();
+    }
+    final rule = zendoRules[_zendoRuleIndex];
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(70, 8, 70, 62),
+          child: Material(
+            color: const Color(0xED171717),
+            elevation: 8,
+            borderRadius: BorderRadius.circular(10),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 9, 4, 9),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${tr('Zendo Rule').toUpperCase()} · '
+                            '${tr(rule.difficulty.label).toUpperCase()}',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            rule.text,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            rule.source,
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: tr('Different rule'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _chooseNextZendoRule,
+                      icon: const Icon(Icons.shuffle, size: 18),
+                    ),
+                    IconButton(
+                      tooltip: tr('Hide rule'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () =>
+                          setState(() => _zendoRuleVisible = false),
+                      icon: const Icon(Icons.visibility_off, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFileMenu() async {
+    await _flushPendingSave();
+    final backup = await _store.loadBackup();
+    if (!mounted) return;
+    final choice = await _showCompactMenu([
+      _compactMenuItem('new', Icons.note_add_outlined, 'New'),
+      _compactMenuItem('open', Icons.folder_open, 'Open…'),
+      _compactMenuItem(
+        'restore',
+        Icons.history,
+        'Restore Previous Autosave…',
+        enabled: backup != null,
+      ),
+      _compactMenuItem('save', Icons.save_outlined, 'Save'),
+      _compactMenuItem('copy', Icons.copy, 'Save a Copy…'),
+      _compactMenuItem('rename', Icons.drive_file_rename_outline, 'Rename…'),
+      _compactMenuItem(
+        'import',
+        Icons.file_open_outlined,
+        'Import Table JSON…',
+      ),
+      _compactMenuItem('export', Icons.download_outlined, 'Export Table JSON…'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'new':
+        _newBoard();
+      case 'open':
+        await _manageSavedBoards();
+      case 'restore':
+        if (backup != null) await _restoreAutosaveBackup(backup);
+      case 'save':
+        await _saveBoard();
+      case 'copy':
+        await _saveBoard(asCopy: true);
+      case 'rename':
+        await _renameBoard();
+      case 'import':
+        await _importTableFile();
+      case 'export':
+        await _exportTableFile();
+    }
+  }
+
+  Future<void> _showEditMenu() async {
+    final choice = await _showCompactMenu([
+      _compactMenuItem(
+        'undo',
+        Icons.undo,
+        'Undo',
+        enabled: _controller.canUndo,
+      ),
+      _compactMenuItem(
+        'redo',
+        Icons.redo,
+        'Redo',
+        enabled: _controller.canRedo,
+      ),
+      _compactMenuItem('snap', Icons.rotate_90_degrees_ccw, 'Rotation Snap'),
+      _compactMenuItem(
+        'free',
+        Icons.gesture,
+        'Free Rotation',
+        checked: _rotationSnapDegrees == null,
+      ),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'undo':
+        _undoFromUi();
+      case 'redo':
+        _redoFromUi();
+      case 'snap':
+        await _showRotationSnapMenu();
+      case 'free':
+        await _setRotationSnap(null);
+    }
+  }
+
+  Future<void> _showRotationSnapMenu() async {
+    const options = <double>[15, 30, 45, 90];
+    while (mounted) {
+      final degrees = _rotationSnapDegrees;
+      final choice = await _showCompactMenu([
+        for (final option in options)
+          _compactMenuItem(
+            's${option.toInt()}',
+            Icons.radio_button_unchecked,
+            '${option.toInt()}° ${tr('increments')}',
+            checked: degrees == option,
+          ),
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'now',
+          Icons.auto_fix_high,
+          'Snap Now',
+          enabled: degrees != null,
+        ),
+      ]);
+      if (!mounted || choice == null) return;
+      if (choice == 'now') {
+        final snap = _rotationSnapDegrees;
+        if (snap != null) {
+          _controller.snapAllHeadings(snap);
+          HapticFeedback.selectionClick();
+        }
+      } else {
+        await _setRotationSnap(double.parse(choice.substring(1)));
+      }
+    }
+  }
+
+  void _toggleUnderlaySelection(BoardUnderlay underlay) {
+    _selectUnderlay(
+      _controller.state.underlay == underlay ? BoardUnderlay.none : underlay,
+    );
+  }
+
+  Future<void> _showBoardsMenu() async {
+    while (mounted) {
+      final choice = await _showCompactMenu([
+        _compactMenuItem(
+          'games',
+          Icons.dashboard_customize_outlined,
+          'Game Boards',
+        ),
+        _compactMenuItem('grids', Icons.grid_4x4, 'Grids'),
+        _compactMenuItem('chess', Icons.grid_view, 'Martian Chess'),
+        const PopupMenuDivider(),
+        _compactMenuItem(
+          'snap',
+          Icons.center_focus_strong,
+          'Snap pieces to board',
+          checked: _gridSnapEnabled,
+        ),
+        _compactMenuItem(
+          'none',
+          Icons.layers_clear_outlined,
+          'None',
+          checked: _controller.state.underlay == BoardUnderlay.none,
+        ),
+        _compactMenuItem(
+          'checker',
+          Icons.grid_on,
+          'Checker Shading',
+          checked: _checkerUnderlays,
+        ),
+      ]);
+      if (!mounted || choice == null) return;
+      switch (choice) {
+        case 'games':
+          await _showBoardGroup(BoardUnderlayGroup.games);
+        case 'grids':
+          await _showBoardGroup(BoardUnderlayGroup.grids);
+        case 'chess':
+          await _showBoardGroup(BoardUnderlayGroup.chess);
+        case 'checker':
+          await _toggleCheckerUnderlays();
+        case 'snap':
+          await _toggleGridSnap();
+        case 'none':
+          _selectUnderlay(BoardUnderlay.none);
+      }
+    }
+  }
+
+  PyramidLoveBoardIconKind? _boardMenuArtwork(BoardUnderlay underlay) =>
+      switch (underlay) {
+        BoardUnderlay.wheel => PyramidLoveBoardIconKind.wheel,
+        BoardUnderlay.launchpad23 => PyramidLoveBoardIconKind.launchpad,
+        BoardUnderlay.twinWin => PyramidLoveBoardIconKind.twinWin,
+        BoardUnderlay.looneyLudo1 ||
+        BoardUnderlay.looneyLudo4 => PyramidLoveBoardIconKind.ludo,
+        BoardUnderlay.volcano => PyramidLoveBoardIconKind.volcano,
+        BoardUnderlay.lunarInvaders1 ||
+        BoardUnderlay.lunarInvaders2 => PyramidLoveBoardIconKind.lunar,
+        BoardUnderlay.petalBattle => PyramidLoveBoardIconKind.petal,
+        BoardUnderlay.worldWar5 => PyramidLoveBoardIconKind.worldWar,
+        BoardUnderlay.martianChessHalf ||
+        BoardUnderlay.martianChess2 ||
+        BoardUnderlay.chess8x8 => PyramidLoveBoardIconKind.martianChess,
+        _ => null,
+      };
+
+  Future<void> _showBoardGroup(BoardUnderlayGroup group) async {
+    final boards = BoardUnderlay.values
+        .where((underlay) => underlay.group == group)
+        .toList();
+    final choice = await _showCompactMenu([
+      for (final underlay in boards)
+        _compactMenuItem(
+          'u${underlay.index}',
+          group == BoardUnderlayGroup.chess
+              ? Icons.grid_view
+              : group == BoardUnderlayGroup.grids
+              ? Icons.grid_4x4
+              : Icons.dashboard_outlined,
+          underlay.menuLabel,
+          checked: _controller.state.underlay == underlay,
+          leading: _boardMenuArtwork(underlay) == null
+              ? null
+              : PyramidLoveBoardIcon(_boardMenuArtwork(underlay)!),
+        ),
+    ]);
+    if (!mounted || choice == null) return;
+    final underlay = BoardUnderlay.values[int.parse(choice.substring(1))];
+    _toggleUnderlaySelection(underlay);
+  }
+
+  Widget _toyIcon(_ToyKind toy, Color color, {required bool inMenu}) {
+    switch (toy) {
+      case _ToyKind.nestCycle:
+        return Center(
+          child: Text(
+            '⧈',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: color,
+              fontSize: 23,
+              height: 1,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        );
+      case _ToyKind.zendoStones:
+        return Icon(Icons.circle_outlined, size: 18, color: color);
+      case _ToyKind.triangleBounce:
+        return Icon(Icons.change_history, size: 18, color: color);
+      default:
+        final icon = toy == _ToyKind.entropy
+            ? (_entropyEnabled ? Icons.hourglass_top : Icons.hourglass_bottom)
+            : toy.icon;
+        return Icon(icon, size: 21, color: color);
+    }
+  }
+
+  Future<void> _showToyMenu() async {
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close Toys',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 120),
+      pageBuilder: (dialogContext, _, __) => SafeArea(
+        child: Align(
+          alignment: Alignment.bottomLeft,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: StatefulBuilder(
+              builder: (context, setDialogState) => Material(
+                color: const Color(0xFF202020),
+                elevation: 10,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: SizedBox(
+                    width: 270,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            for (final toy in _ToyKind.values)
+                              Tooltip(
+                                message: tr(toy.label),
+                                preferBelow: false,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () async {
+                                    await _toggleToyVisibility(toy);
+                                    if (dialogContext.mounted)
+                                      setDialogState(() {});
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 120),
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          (_toyVisible[toy] ??
+                                              toy.defaultVisible)
+                                          ? Colors.white.withValues(alpha: 0.13)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color:
+                                            (_toyVisible[toy] ??
+                                                toy.defaultVisible)
+                                            ? Colors.white38
+                                            : Colors.transparent,
+                                      ),
+                                    ),
+                                    child: _toyIcon(
+                                      toy,
+                                      (_toyVisible[toy] ?? toy.defaultVisible)
+                                          ? Colors.white
+                                          : Colors.white38,
+                                      inMenu: true,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDisplayMenu() async {
+    final choice = await _showCompactMenu([
+      _compactMenuItem('size', Icons.straighten, 'Size'),
+      _compactMenuItem(
+        'round',
+        Icons.change_history,
+        'Safety Points',
+        checked: _roundedTriangleTips,
+      ),
+      _compactMenuItem('brightness', Icons.brightness_6_outlined, 'Brightness'),
+      _compactMenuItem(
+        'orientation',
+        Icons.screen_lock_rotation,
+        'Orientation Lock',
+      ),
+      if (kIsWeb)
+        _compactMenuItem('fullscreen', Icons.fullscreen, 'Full-screen'),
+    ]);
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'size':
+        await _showCalibrationCheck();
+      case 'brightness':
+        await _showBrightnessDialog();
+      case 'orientation':
+        await _showOrientationLockInfo();
+      case 'round':
+        await _toggleRoundedTriangleTips();
+      case 'fullscreen':
+        await _showWebInstallHelp();
+    }
+  }
+
+  void _showHistoryControls() {
+    _historyControlsTimer?.cancel();
+    setState(() => _historyControlsVisible = true);
+    _historyControlsTimer = Timer(const Duration(seconds: 57), () {
+      if (mounted) setState(() => _historyControlsVisible = false);
+    });
+  }
+
+  void _undoFromUi() {
+    if (!_controller.canUndo) return;
+    _controller.undo();
+    _showHistoryControls();
+  }
+
+  void _redoFromUi() {
+    if (!_controller.canRedo) return;
+    _controller.redo();
+    _showHistoryControls();
+  }
+
+  Future<void> _showLanguageMenu() async {
+    final selected = await showModalBottomSheet<AppLanguage>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFF202020),
+      builder: (sheetContext) => LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 620 ? 3 : 2;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+                  child: Text(
+                    tr('Thanks for playing with LightHouse!'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: AppLanguage.values.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    mainAxisSpacing: 6,
+                    crossAxisSpacing: 6,
+                    mainAxisExtent: 52,
+                  ),
+                  itemBuilder: (context, index) {
+                    final language = AppLanguage.values[index];
+                    final selected =
+                        language == AppLanguageController.current;
+                    return Material(
+                      color: selected
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => Navigator.pop(sheetContext, language),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  language.selfName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (selected) const Icon(Icons.check, size: 18),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (selected == null) return;
+    await AppLanguageController.set(selected);
+    if (mounted) setState(() {});
+  }
+
+  Widget _instructionsPane() {
+    final size = MediaQuery.sizeOf(context);
+    final isDesktop =
+        kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final isTablet = size.shortestSide >= 600;
+    final deviceName = isDesktop
+        ? 'Desktop / trackpad'
+        : isIos
+        ? (isTablet ? 'iPad' : 'iPhone')
+        : defaultTargetPlatform == TargetPlatform.android
+        ? (isTablet ? 'Android tablet' : 'Android phone')
+        : 'Touch device';
+
+    final instructions = isDesktop
+        ? <(String, String)>[
+            ('Create / resize / delete', 'Double-click'),
+            ('Tip / stand', 'Drag through the footprint edge'),
+            ('Full / wall light', 'Draw a loop around an upright footprint'),
+            ('Move', 'Two-finger scroll over a footprint'),
+            ('Rotate', 'Shift + two-finger scroll'),
+            (
+              'Rotation snap',
+              'Edit > Rotation Snap; Snap Now aligns every shape immediately',
+            ),
+            ('Board snap', 'Boards > Snap pieces to board'),
+            (
+              'Dice bubble',
+              'Press/release to roll; two-finger drag moves; latch tiles cycle die counts',
+            ),
+            (
+              'Zendo stones',
+              'Tap or drag from tray; drag stones; double-click to remove',
+            ),
+            (
+              'Remote ripple',
+              'On a Controller, hold a shape to start its ripple; hold again to stop it',
+            ),
+            ('Toys', 'Toys chooses controls; hold an icon for its name'),
+          ]
+        : <(String, String)>[
+            ('Create / resize / delete', 'Double-tap'),
+            ('Tip / stand', 'Drag through the footprint edge'),
+            ('Full / wall light', 'Draw a loop around an upright footprint'),
+            ('Move + rotate', 'Two-finger drag and twist'),
+            (
+              'Rotation snap',
+              'Edit > Rotation Snap; Snap Now aligns every shape immediately',
+            ),
+            ('Board snap', 'Boards > Snap pieces to board'),
+            (
+              'Dice bubble',
+              'Tap or hold/release to roll; two-finger drag moves; pinch resizes; latch tiles cycle die counts',
+            ),
+            (
+              'Zendo stones',
+              'Tap or drag from tray; drag stones; double-tap to remove',
+            ),
+            (
+              'Remote ripple',
+              'On a Controller, hold a shape to start its ripple; hold again to stop it',
+            ),
+            ('Toys', 'Toys chooses controls; hold an icon for its name'),
+          ];
+
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomLeft,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 62),
+          child: Material(
+            color: const Color(0xEE171717),
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 350),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${tr('Instructions')} · ${tr(deviceName)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: tr('Close instructions'),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () =>
+                              setState(() => _instructionsVisible = false),
+                          icon: const Icon(Icons.close, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final item in instructions)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 7),
+                                child: Text.rich(
+                                  TextSpan(
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                      height: 1.25,
+                                    ),
+                                    children: [
+                                      TextSpan(
+                                        text: '${tr(item.$1)}: ',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      TextSpan(text: tr(item.$2)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white60,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _replayOnboardingGestures,
+                        icon: const Icon(Icons.gesture, size: 17),
+                        label: Text(tr('Show gestures again')),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: _showLanguageMenu,
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'A',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 22,
+                              height: 16,
+                              child: CustomPaint(
+                                painter: _LanguageArrowPainter(),
+                              ),
+                            ),
+                            Text(
+                              'あ',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _toyControl(_ToyKind toy) {
+    final active = _toyIsActive(toy);
+    if (toy == _ToyKind.turnTimer) {
+      return Tooltip(
+        message: tr(toy.label),
+        triggerMode: TooltipTriggerMode.longPress,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Semantics(
+                button: true,
+                label:
+                    'Turn Timer. Hold and drag left or right to adjust speed.',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _startTurnTimer,
+                  onLongPressStart: _beginTimerAdjustment,
+                  onLongPressMoveUpdate: _updateTimerAdjustment,
+                  onLongPressEnd: _endTimerAdjustment,
+                  onLongPressCancel: _cancelTimerAdjustment,
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: _toyIcon(
+                      toy,
+                      active ? Colors.white : Colors.white70,
+                      inMenu: false,
+                    ),
+                  ),
+                ),
+              ),
+              if (_timerNeedleVisible)
+                Positioned(
+                  bottom: 34,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      width: 92,
+                      height: 66,
+                      child: CustomPaint(
+                        painter: _TimerNeedlePainter(
+                          durationSeconds: _turnTimerDurationSeconds,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (toy == _ToyKind.redSweep) {
+      return Tooltip(
+        message: tr(toy.label),
+        triggerMode: TooltipTriggerMode.longPress,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Semantics(
+                button: true,
+                label:
+                    'Red Sweep. Hold and drag left or right to adjust speed.',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _activateToy(toy),
+                  onLongPressStart: _beginRedSweepAdjustment,
+                  onLongPressMoveUpdate: _updateRedSweepAdjustment,
+                  onLongPressEnd: _endRedSweepAdjustment,
+                  onLongPressCancel: _cancelRedSweepAdjustment,
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: _toyIcon(
+                      toy,
+                      active ? Colors.white : Colors.white70,
+                      inMenu: false,
+                    ),
+                  ),
+                ),
+              ),
+              if (_redSweepNeedleVisible)
+                Positioned(
+                  bottom: 34,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      width: 92,
+                      height: 66,
+                      child: CustomPaint(
+                        painter: _TimerNeedlePainter(
+                          durationSeconds: _redSweepPeriodSeconds,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    return IconButton(
+      tooltip: tr(toy.label),
+      visualDensity: VisualDensity.compact,
+      onPressed:
+          _randomizerRunning &&
+              {_ToyKind.lightLottery, _ToyKind.hotPotato}.contains(toy)
+          ? null
+          : () => _activateToy(toy),
+      icon: _toyIcon(
+        toy,
+        active ? Colors.white : Colors.white70,
+        inMenu: false,
+      ),
+    );
+  }
+
+  Widget _toyControls() {
+    const columns = 6;
+    final toys = [
+      for (final toy in _ToyKind.values)
+        if (_toyVisible[toy] ?? toy.defaultVisible) toy,
+    ];
+    final rows = <Widget>[];
+    for (var start = 0; start < toys.length; start += columns) {
+      final end = math.min(start + columns, toys.length);
+      rows.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            for (final toy in toys.sublist(start, end)) _toyControl(toy),
+          ],
+        ),
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: rows,
+    );
+  }
+
+  Widget _gunAimHandle(int index, Alignment alignment) {
+    final size = 132.0 * _remoteUiScale;
+    return Align(
+      alignment: alignment,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanDown: (details) =>
+              _aimGunFromLocal(index, details.localPosition),
+          onPanUpdate: (details) =>
+              _aimGunFromLocal(index, details.localPosition),
+          onPanEnd: (_) => _fireSideGun(index),
+          onTapUp: (_) => _fireSideGun(index),
+        ),
+      ),
+    );
+  }
+
+  Widget _sideGunAimHandles() => Stack(
+    children: [
+      _gunAimHandle(0, Alignment.topLeft),
+      _gunAimHandle(1, Alignment.topRight),
+      _gunAimHandle(2, Alignment.bottomLeft),
+      _gunAimHandle(3, Alignment.bottomRight),
+    ],
+  );
+
+  Widget _historyControls() => AnimatedOpacity(
+    opacity: _historyControlsVisible ? 1 : 0,
+    duration: const Duration(seconds: 3),
+    curve: Curves.easeOut,
+    child: IgnorePointer(
+      ignoring: !_historyControlsVisible,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: tr('Undo'),
+            visualDensity: VisualDensity.compact,
+            onPressed: _controller.canUndo ? _undoFromUi : null,
+            icon: const Icon(Icons.undo, size: 21),
+          ),
+          IconButton(
+            tooltip: tr('Redo'),
+            visualDensity: VisualDensity.compact,
+            onPressed: _controller.canRedo ? _redoFromUi : null,
+            icon: const Icon(Icons.redo, size: 21),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Future<void> _openGithub() async {
+    final uri = Uri.parse('https://github.com/udeudeude/LightHouse');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  void _dismissCreditsAndRecalibrate() {
+    _faceDownTimer?.cancel();
+    _faceDownTimer = null;
+    final sign = _lastDominantZSign;
+    setState(() {
+      if (sign != null) _faceUpZSign = sign;
+      _faceUpCandidateSign = null;
+      _faceUpStableSamples = 0;
+      _faceDownLatched = false;
+      _creditsVisible = false;
+    });
+  }
+
+  Widget _credits() => CreditsOverlay(
+    onCloseAndRecalibrate: _dismissCreditsAndRecalibrate,
+    onOpenGithub: () => unawaited(_openGithub()),
+  );
+
+  Widget _buildBoardSurface(BuildContext surfaceContext) {
+    final safePadding = _boardSurfacePadding(surfaceContext);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_remoteControllerMode &&
+            _remoteDisplayWidthMm != null &&
+            _remoteDisplayHeightMm != null)
+          Padding(
+            padding: safePadding,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white38, width: 1),
+                ),
+              ),
+            ),
+          ),
+        Padding(
+          padding: safePadding,
+          child: IgnorePointer(
+            ignoring: _remoteDisplayInputBlocked,
+            child: Listener(
+              onPointerDown: _onPointerDown,
+              onPointerMove: _onPointerMove,
+              onPointerUp: _onPointerUp,
+              onPointerCancel: _onPointerCancel,
+              onPointerSignal: _onPointerSignal,
+              onPointerPanZoomStart: _onPointerPanZoomStart,
+              onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
+              onPointerPanZoomEnd: _onPointerPanZoomEnd,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTapDown: _handleDoubleTapDown,
+                onLongPressStart: (details) => unawaited(
+                  _toggleRippleFromLongPress(details.localPosition),
+                ),
+                onScaleStart: _onScaleStart,
+                onScaleUpdate: _onScaleUpdate,
+                onScaleEnd: _onScaleEnd,
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _toyRevision,
+                  builder: (context, revision, child) => RepaintBoundary(
+                    child: CustomPaint(
+                      painter: BoardPainter(
+                        state: _controller.state,
+                        logicalPixelsPerMm: _pixelsPerMm,
+                        geometry: _controller.geometry,
+                        selectedId:
+                            _remoteDisplayMode &&
+                                !_remoteControlState.displayShapesVisible
+                            ? null
+                            : _selectedId,
+                        elementOpacities: _paintElementOpacities,
+                        burstCenter: _burstCenter,
+                        triangleBouncePhase:
+                            _activeToys.contains(_ToyKind.triangleBounce)
+                            ? 0.5 - 0.5 * math.cos(_toyClock * math.pi * 0.9)
+                            : null,
+                        squareChasePhase:
+                            _activeToys.contains(_ToyKind.squareChase)
+                            ? (_toyClock * 0.24) % 1
+                            : null,
+                        squareChaseSeed: _squareChaseSeed,
+                        roundTriangleTips: _roundedTriangleTips,
+                        checkerUnderlays: _checkerUnderlays,
+                        burstProgress: _burstProgress,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (_remoteControlState.rippleLevels.isNotEmpty)
+          Padding(
+            padding: safePadding,
+            child: IgnorePointer(
+              child: ValueListenableBuilder<int>(
+                valueListenable: _toyRevision,
+                builder: (context, revision, child) => RepaintBoundary(
+                  child: CustomPaint(
+                    painter: RippleOverlayPainter(
+                      elements: _controller.state.elements,
+                      levels: _remoteControlState.rippleLevels,
+                      logicalPixelsPerMm: _pixelsPerMm,
+                      phaseSeconds: _rippleClock,
+                      geometry: _controller.geometry,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        Padding(
+          padding: safePadding,
+          child: IgnorePointer(
+            child: ValueListenableBuilder<int>(
+              valueListenable: _toyRevision,
+              builder: (context, revision, child) => RepaintBoundary(
+                child: CustomPaint(
+                  painter: ToyOverlayPainter(
+                    logicalPixelsPerMm: _pixelsPerMm,
+                    geometry: _controller.geometry,
+                    elements: _controller.state.elements,
+                    ghostTrails: _ghostTrails,
+                    ghostTrailsVisible: _ghostTrailActive,
+                    eventZoneCenter: _eventZoneCenter,
+                    eventZoneRadiusMm: _eventZoneRadiusMm,
+                    eventZoneProgress: _eventZoneProgress,
+                    eventZoneDismiss: _eventZoneDismiss,
+                    turnTimerProgress: _turnTimerProgress,
+                    radarAngleDegrees: _activeToys.contains(_ToyKind.radar)
+                        ? _radarAngleDegrees
+                        : null,
+                    redSweepY: _activeToys.contains(_ToyKind.redSweep)
+                        ? _redSweepY
+                        : null,
+                    dieValue: null,
+                    dieRollPhase: 0,
+                    dieRollProgress: 1,
+                    diePressed: false,
+                    projectiles: _projectiles,
+                    impacts: _impacts,
+                    sideGunsVisible: _activeToys.contains(_ToyKind.sideGuns),
+                    sideGunAnglesDegrees: List<double>.unmodifiable(
+                      _sideGunAnglesDegrees,
+                    ),
+                    sideGunAmmo: List<int>.unmodifiable(_sideGunAmmo),
+                    cornerGunsVisible:
+                        _activeToys.contains(_ToyKind.cornerRicochet) ||
+                        _projectiles.any((p) => p.ricochet),
+                    constellation: _constellationPoints,
+                    uiScale: _remoteUiScale,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: safePadding,
+          child: OnboardingOverlay(
+            animation: _onboardingAnimation,
+            logicalPixelsPerMm: _pixelsPerMm,
+            geometry: _controller.geometry,
+            showHaiku: _onboardingHaikuVisible,
+            showTapTap: _onboardingTapTapVisible,
+            tipTarget: _onboardingTipTargetId == null
+                ? null
+                : _controller.state.elementById(_onboardingTipTargetId!),
+            hollowTarget: _onboardingHollowTargetId == null
+                ? null
+                : _controller.state.elementById(_onboardingHollowTargetId!),
+            transformTarget: _onboardingTransformTargetId == null
+                ? null
+                : _controller.state.elementById(_onboardingTransformTargetId!),
+          ),
+        ),
+        if (_activeToys.contains(_ToyKind.wireDie))
+          Padding(
+            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
+            child: IgnorePointer(
+              ignoring: _remoteDisplayMode,
+              child: DiceBubble(
+                snapshot: _diceSnapshot,
+                onChanged: _remoteDisplayMode ? null : _handleDiceSnapshot,
+                scale: _remoteUiScale,
+              ),
+            ),
+          ),
+        if (_activeToys.contains(_ToyKind.zendoStones))
+          Padding(
+            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
+            child: IgnorePointer(
+              ignoring: _remoteDisplayMode,
+              child: ZendoStonesWidget(
+                snapshot: _zendoSnapshot,
+                onChanged: _remoteDisplayMode ? null : _handleZendoSnapshot,
+                scale: _remoteUiScale,
+              ),
+            ),
+          ),
+        if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)
+          Padding(padding: safePadding, child: _sideGunAimHandles()),
+        SafeArea(
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_remoteControllerMode &&
+                      _remoteSession?.peerSeen == true) ...[
+                    _remoteControllerQuickControls(),
+                    const SizedBox(height: 6),
+                  ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_remoteDisplayMode)
+                        _remoteStatusButton()
+                      else ...[
+                        _menu(),
+                        _historyControls(),
+                        if (_remoteSession != null) _remoteStatusButton(),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (!_remoteDisplayMode)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: _toyControls(),
+              ),
+            ),
+          ),
+        _zendoRuleCard(),
+        if (_instructionsVisible) _instructionsPane(),
+        if (_creditsVisible) Positioned.fill(child: _credits()),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => TooltipTheme(
+    data: const TooltipThemeData(preferBelow: false),
+    child: Scaffold(
+      backgroundColor: Colors.black,
+      body: _buildBoardSurface(context),
+    ),
+  );
+}
+
+class _MenuCirclePainter extends CustomPainter {
+  const _MenuCirclePainter({required this.snapDegrees});
+
+  final double? snapDegrees;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - 1;
+    final paint = Paint()
+      ..color = Colors.white70
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.7;
+    canvas.drawCircle(center, radius, paint);
+
+    final degrees = snapDegrees;
+    if (degrees == null || degrees <= 0) return;
+    final tickCount = (360 / degrees).round().clamp(4, 24);
+    for (var i = 0; i < tickCount; i += 1) {
+      final angle = -math.pi / 2 + 2 * math.pi * i / tickCount;
+      final outer = radius - 0.35;
+      final inner = radius - (i % 2 == 0 ? 4.5 : 3.5);
+      canvas.drawLine(
+        Offset(
+          center.dx + inner * math.cos(angle),
+          center.dy + inner * math.sin(angle),
+        ),
+        Offset(
+          center.dx + outer * math.cos(angle),
+          center.dy + outer * math.sin(angle),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MenuCirclePainter oldDelegate) =>
+      oldDelegate.snapDegrees != snapDegrees;
+}
+
+class _TimerNeedlePainter extends CustomPainter {
+  const _TimerNeedlePainter({required this.durationSeconds});
+
+  final double durationSeconds;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height - 7);
+    final gauge = Paint()
+      ..color = Colors.white54
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final rect = Rect.fromCircle(center: center, radius: 32);
+    canvas.drawArc(rect, math.pi * 1.12, math.pi * 0.76, false, gauge);
+    final logSpeed = (math.log(30 / durationSeconds) / math.ln2).clamp(
+      -1.5,
+      1.5,
+    );
+    final fraction = (logSpeed + 1.5) / 3;
+    final angle = math.pi * 1.12 + math.pi * 0.76 * fraction;
+    final tip = Offset(
+      center.dx + math.cos(angle) * 27,
+      center.dy + math.sin(angle) * 27,
+    );
+    canvas.drawLine(
+      center,
+      tip,
+      Paint()
+        ..color = Colors.white
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(center, 2.2, Paint()..color = Colors.white);
+    final label = TextPainter(
+      text: TextSpan(
+        text: '${durationSeconds.round()}s',
+        style: const TextStyle(color: Colors.white70, fontSize: 11),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(canvas, Offset(center.dx - label.width / 2, 0));
+  }
+
+  @override
+  bool shouldRepaint(_TimerNeedlePainter oldDelegate) =>
+      oldDelegate.durationSeconds != durationSeconds;
+}
+,
+    ).firstMatch(raw);
+    if (countMatch != null) {
+      return '${tr('Encrypted relay')} · ${countMatch.group(1)} ${tr('controllers')}';
+    }
+    if (raw == 'Encrypted relay · multiple controllers') {
+      return '${tr('Encrypted relay')} · ${tr('multiple controllers')}';
+    }
+    return tr(raw);
+  }
+
+  String _translatedRemoteStatus(RemoteSession session) =>
+      '${tr(session.role.label)} · ${_translatedRemoteTransportLabel(session)}';
 
   Future<void> _showRemoteMenu() async {
     final session = _remoteSession;
