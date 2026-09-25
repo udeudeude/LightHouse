@@ -17,6 +17,7 @@ enum ArcadeDieKind {
   d4,
   d8,
   d10,
+  dPercentile,
   d12,
   d20,
 }
@@ -25,6 +26,7 @@ int arcadeDieSides(ArcadeDieKind kind) => switch (kind) {
   ArcadeDieKind.d4 => 4,
   ArcadeDieKind.d8 => 8,
   ArcadeDieKind.d10 => 10,
+  ArcadeDieKind.dPercentile => 10,
   ArcadeDieKind.d12 => 12,
   ArcadeDieKind.d20 => 20,
   _ => 6,
@@ -56,6 +58,11 @@ String fateDieFaceSymbol(int face) => switch (face % 6) {
   2 || 3 => '-',
   _ => '',
 };
+
+String arcadePolyhedralFaceLabel(ArcadeDieKind kind, int faceIndex) =>
+    kind == ArcadeDieKind.dPercentile
+    ? '${faceIndex * 10}'.padLeft(2, '0')
+    : '${faceIndex + 1}';
 
 int nextArcadeDieCount({required int current, required int otherSelected}) {
   final maximum = (3 - otherSelected).clamp(0, 3).toInt();
@@ -91,6 +98,7 @@ const arcadeDiceChoices = <ArcadeDieChoice>[
   ArcadeDieChoice('d4', ArcadeDieKind.d4, 'D4'),
   ArcadeDieChoice('d8', ArcadeDieKind.d8, 'D8'),
   ArcadeDieChoice('d10', ArcadeDieKind.d10, 'D10'),
+  ArcadeDieChoice('dPercentile', ArcadeDieKind.dPercentile, 'Percentile D10'),
   ArcadeDieChoice('d12', ArcadeDieKind.d12, 'D12'),
   ArcadeDieChoice('d20', ArcadeDieKind.d20, 'D20'),
 ];
@@ -866,6 +874,8 @@ class _DieSelectorMarkPainter extends CustomPainter {
         _paintPolySelector(canvas, center, size, 8);
       case ArcadeDieKind.d10:
         _paintPolySelector(canvas, center, size, 10);
+      case ArcadeDieKind.dPercentile:
+        _paintPolySelector(canvas, center, size, 10, label: 'D%');
       case ArcadeDieKind.d12:
         _paintPolySelector(canvas, center, size, 12);
       case ArcadeDieKind.d20:
@@ -1079,7 +1089,13 @@ class _DieSelectorMarkPainter extends CustomPainter {
     );
   }
 
-  void _paintPolySelector(Canvas canvas, Offset center, Size size, int sides) {
+  void _paintPolySelector(
+    Canvas canvas,
+    Offset center,
+    Size size,
+    int sides, {
+    String? label,
+  }) {
     final unit = size.shortestSide;
     final outline = Paint()
       ..color = foreground
@@ -1129,7 +1145,7 @@ class _DieSelectorMarkPainter extends CustomPainter {
 
     final painter = TextPainter(
       text: TextSpan(
-        text: 'D$sides',
+        text: label ?? 'D$sides',
         style: TextStyle(
           color: foreground,
           fontSize: unit * 0.22,
@@ -1229,6 +1245,7 @@ bool _isPolyhedralKind(ArcadeDieKind kind) => switch (kind) {
   ArcadeDieKind.d4 ||
   ArcadeDieKind.d8 ||
   ArcadeDieKind.d10 ||
+  ArcadeDieKind.dPercentile ||
   ArcadeDieKind.d12 ||
   ArcadeDieKind.d20 => true,
   _ => false,
@@ -1456,6 +1473,7 @@ _PolyMesh _polyMeshForKind(ArcadeDieKind kind) => switch (kind) {
   ArcadeDieKind.d4 => _tetrahedronMesh,
   ArcadeDieKind.d8 => _octahedronMesh,
   ArcadeDieKind.d10 => _d10Mesh,
+  ArcadeDieKind.dPercentile => _d10Mesh,
   ArcadeDieKind.d12 => _dodecahedronMesh,
   ArcadeDieKind.d20 => _icosahedronMesh,
   _ => throw ArgumentError('Not a polyhedral die: $kind'),
@@ -1824,6 +1842,7 @@ class _DiceBubblePainter extends CustomPainter {
       ArcadeDieKind.d4,
       ArcadeDieKind.d8,
       ArcadeDieKind.d10,
+      ArcadeDieKind.dPercentile,
       ArcadeDieKind.d12,
       ArcadeDieKind.d20,
     }.contains(kind)) {
@@ -1892,6 +1911,7 @@ class _DiceBubblePainter extends CustomPainter {
           ArcadeDieKind.d4 => 1.58,
           ArcadeDieKind.d8 => 1.54,
           ArcadeDieKind.d10 => 1.56,
+          ArcadeDieKind.dPercentile => 1.56,
           ArcadeDieKind.d12 => 1.58,
           ArcadeDieKind.d20 => 1.60,
           _ => 1.0,
@@ -1979,11 +1999,11 @@ class _DiceBubblePainter extends CustomPainter {
         4 => 0.96,
         _ => 0.94,
       };
-      final value = face.index + 1;
+      final value = arcadePolyhedralFaceLabel(kind, face.index);
       const sampleFontSize = 100.0;
       final samplePainter = TextPainter(
         text: TextSpan(
-          text: '$value',
+          text: value,
           style: const TextStyle(
             fontSize: sampleFontSize,
             fontWeight: FontWeight.w900,
@@ -2001,7 +2021,7 @@ class _DiceBubblePainter extends CustomPainter {
           ((2 * labelRadius * faceFill) / math.max(1.0, sampleDiagonal));
       final painter = TextPainter(
         text: TextSpan(
-          text: '$value',
+          text: value,
           style: TextStyle(
             color: Colors.black,
             fontSize: fontSize,
@@ -2141,6 +2161,7 @@ class _DiceBubblePainter extends CustomPainter {
       case ArcadeDieKind.d4:
       case ArcadeDieKind.d8:
       case ArcadeDieKind.d10:
+      case ArcadeDieKind.dPercentile:
       case ArcadeDieKind.d12:
       case ArcadeDieKind.d20:
         break;

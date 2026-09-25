@@ -2745,9 +2745,11 @@ class _BoardScreenState extends State<BoardScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                session.multipleControllers
-                    ? 'A Remote controller disconnected.'
-                    : 'Remote device disconnected.',
+                tr(
+                  session.multipleControllers
+                      ? 'A Remote controller disconnected.'
+                      : 'Remote device disconnected.',
+                ),
               ),
             ),
           );
@@ -2865,16 +2867,16 @@ class _BoardScreenState extends State<BoardScreen>
                 const SizedBox(height: 10),
                 Text(
                   session.peerSeen
-                      ? '${tr('Paired')} · ${session.transportLabel}'
+                      ? '${tr('Paired')} · ${_translatedRemoteTransportLabel(session)}'
                       : session.phase == RemoteConnectionPhase.failed
                       ? tr('Pairing service unavailable.')
-                      : '${tr('Waiting for the other device')} · ${session.transportLabel}',
+                      : '${tr('Waiting for the other device')} · ${_translatedRemoteTransportLabel(session)}',
                   textAlign: TextAlign.center,
                 ),
                 if (session.errorMessage case final error?) ...[
                   const SizedBox(height: 8),
                   Text(
-                    error,
+                    tr(error),
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.orangeAccent),
                   ),
@@ -3082,6 +3084,23 @@ class _BoardScreenState extends State<BoardScreen>
     }
   }
 
+  String _translatedRemoteTransportLabel(RemoteSession session) {
+    final raw = session.transportLabel;
+    final countMatch = RegExp(
+      r'^Encrypted relay · (\d+) controllers$',
+    ).firstMatch(raw);
+    if (countMatch != null) {
+      return '${tr('Encrypted relay')} · ${countMatch.group(1)} ${tr('controllers')}';
+    }
+    if (raw == 'Encrypted relay · multiple controllers') {
+      return '${tr('Encrypted relay')} · ${tr('multiple controllers')}';
+    }
+    return tr(raw);
+  }
+
+  String _translatedRemoteStatus(RemoteSession session) =>
+      '${tr(session.role.label)} · ${_translatedRemoteTransportLabel(session)}';
+
   Future<void> _showRemoteMenu() async {
     final session = _remoteSession;
     if (session == null) {
@@ -3105,7 +3124,7 @@ class _BoardScreenState extends State<BoardScreen>
       _compactMenuItem(
         'status',
         Icons.link,
-        '${session.role.label} · ${session.transportLabel}',
+        _translatedRemoteStatus(session),
         enabled: false,
       ),
       if (!session.peerSeen)
@@ -3185,7 +3204,7 @@ class _BoardScreenState extends State<BoardScreen>
     final session = _remoteSession;
     if (session == null) return const SizedBox.shrink();
     final status = IconButton(
-      tooltip: '${session.role.label} · ${session.transportLabel}',
+      tooltip: _translatedRemoteStatus(session),
       onPressed: _showRemoteMenu,
       icon: Icon(
         session.peerSeen ? Icons.link : Icons.link_off,
@@ -5195,12 +5214,31 @@ class _BoardScreenState extends State<BoardScreen>
                       alignment: Alignment.center,
                       child: TextButton(
                         onPressed: _showLanguageMenu,
-                        child: const Text(
-                          languagePickerGlyph,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'A',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 22,
+                              height: 16,
+                              child: CustomPaint(
+                                painter: _LanguageArrowPainter(),
+                              ),
+                            ),
+                            Text(
+                              'あ',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -5637,21 +5675,27 @@ class _BoardScreenState extends State<BoardScreen>
             alignment: Alignment.bottomLeft,
             child: Padding(
               padding: const EdgeInsets.all(8),
-              child: Row(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_remoteDisplayMode)
-                    _remoteStatusButton()
-                  else ...[
-                    _menu(),
-                    _historyControls(),
-                    if (_remoteSession != null) _remoteStatusButton(),
-                    if (_remoteControllerMode &&
-                        _remoteSession?.peerSeen == true) ...[
-                      const SizedBox(width: 6),
-                      _remoteControllerQuickControls(),
-                    ],
+                  if (_remoteControllerMode &&
+                      _remoteSession?.peerSeen == true) ...[
+                    _remoteControllerQuickControls(),
+                    const SizedBox(height: 6),
                   ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_remoteDisplayMode)
+                        _remoteStatusButton()
+                      else ...[
+                        _menu(),
+                        _historyControls(),
+                        if (_remoteSession != null) _remoteStatusButton(),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -5682,6 +5726,50 @@ class _BoardScreenState extends State<BoardScreen>
       body: _buildBoardSurface(context),
     ),
   );
+}
+
+
+class _LanguageArrowPainter extends CustomPainter {
+  const _LanguageArrowPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    final left = 2.0;
+    final right = size.width - 2.0;
+    final paint = Paint()
+      ..color = Colors.white70
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    const head = 4.0;
+
+    canvas.drawLine(Offset(left, centerY), Offset(right, centerY), paint);
+    canvas.drawLine(
+      Offset(left, centerY),
+      Offset(left + head, centerY - head),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(left, centerY),
+      Offset(left + head, centerY + head),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(right, centerY),
+      Offset(right - head, centerY - head),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(right, centerY),
+      Offset(right - head, centerY + head),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _LanguageArrowPainter oldDelegate) => false;
 }
 
 class _MenuCirclePainter extends CustomPainter {
