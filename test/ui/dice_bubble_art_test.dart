@@ -74,6 +74,15 @@ void main() {
     expect(isKnownArcadeDieInstance('dPercentile#1'), isTrue);
   });
 
+  test('polyhedral picker previews use representative face results', () {
+    expect(arcadePolyhedralPreviewFace(ArcadeDieKind.d4), 3);
+    expect(arcadePolyhedralPreviewFace(ArcadeDieKind.d8), 7);
+    expect(arcadePolyhedralPreviewFace(ArcadeDieKind.d10), 9);
+    expect(arcadePolyhedralPreviewFace(ArcadeDieKind.dPercentile), 9);
+    expect(arcadePolyhedralPreviewFace(ArcadeDieKind.d12), 11);
+    expect(arcadePolyhedralPreviewFace(ArcadeDieKind.d20), 19);
+  });
+
   test('selector tile cycle respects remaining three-die capacity', () {
     expect(
       [
