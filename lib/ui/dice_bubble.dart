@@ -59,6 +59,11 @@ String fateDieFaceSymbol(int face) => switch (face % 6) {
   _ => '',
 };
 
+String arcadePolyhedralFaceLabel(ArcadeDieKind kind, int faceIndex) =>
+    kind == ArcadeDieKind.dPercentile
+    ? '${faceIndex * 10}'.padLeft(2, '0')
+    : '${faceIndex + 1}';
+
 int nextArcadeDieCount({required int current, required int otherSelected}) {
   final maximum = (3 - otherSelected).clamp(0, 3).toInt();
   if (maximum == 0 || current >= maximum) return 0;
@@ -1994,9 +1999,7 @@ class _DiceBubblePainter extends CustomPainter {
         4 => 0.96,
         _ => 0.94,
       };
-      final value = kind == ArcadeDieKind.dPercentile
-          ? '${face.index * 10}'.padLeft(2, '0')
-          : '${face.index + 1}';
+      final value = arcadePolyhedralFaceLabel(kind, face.index);
       const sampleFontSize = 100.0;
       final samplePainter = TextPainter(
         text: TextSpan(
