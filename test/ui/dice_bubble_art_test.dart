@@ -46,6 +46,7 @@ void main() {
     expect(arcadeDieSides(ArcadeDieKind.d4), 4);
     expect(arcadeDieSides(ArcadeDieKind.d8), 8);
     expect(arcadeDieSides(ArcadeDieKind.d10), 10);
+    expect(arcadeDieSides(ArcadeDieKind.dPercentile), 10);
     expect(arcadeDieSides(ArcadeDieKind.d12), 12);
     expect(arcadeDieSides(ArcadeDieKind.d20), 20);
   });
@@ -60,6 +61,17 @@ void main() {
     );
     expect(d10FacePlanarityError(), lessThan(1e-9));
     expect(d10VertexRadiusSpread(), lessThan(1e-9));
+  });
+
+  test('percentile D10 uses 00 through 90 on the D10 geometry', () {
+    expect(
+      [
+        for (var face = 0; face < 10; face += 1)
+          arcadePolyhedralFaceLabel(ArcadeDieKind.dPercentile, face),
+      ],
+      ['00', '10', '20', '30', '40', '50', '60', '70', '80', '90'],
+    );
+    expect(isKnownArcadeDieInstance('dPercentile#1'), isTrue);
   });
 
   test('selector tile cycle respects remaining three-die capacity', () {
@@ -240,6 +252,7 @@ void main() {
       ('d4', 4),
       ('d8', 8),
       ('d10', 10),
+      ('dPercentile', 10),
       ('d12', 12),
       ('d20', 20),
     ];
