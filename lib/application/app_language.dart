@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const languagePickerGlyph = 'A\u2194\uFE0Eあ';
-
 enum AppLanguage {
   english,
   spanish,
@@ -88,6 +86,17 @@ String tr(String english) {
 }
 
 const _es = <String, String>{
+  'Show gestures again': 'Mostrar gestos de nuevo',
+  'Percentile D10': 'D10 percentil',
+  'Direct': 'Directo',
+  'Encrypted relay': 'Retransmisión cifrada',
+  'Waiting for peer': 'Esperando al otro dispositivo',
+  'Connecting': 'Conectando',
+  'Offline': 'Sin conexión',
+  'controllers': 'controladores',
+  'multiple controllers': 'varios controladores',
+  'Remote device disconnected.': 'Dispositivo remoto desconectado.',
+  'A Remote controller disconnected.': 'Un controlador remoto se desconectó.',
   'Desktop / trackpad': 'Escritorio / panel táctil',
   'Android tablet': 'Tableta Android',
   'Android phone': 'Teléfono Android',
@@ -195,6 +204,17 @@ const _es = <String, String>{
 };
 
 const _ja = <String, String>{
+  'Show gestures again': 'ジェスチャーをもう一度表示',
+  'Percentile D10': 'パーセンタイルD10',
+  'Direct': '直接',
+  'Encrypted relay': '暗号化リレー',
+  'Waiting for peer': '相手を待機中',
+  'Connecting': '接続中',
+  'Offline': 'オフライン',
+  'controllers': 'コントローラー',
+  'multiple controllers': '複数のコントローラー',
+  'Remote device disconnected.': 'リモート端末が切断されました。',
+  'A Remote controller disconnected.': 'リモートコントローラーが1台切断されました。',
   'Desktop / trackpad': 'デスクトップ / トラックパッド',
   'Android tablet': 'Androidタブレット',
   'Android phone': 'Androidスマートフォン',
@@ -422,6 +442,17 @@ const _jaExtra = <String, String>{
 };
 
 const _de = <String, String>{
+  'Show gestures again': 'Gesten erneut zeigen',
+  'Percentile D10': 'Perzentil-D10',
+  'Direct': 'Direkt',
+  'Encrypted relay': 'Verschlüsseltes Relay',
+  'Waiting for peer': 'Warte auf Gegenstelle',
+  'Connecting': 'Verbinden',
+  'Offline': 'Offline',
+  'controllers': 'Controller',
+  'multiple controllers': 'mehrere Controller',
+  'Remote device disconnected.': 'Remote-Gerät getrennt.',
+  'A Remote controller disconnected.': 'Ein Remote-Controller wurde getrennt.',
   'Desktop / trackpad': 'Desktop / Trackpad',
   'Android tablet': 'Android-Tablet',
   'Android phone': 'Android-Telefon',
@@ -607,6 +638,17 @@ const _de = <String, String>{
 };
 
 const _fr = <String, String>{
+  'Show gestures again': 'Afficher de nouveau les gestes',
+  'Percentile D10': 'D10 percentile',
+  'Direct': 'Direct',
+  'Encrypted relay': 'Relais chiffré',
+  'Waiting for peer': 'En attente de l’autre appareil',
+  'Connecting': 'Connexion en cours',
+  'Offline': 'Hors ligne',
+  'controllers': 'contrôleurs',
+  'multiple controllers': 'plusieurs contrôleurs',
+  'Remote device disconnected.': 'Appareil distant déconnecté.',
+  'A Remote controller disconnected.': 'Un contrôleur distant s’est déconnecté.',
   'Desktop / trackpad': 'Ordinateur / pavé tactile',
   'Android tablet': 'Tablette Android',
   'Android phone': 'Téléphone Android',
@@ -792,6 +834,17 @@ const _fr = <String, String>{
 };
 
 const _nl = <String, String>{
+  'Show gestures again': 'Gebaren opnieuw tonen',
+  'Percentile D10': 'Percentiel-D10',
+  'Direct': 'Direct',
+  'Encrypted relay': 'Versleuteld relais',
+  'Waiting for peer': 'Wachten op ander apparaat',
+  'Connecting': 'Verbinden',
+  'Offline': 'Offline',
+  'controllers': 'controllers',
+  'multiple controllers': 'meerdere controllers',
+  'Remote device disconnected.': 'Extern apparaat losgekoppeld.',
+  'A Remote controller disconnected.': 'Een externe controller is losgekoppeld.',
   'Desktop / trackpad': 'Desktop / trackpad',
   'Android tablet': 'Android-tablet',
   'Android phone': 'Android-telefoon',
@@ -977,6 +1030,17 @@ const _nl = <String, String>{
 };
 
 const _pt = <String, String>{
+  'Show gestures again': 'Mostrar gestos novamente',
+  'Percentile D10': 'D10 percentil',
+  'Direct': 'Direto',
+  'Encrypted relay': 'Retransmissão criptografada',
+  'Waiting for peer': 'Aguardando outro dispositivo',
+  'Connecting': 'Conectando',
+  'Offline': 'Offline',
+  'controllers': 'controladores',
+  'multiple controllers': 'vários controladores',
+  'Remote device disconnected.': 'Dispositivo remoto desconectado.',
+  'A Remote controller disconnected.': 'Um controlador remoto foi desconectado.',
   'Desktop / trackpad': 'Computador / trackpad',
   'Android tablet': 'Tablet Android',
   'Android phone': 'Telefone Android',
@@ -1162,6 +1226,17 @@ const _pt = <String, String>{
 };
 
 const _zh = <String, String>{
+  'Show gestures again': '再次显示手势',
+  'Percentile D10': '百分位 D10',
+  'Direct': '直连',
+  'Encrypted relay': '加密中继',
+  'Waiting for peer': '等待另一台设备',
+  'Connecting': '正在连接',
+  'Offline': '离线',
+  'controllers': '控制器',
+  'multiple controllers': '多个控制器',
+  'Remote device disconnected.': '远程设备已断开连接。',
+  'A Remote controller disconnected.': '一个远程控制器已断开连接。',
   'Desktop / trackpad': '桌面 / 触控板',
   'Android tablet': 'Android 平板',
   'Android phone': 'Android 手机',
@@ -1347,6 +1422,17 @@ const _zh = <String, String>{
 };
 
 const _it = <String, String>{
+  'Show gestures again': 'Mostra di nuovo i gesti',
+  'Percentile D10': 'D10 percentile',
+  'Direct': 'Diretto',
+  'Encrypted relay': 'Relay crittografato',
+  'Waiting for peer': 'In attesa dell\'altro dispositivo',
+  'Connecting': 'Connessione in corso',
+  'Offline': 'Offline',
+  'controllers': 'controller',
+  'multiple controllers': 'più controller',
+  'Remote device disconnected.': 'Dispositivo remoto disconnesso.',
+  'A Remote controller disconnected.': 'Un controller remoto si è disconnesso.',
   'Desktop / trackpad': 'Desktop / trackpad',
   'Android tablet': 'Tablet Android',
   'Android phone': 'Telefono Android',
@@ -1532,6 +1618,17 @@ const _it = <String, String>{
 };
 
 const _tok = <String, String>{
+  'Show gestures again': 'o lukin sin e nasin luka',
+  'Percentile D10': 'ilo nanpa D10 %',
+  'Direct': 'nasin wan taso',
+  'Encrypted relay': 'nasin pana len',
+  'Waiting for peer': 'mi awen e ilo ante',
+  'Connecting': 'ilo li kama wan',
+  'Offline': 'nasin li lon ala',
+  'controllers': 'ilo lawa',
+  'multiple controllers': 'ilo lawa mute',
+  'Remote device disconnected.': 'ilo weka li kipisi.',
+  'A Remote controller disconnected.': 'ilo lawa weka wan li kipisi.',
   'Desktop / trackpad': 'ilo supa / supa luka',
   'Android tablet': 'ilo supa Android',
   'Android phone': 'ilo toki Android',
