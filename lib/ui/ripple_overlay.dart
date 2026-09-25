@@ -62,8 +62,7 @@ class RippleOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (levels.isEmpty) return;
     final t =
-        (phaseSeconds % remoteRipplePeriodSeconds) /
-        remoteRipplePeriodSeconds;
+        (phaseSeconds % remoteRipplePeriodSeconds) / remoteRipplePeriodSeconds;
     final fade = math.pow(1 - t, remoteRippleFadePower).toDouble();
 
     for (final element in elements) {
