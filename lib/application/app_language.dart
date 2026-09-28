@@ -86,6 +86,11 @@ String tr(String english) {
 }
 
 const _es = <String, String>{
+  'White marking stone': 'Piedra blanca de marcado',
+  'Black marking stone': 'Piedra negra de marcado',
+  'Green guessing stone': 'Piedra verde de conjetura',
+  'Add': 'Añadir',
+  'Drag · double-tap to remove': 'Arrastra · toca dos veces para quitar',
   'Close and set this side as up': 'Cerrar y establecer este lado como superior',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': '¿Sustituir la mesa actual por la copia automática anterior? Puedes usar Deshacer inmediatamente después para volver a la mesa actual.',
   'Could not reach the pairing service.': 'No se pudo conectar al servicio de emparejamiento.',
@@ -206,6 +211,11 @@ const _es = <String, String>{
 };
 
 const _ja = <String, String>{
+  'White marking stone': '白の判定石',
+  'Black marking stone': '黒の判定石',
+  'Green guessing stone': '緑の推測石',
+  'Add': '追加',
+  'Drag · double-tap to remove': 'ドラッグで移動 · ダブルタップで削除',
   'Close and set this side as up': '閉じて、この面を上として設定',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': '現在のテーブルを前回の自動保存で置き換えますか？ 直後に「元に戻す」を使えば、現在のテーブルに戻せます。',
   'Could not reach the pairing service.': 'ペアリングサービスに接続できませんでした。',
@@ -442,6 +452,11 @@ const _jaExtra = <String, String>{
 };
 
 const _de = <String, String>{
+  'White marking stone': 'Weißer Markierungsstein',
+  'Black marking stone': 'Schwarzer Markierungsstein',
+  'Green guessing stone': 'Grüner Ratestein',
+  'Add': 'Hinzufügen',
+  'Drag · double-tap to remove': 'Ziehen · zum Entfernen doppeltippen',
   'Close and set this side as up': 'Schließen und diese Seite als oben festlegen',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'Aktuellen Tisch durch die vorherige automatische Sicherung ersetzen? Mit „Rückgängig“ kannst du unmittelbar danach zum aktuellen Tisch zurückkehren.',
   'Could not reach the pairing service.': 'Der Kopplungsdienst ist nicht erreichbar.',
@@ -636,6 +651,11 @@ const _de = <String, String>{
 };
 
 const _fr = <String, String>{
+  'White marking stone': 'Pierre de marquage blanche',
+  'Black marking stone': 'Pierre de marquage noire',
+  'Green guessing stone': 'Pierre de supposition verte',
+  'Add': 'Ajouter',
+  'Drag · double-tap to remove': 'Glisser · toucher deux fois pour retirer',
   'Close and set this side as up': 'Fermer et définir ce côté comme le dessus',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'Remplacer la table actuelle par la sauvegarde automatique précédente ? Vous pouvez utiliser Annuler juste après pour revenir à la table actuelle.',
   'Could not reach the pairing service.': 'Impossible de joindre le service d’association.',
@@ -830,6 +850,11 @@ const _fr = <String, String>{
 };
 
 const _nl = <String, String>{
+  'White marking stone': 'Witte markeringssteen',
+  'Black marking stone': 'Zwarte markeringssteen',
+  'Green guessing stone': 'Groene goksteen',
+  'Add': 'Toevoegen',
+  'Drag · double-tap to remove': 'Slepen · dubbeltikken om te verwijderen',
   'Close and set this side as up': 'Sluiten en deze kant als bovenkant instellen',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'De huidige tafel vervangen door de vorige automatische opslag? Gebruik direct daarna Ongedaan maken om terug te keren naar de huidige tafel.',
   'Could not reach the pairing service.': 'Kan de koppelingsdienst niet bereiken.',
@@ -1024,6 +1049,11 @@ const _nl = <String, String>{
 };
 
 const _pt = <String, String>{
+  'White marking stone': 'Pedra branca de marcação',
+  'Black marking stone': 'Pedra preta de marcação',
+  'Green guessing stone': 'Pedra verde de palpite',
+  'Add': 'Adicionar',
+  'Drag · double-tap to remove': 'Arraste · toque duas vezes para remover',
   'Close and set this side as up': 'Fechar e definir este lado como a parte de cima',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'Substituir a mesa atual pelo salvamento automático anterior? Você pode usar Desfazer logo depois para voltar à mesa atual.',
   'Could not reach the pairing service.': 'Não foi possível acessar o serviço de pareamento.',
@@ -1218,6 +1248,11 @@ const _pt = <String, String>{
 };
 
 const _zh = <String, String>{
+  'White marking stone': '白色标记石',
+  'Black marking stone': '黑色标记石',
+  'Green guessing stone': '绿色猜测石',
+  'Add': '添加',
+  'Drag · double-tap to remove': '拖动 · 双击移除',
   'Close and set this side as up': '关闭并将这一面设为朝上',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': '要用上一次自动保存的快照替换当前桌面吗？之后可以立即使用“撤销”恢复当前桌面。',
   'Could not reach the pairing service.': '无法连接配对服务。',
@@ -1412,6 +1447,11 @@ const _zh = <String, String>{
 };
 
 const _it = <String, String>{
+  'White marking stone': 'Pietra bianca di marcatura',
+  'Black marking stone': 'Pietra nera di marcatura',
+  'Green guessing stone': 'Pietra verde per le ipotesi',
+  'Add': 'Aggiungi',
+  'Drag · double-tap to remove': 'Trascina · tocca due volte per rimuovere',
   'Close and set this side as up': 'Chiudi e imposta questo lato come superiore',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'Sostituire il tavolo attuale con il precedente salvataggio automatico? Puoi usare subito Annulla per tornare al tavolo attuale.',
   'Could not reach the pairing service.': 'Impossibile raggiungere il servizio di abbinamento.',
@@ -1606,6 +1646,11 @@ const _it = <String, String>{
 };
 
 const _tok = <String, String>{
+  'White marking stone': 'kiwen walo pi sitelen',
+  'Black marking stone': 'kiwen pimeja pi sitelen',
+  'Green guessing stone': 'kiwen laso pi pilin',
+  'Add': 'o pana',
+  'Drag · double-tap to remove': 'o tawa · o luka tu tawa weka',
   'Close and set this side as up': 'o pini; o pana e sinpin ni sewi',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'sina wile ala wile pana e awen pi tenpo pini lon supa ni? sina ken kepeken pali pi weka ante tawa supa pi tenpo ni.',
   'Could not reach the pairing service.': 'nasin pi wan ilo li kama ala.',

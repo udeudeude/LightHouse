@@ -46,7 +46,7 @@ void main() {
     }
 
     final italianKeys = keysFor('_it');
-    expect(italianKeys, hasLength(191));
+    expect(italianKeys, hasLength(196));
     for (final language in const [
       '_es',
       '_ja',
@@ -110,6 +110,24 @@ void main() {
         tr('Both devices chose the same role. Choose opposite roles.'),
         isNot('Both devices chose the same role. Choose opposite roles.'),
       );
+    }
+  });
+
+  test('Zendo stone labels and interaction hint are localized', () {
+    const keys = [
+      'White marking stone',
+      'Black marking stone',
+      'Green guessing stone',
+      'Add',
+      'Drag · double-tap to remove',
+    ];
+    for (final language in AppLanguage.values.where(
+      (value) => value != AppLanguage.english,
+    )) {
+      AppLanguageController.notifier.value = language;
+      for (final key in keys) {
+        expect(tr(key), isNot(key), reason: '${language.name}: $key');
+      }
     }
   });
 }
