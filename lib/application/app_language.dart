@@ -86,6 +86,7 @@ String tr(String english) {
 }
 
 const _es = <String, String>{
+  'Close and set this side as up': 'Cerrar y establecer este lado como superior',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': '¿Sustituir la mesa actual por la copia automática anterior? Puedes usar Deshacer inmediatamente después para volver a la mesa actual.',
   'Could not reach the pairing service.': 'No se pudo conectar al servicio de emparejamiento.',
   'Both devices chose the same role. Choose opposite roles.': 'Ambos dispositivos eligieron el mismo rol. Elige roles opuestos.',
@@ -205,6 +206,7 @@ const _es = <String, String>{
 };
 
 const _ja = <String, String>{
+  'Close and set this side as up': '閉じて、この面を上として設定',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': '現在のテーブルを前回の自動保存で置き換えますか？ 直後に「元に戻す」を使えば、現在のテーブルに戻せます。',
   'Could not reach the pairing service.': 'ペアリングサービスに接続できませんでした。',
   'Both devices chose the same role. Choose opposite roles.': '両方の端末で同じ役割が選ばれています。異なる役割を選んでください。',
@@ -440,6 +442,7 @@ const _jaExtra = <String, String>{
 };
 
 const _de = <String, String>{
+  'Close and set this side as up': 'Schließen und diese Seite als oben festlegen',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'Aktuellen Tisch durch die vorherige automatische Sicherung ersetzen? Mit „Rückgängig“ kannst du unmittelbar danach zum aktuellen Tisch zurückkehren.',
   'Could not reach the pairing service.': 'Der Kopplungsdienst ist nicht erreichbar.',
   'Both devices chose the same role. Choose opposite roles.': 'Beide Geräte haben dieselbe Rolle gewählt. Wähle unterschiedliche Rollen.',
@@ -633,6 +636,7 @@ const _de = <String, String>{
 };
 
 const _fr = <String, String>{
+  'Close and set this side as up': 'Fermer et définir ce côté comme le dessus',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'Remplacer la table actuelle par la sauvegarde automatique précédente ? Vous pouvez utiliser Annuler juste après pour revenir à la table actuelle.',
   'Could not reach the pairing service.': 'Impossible de joindre le service d’association.',
   'Both devices chose the same role. Choose opposite roles.': 'Les deux appareils ont choisi le même rôle. Choisissez des rôles opposés.',
@@ -826,6 +830,7 @@ const _fr = <String, String>{
 };
 
 const _nl = <String, String>{
+  'Close and set this side as up': 'Sluiten en deze kant als bovenkant instellen',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'De huidige tafel vervangen door de vorige automatische opslag? Gebruik direct daarna Ongedaan maken om terug te keren naar de huidige tafel.',
   'Could not reach the pairing service.': 'Kan de koppelingsdienst niet bereiken.',
   'Both devices chose the same role. Choose opposite roles.': 'Beide apparaten hebben dezelfde rol gekozen. Kies verschillende rollen.',
@@ -1019,6 +1024,7 @@ const _nl = <String, String>{
 };
 
 const _pt = <String, String>{
+  'Close and set this side as up': 'Fechar e definir este lado como a parte de cima',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'Substituir a mesa atual pelo salvamento automático anterior? Você pode usar Desfazer logo depois para voltar à mesa atual.',
   'Could not reach the pairing service.': 'Não foi possível acessar o serviço de pareamento.',
   'Both devices chose the same role. Choose opposite roles.': 'Os dois dispositivos escolheram a mesma função. Escolha funções opostas.',
@@ -1212,6 +1218,7 @@ const _pt = <String, String>{
 };
 
 const _zh = <String, String>{
+  'Close and set this side as up': '关闭并将这一面设为朝上',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': '要用上一次自动保存的快照替换当前桌面吗？之后可以立即使用“撤销”恢复当前桌面。',
   'Could not reach the pairing service.': '无法连接配对服务。',
   'Both devices chose the same role. Choose opposite roles.': '两台设备选择了相同角色。请选择不同角色。',
@@ -1405,6 +1412,7 @@ const _zh = <String, String>{
 };
 
 const _it = <String, String>{
+  'Close and set this side as up': 'Chiudi e imposta questo lato come superiore',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'Sostituire il tavolo attuale con il precedente salvataggio automatico? Puoi usare subito Annulla per tornare al tavolo attuale.',
   'Could not reach the pairing service.': 'Impossibile raggiungere il servizio di abbinamento.',
   'Both devices chose the same role. Choose opposite roles.': 'Entrambi i dispositivi hanno scelto lo stesso ruolo. Scegli ruoli opposti.',
@@ -1598,6 +1606,7 @@ const _it = <String, String>{
 };
 
 const _tok = <String, String>{
+  'Close and set this side as up': 'o pini; o pana e sinpin ni sewi',
   'Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.': 'sina wile ala wile pana e awen pi tenpo pini lon supa ni? sina ken kepeken pali pi weka ante tawa supa pi tenpo ni.',
   'Could not reach the pairing service.': 'nasin pi wan ilo li kama ala.',
   'Both devices chose the same role. Choose opposite roles.': 'ilo tu li kepeken pali sama. o pana e pali ante tawa ilo tu.',

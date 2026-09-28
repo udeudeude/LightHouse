@@ -6,7 +6,7 @@ This branch is the clean-sheet Flutter rewrite of the 2025 React / Google AI Stu
 
 ## Try it
 
-The current web build is deployed automatically from this branch:
+The current web build is deployed automatically from main:
 
 https://udeudeude.github.io/LightHouse/
 
