@@ -46,9 +46,16 @@ void main() {
     }
 
     final italianKeys = keysFor('_it');
-    expect(italianKeys, hasLength(189));
+    expect(italianKeys, hasLength(190));
     for (final language in const [
-      '_es', '_ja', '_de', '_fr', '_nl', '_pt', '_zh', '_tok',
+      '_es',
+      '_ja',
+      '_de',
+      '_fr',
+      '_nl',
+      '_pt',
+      '_zh',
+      '_tok',
     ]) {
       final keys = keysFor(language);
       if (language == '_es' || language == '_ja') {
@@ -60,16 +67,22 @@ void main() {
     final sourceFiles = Directory('lib')
         .listSync(recursive: true)
         .whereType<File>()
-        .where((file) => file.path.endsWith('.dart') &&
-            !file.path.endsWith('app_language.dart'));
+        .where(
+          (file) =>
+              file.path.endsWith('.dart') &&
+              !file.path.endsWith('app_language.dart'),
+        );
     final literalCalls = RegExp(r"\btr\(\s*'((?:\\'|[^'])*)'\s*\)");
     for (final file in sourceFiles) {
       final usedKeys = literalCalls
           .allMatches(file.readAsStringSync())
           .map((match) => match.group(1)!.replaceAll(r"\'", "'"))
           .toSet();
-      expect(usedKeys.difference(italianKeys), isEmpty,
-          reason: 'Untranslated literal in ${file.path}');
+      expect(
+        usedKeys.difference(italianKeys),
+        isEmpty,
+        reason: 'Untranslated literal in ${file.path}',
+      );
     }
 
     for (final removed in const [
@@ -89,10 +102,14 @@ void main() {
       (value) => value != AppLanguage.english,
     )) {
       AppLanguageController.notifier.value = language;
-      expect(tr('Could not reach the pairing service.'),
-          isNot('Could not reach the pairing service.'));
-      expect(tr('Both devices chose the same role. Choose opposite roles.'),
-          isNot('Both devices chose the same role. Choose opposite roles.'));
+      expect(
+        tr('Could not reach the pairing service.'),
+        isNot('Could not reach the pairing service.'),
+      );
+      expect(
+        tr('Both devices chose the same role. Choose opposite roles.'),
+        isNot('Both devices chose the same role. Choose opposite roles.'),
+      );
     }
   });
 }

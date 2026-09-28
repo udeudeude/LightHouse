@@ -36,7 +36,7 @@ The web build requires manual physical calibration because browsers do not relia
 - command-based undo/redo
 - versioned JSON board serialization with migration support
 - debounced local autosave with a user-restorable previous snapshot, named saved boards, and JSON file import/export
-- lower-left hierarchical menu for File, Edit, Boards, Toys, Display, Remote, and Instructions
+- lower-left hierarchical menu for File, Edit, Boards, Toys, ZENDO, Display, Remote, and Instructions
 - device-specific instructions shown from the lower left
 - Light Lottery theatrical random chooser
 - optional Entropy Delete mode that fades and removes one random footprint every 30 seconds

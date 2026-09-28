@@ -466,7 +466,8 @@ class RemoteSession extends ChangeNotifier {
           .where((value) => value.name == roleName)
           .firstOrNull;
       if (peerRole == role) {
-        errorMessage = 'Both devices chose the same role. Choose opposite roles.';
+        errorMessage =
+            'Both devices chose the same role. Choose opposite roles.';
         notifyListeners();
         return;
       }

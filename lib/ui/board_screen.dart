@@ -3795,9 +3795,8 @@ class _BoardScreenState extends State<BoardScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(tr('Restore previous autosave?')),
-        content: const Text(
-          'Replace the current table with the previous autosaved snapshot? '
-          'You can use Undo immediately afterward to return to the current table.',
+        content: Text(
+          tr('Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.'),
         ),
         actions: [
           TextButton(
