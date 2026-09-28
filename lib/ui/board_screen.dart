@@ -3777,7 +3777,7 @@ class _BoardScreenState extends State<BoardScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text),
@@ -3802,7 +3802,7 @@ class _BoardScreenState extends State<BoardScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),

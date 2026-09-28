@@ -61,7 +61,7 @@ Current touch vocabulary:
 - one-finger directional drag: tip or stand
 - scribble returning near its origin: switch full/wall illumination
 - two-finger transform: translate and rotate
-- tap: select for explicit structure operations
+- tap: select for direct orientation commands
 
 Desktop testing adds mouse drag to translate and Shift-drag to rotate.
 

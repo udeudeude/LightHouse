@@ -44,6 +44,8 @@ void main() {
 
   test('remote pairing UI is code-only', () {
     final source = File('lib/ui/board_screen.dart').readAsStringSync();
+    final sessionSource = File('lib/application/remote_session.dart')
+        .readAsStringSync();
     final pubspec = File('pubspec.yaml').readAsStringSync();
 
     expect(source, isNot(contains('QrImageView')));
@@ -52,6 +54,8 @@ void main() {
     expect(source, isNot(contains('Show Pairing QR')));
     expect(source, isNot(contains('Copy Link')));
     expect(source, isNot(contains('createShareable')));
+    expect(sessionSource, isNot(contains('joinUri(')));
+    expect(sessionSource, isNot(contains('createShareable(')));
     expect(pubspec, isNot(contains('qr_flutter')));
   });
 

@@ -116,14 +116,6 @@ class RemoteSession extends ChangeNotifier {
     ]);
   }
 
-  factory RemoteSession.create(RemoteRole role) => RemoteSession._(
-    roomId: _newToken(12),
-    keyBytes: _randomBytes(32),
-    role: role,
-    isCreator: true,
-    pairingCode: null,
-  );
-
   static const int pairingCodeLength = 6;
   static const String _pairingAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -131,9 +123,6 @@ class RemoteSession extends ChangeNotifier {
     pairingCodeLength,
     (_) => _pairingAlphabet[_random.nextInt(_pairingAlphabet.length)],
   ).join();
-
-  static Future<RemoteSession> createShareable(RemoteRole role) =>
-      fromPairingCode(generatePairingCode(), role);
 
   static final Pbkdf2 _pairingCodeKdf = Pbkdf2(
     macAlgorithm: Hmac.sha256(),
@@ -243,27 +232,7 @@ class RemoteSession extends ChangeNotifier {
   bool get _mqttConnected =>
       _mqtt?.connectionStatus?.state == MqttConnectionState.connected;
 
-  String get _encodedKey => base64UrlEncode(_keyBytes).replaceAll('=', '');
-
   String get _topic => 'lighthouse/remote/v1/$roomId';
-
-  Uri joinUri(Uri current) {
-    final cleanParameters = Map<String, String>.from(current.queryParameters)
-      ..remove(RemoteLaunch.roomParameter)
-      ..remove(RemoteLaunch.keyParameter)
-      ..remove(RemoteLaunch.roleParameter);
-    final fragment = Uri(
-      queryParameters: {
-        RemoteLaunch.roomParameter: roomId,
-        RemoteLaunch.keyParameter: _encodedKey,
-        RemoteLaunch.roleParameter: role.other.name,
-      },
-    ).query;
-    return current.replace(
-      queryParameters: cleanParameters,
-      fragment: fragment,
-    );
-  }
 
   Future<void> connect() {
     if (_closed || directConnected || _mqttConnected) {
@@ -323,8 +292,9 @@ class RemoteSession extends ChangeNotifier {
       await client.connect();
     } on Object catch (error) {
       if (_closed) return;
+      debugPrint('Remote pairing service connection failed: $error');
       phase = RemoteConnectionPhase.failed;
-      errorMessage = 'Could not reach the pairing service: $error';
+      errorMessage = 'Could not reach the pairing service.';
       notifyListeners();
       return;
     }
@@ -496,8 +466,7 @@ class RemoteSession extends ChangeNotifier {
           .where((value) => value.name == roleName)
           .firstOrNull;
       if (peerRole == role) {
-        errorMessage =
-            'Both devices are set to ${role.label}. Choose opposite roles.';
+        errorMessage = 'Both devices chose the same role. Choose opposite roles.';
         notifyListeners();
         return;
       }
