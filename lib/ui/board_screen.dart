@@ -68,6 +68,24 @@ enum _ToyKind {
   String get preferenceKey => 'lighthouse.toy.$name.visible.v2';
 }
 
+class _RemoteTableConnection {
+  _RemoteTableConnection(this.session, this.nickname, this.state);
+
+  final RemoteSession session;
+  String nickname;
+  BoardState state;
+  String? selectedId;
+  Map<String, Object?>? runtime;
+  RemoteBoardControlState control = const RemoteBoardControlState();
+  double? widthMm;
+  double? heightMm;
+  double? pixelsPerMm;
+  bool seedReceived = false;
+  bool peerSeen = false;
+  late final VoidCallback listener;
+  late final StreamSubscription<RemoteAppMessage> subscription;
+}
+
 class BoardScreen extends StatefulWidget {
   const BoardScreen({
     super.key,
@@ -205,7 +223,10 @@ class _BoardScreenState extends State<BoardScreen>
   Timer? _saveDebounceTimer;
   BoardState? _pendingSaveState;
   RemoteSession? _remoteSession;
-  StreamSubscription<RemoteAppMessage>? _remoteMessageSubscription;
+  final Map<RemoteSession, _RemoteTableConnection> _remoteTables = {};
+  final Map<RemoteSession, StreamSubscription<RemoteAppMessage>>
+  _remoteSubscriptions = {};
+  final Map<RemoteSession, VoidCallback> _remoteListeners = {};
   Timer? _remotePublishTimer;
   BoardState? _remotePendingState;
   Timer? _remoteRuntimeTimer;
@@ -227,6 +248,9 @@ class _BoardScreenState extends State<BoardScreen>
   double? _remoteDisplayWidthMm;
   double? _remoteDisplayHeightMm;
   double? _remoteDisplayPixelsPerMm;
+  RemoteViewTransform _remoteView = const RemoteViewTransform();
+  bool _remotePanMode = false;
+  double _remoteGestureStartZoom = 1;
   double? _faceUpZSign;
   double? _faceUpCandidateSign;
   int _faceUpStableSamples = 0;
@@ -352,8 +376,11 @@ class _BoardScreenState extends State<BoardScreen>
     _remotePublishTimer?.cancel();
     _remoteRuntimeTimer?.cancel();
     _rippleTimer?.cancel();
-    _remoteMessageSubscription?.cancel();
-    unawaited(_remoteSession?.close());
+    for (final entry in _remoteSubscriptions.entries) {
+      unawaited(entry.value.cancel());
+      entry.key.removeListener(_remoteListeners[entry.key]!);
+      unawaited(entry.key.close());
+    }
     unawaited(_flushPendingSave());
     _desktopScrollEndTimer?.cancel();
     _historyControlsTimer?.cancel();
@@ -1247,6 +1274,99 @@ class _BoardScreenState extends State<BoardScreen>
       math.max(0.0, size.width - remoteRect.right),
       math.max(0.0, size.height - remoteRect.bottom),
     );
+  }
+
+  void _resetRemoteView() {
+    _remoteView = const RemoteViewTransform();
+    _remotePanMode = false;
+  }
+
+  void _rememberActiveTable() {
+    final connection = _remoteTables[_remoteSession];
+    if (connection == null) return;
+    connection.state = _controller.state;
+    connection.selectedId = _selectedId;
+    connection.runtime = _remoteRuntimePayload();
+    connection.control = _remoteControlState;
+    connection.widthMm = _remoteDisplayWidthMm;
+    connection.heightMm = _remoteDisplayHeightMm;
+    connection.pixelsPerMm = _remoteDisplayPixelsPerMm;
+    connection.seedReceived = _remoteSeedReceived;
+  }
+
+  Future<void> _selectRemoteTable(_RemoteTableConnection connection) async {
+    if (_remoteSession == connection.session) return;
+    await _flushRemotePublish();
+    _rememberActiveTable();
+    _remoteRuntimeTimer?.cancel();
+    _remoteRuntimeTimer = null;
+    _lastRemoteRuntimeJson = null;
+    _applyingRemoteState = true;
+    setState(() {
+      _remoteSession = connection.session;
+      _remoteSeedReceived = connection.seedReceived;
+      _remotePeerSeen = connection.session.peerSeen;
+      _remoteDisplayWidthMm = connection.widthMm;
+      _remoteDisplayHeightMm = connection.heightMm;
+      _remoteDisplayPixelsPerMm = connection.pixelsPerMm;
+      _remoteControlState = connection.control;
+      _selectedId = connection.selectedId;
+      _resetRemoteView();
+    });
+    _controller.replaceState(connection.state);
+    _applyingRemoteState = false;
+    if (connection.runtime case final runtime?) {
+      await _applyRemoteRuntime(runtime);
+    } else {
+      await _applyRemoteRuntime({'activeToys': <String>[]});
+    }
+    _syncRippleTicker();
+    _startRemoteRuntimePublisher();
+    await _sendRemoteHello();
+  }
+
+  Widget _remoteViewportLayer({
+    required EdgeInsets padding,
+    required Widget child,
+  }) {
+    if (!_remoteControllerMode || _remoteDisplayWidthMm == null) {
+      return Padding(padding: padding, child: child);
+    }
+    return Padding(
+      padding: padding,
+      child: ClipRect(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final view = _remoteView.clamped(constraints.biggest);
+            return Transform.translate(
+              offset: view.pan,
+              child: Transform.scale(scale: view.zoom, child: child),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _changeRemoteZoom(double factor) {
+    final rect = _remoteBoardRect(context);
+    if (rect == null) return;
+    setState(() {
+      _remoteView = _remoteView.zoomAt(
+        rect.size,
+        _remoteView.zoom * factor,
+        rect.size.center(Offset.zero),
+      );
+    });
+  }
+
+  void _updateRemoteView(ScaleUpdateDetails details, Size size) {
+    setState(() {
+      _remoteView = _remoteView
+          .zoomAt(size, _remoteGestureStartZoom * details.scale,
+              details.localFocalPoint)
+          .panBy(size, details.focalPointDelta);
+    });
   }
 
   ({double width, double height}) _physicalBoardSize() {
@@ -2550,12 +2670,32 @@ class _BoardScreenState extends State<BoardScreen>
     String? pairingCode,
   }) async {
     final old = _remoteSession;
-    if (old != null && old != session) {
-      await _remoteMessageSubscription?.cancel();
-      _remoteMessageSubscription = null;
-      await old.close();
+    final addTable = old?.role == RemoteRole.controller &&
+        session.role == RemoteRole.controller;
+    if (addTable) {
+      final existing = _remoteTables.values
+          .where((table) => table.session.roomId == session.roomId)
+          .firstOrNull;
+      if (existing != null) {
+        await session.close();
+        await _selectRemoteTable(existing);
+        return;
+      }
+      await _flushRemotePublish();
+      _rememberActiveTable();
+    } else {
+      for (final previous in _remoteSubscriptions.keys.toList()) {
+        await _closeRemoteConnection(previous);
+      }
     }
     if (!mounted) return;
+    if (session.role == RemoteRole.controller) {
+      _remoteTables[session] = _RemoteTableConnection(
+        session,
+        '${tr('Table Display')} ${_remoteTables.length + 1}',
+        BoardState.empty(),
+      );
+    }
     setState(() {
       _remoteSession = session;
       _remoteSeedReceived = session.role == RemoteRole.display;
@@ -2564,12 +2704,30 @@ class _BoardScreenState extends State<BoardScreen>
       _remoteDisplayHeightMm = null;
       _remoteDisplayPixelsPerMm = null;
       _remoteControlState = const RemoteBoardControlState();
+      _resetRemoteView();
     });
+    if (addTable) {
+      _applyingRemoteState = true;
+      _controller.replaceState(BoardState.empty());
+      _applyingRemoteState = false;
+      await _applyRemoteRuntime({'activeToys': <String>[]});
+    }
     _syncRippleTicker();
-    session.addListener(_remoteSessionChanged);
-    _remoteMessageSubscription = session.messages.listen(_handleRemoteMessage);
+    final listener = () => _remoteSessionChanged(session);
+    _remoteListeners[session] = listener;
+    session.addListener(listener);
+    final subscription = session.messages.listen(
+      (message) => unawaited(_handleRemoteMessage(message, session)),
+    );
+    _remoteSubscriptions[session] = subscription;
+    final table = _remoteTables[session];
+    if (table != null) {
+      table.listener = listener;
+      table.subscription = subscription;
+      table.peerSeen = session.peerSeen;
+    }
     await session.connect();
-    if (!mounted) return;
+    if (!mounted || _remoteSession != session) return;
     _startRemoteRuntimePublisher();
     await _sendRemoteHello();
     if (showPairingDialog && pairingCode != null) {
@@ -2577,12 +2735,20 @@ class _BoardScreenState extends State<BoardScreen>
     }
   }
 
-  void _remoteSessionChanged() {
+  void _remoteSessionChanged(RemoteSession session) {
     if (!mounted) return;
-    final session = _remoteSession;
-    if (session == null) return;
+    if (_remoteSession != session) {
+      final table = _remoteTables[session];
+      final appeared = session.peerSeen && table?.peerSeen == false;
+      if (table != null) table.peerSeen = session.peerSeen;
+      setState(() {});
+      if (appeared) unawaited(_sendRemoteHelloFor(session));
+      return;
+    }
     final peerJustAppeared = session.peerSeen && !_remotePeerSeen;
     _remotePeerSeen = session.peerSeen;
+    final table = _remoteTables[session];
+    if (table != null) table.peerSeen = session.peerSeen;
     setState(() {});
     if (peerJustAppeared) {
       unawaited(_resendRemoteHandshake(session));
@@ -2598,6 +2764,13 @@ class _BoardScreenState extends State<BoardScreen>
       await session.sendApp('runtime', _remoteRuntimePayload());
       await _broadcastRemoteControlState();
     }
+  }
+
+  Future<void> _sendRemoteHelloFor(RemoteSession session) async {
+    await session.sendApp('hello', {
+      'role': session.role.name,
+      'creator': session.isCreator,
+    });
   }
 
   void _captureRemoteDisplayMetrics(
@@ -2625,10 +2798,17 @@ class _BoardScreenState extends State<BoardScreen>
     setState(() {
       _remoteDisplayWidthMm = width;
       _remoteDisplayHeightMm = height;
+      _resetRemoteView();
       if (pixelsPerMm != null && pixelsPerMm > 0) {
         _remoteDisplayPixelsPerMm = pixelsPerMm;
       }
     });
+    final table = _remoteTables[_remoteSession];
+    if (table != null) {
+      table.widthMm = width;
+      table.heightMm = height;
+      table.pixelsPerMm = pixelsPerMm;
+    }
   }
 
   Future<void> _sendRemoteHello() async {
@@ -2645,9 +2825,15 @@ class _BoardScreenState extends State<BoardScreen>
     });
   }
 
-  Future<void> _handleRemoteMessage(RemoteAppMessage message) async {
-    final session = _remoteSession;
-    if (session == null || !mounted) return;
+  Future<void> _handleRemoteMessage(
+    RemoteAppMessage message,
+    RemoteSession session,
+  ) async {
+    if (!mounted || !_remoteSubscriptions.containsKey(session)) return;
+    if (_remoteSession != session) {
+      await _handleInactiveTableMessage(message, session);
+      return;
+    }
 
     switch (message.kind) {
       case 'hello':
@@ -2676,6 +2862,7 @@ class _BoardScreenState extends State<BoardScreen>
         await _applyRemoteState(message.payload);
         _applyRemoteControlState(message.payload);
         _remoteSeedReceived = true;
+        _rememberActiveTable();
         _startRemoteRuntimePublisher();
 
       case 'proposal':
@@ -2692,6 +2879,7 @@ class _BoardScreenState extends State<BoardScreen>
         await _applyRemoteState(message.payload);
         _applyRemoteControlState(message.payload);
         _remoteSeedReceived = true;
+        _rememberActiveTable();
 
       case 'runtimeProposal':
         if (session.role != RemoteRole.display) return;
@@ -2703,6 +2891,8 @@ class _BoardScreenState extends State<BoardScreen>
         final origin = message.payload['origin'];
         if (origin != session.clientId) {
           await _applyRemoteRuntime(message.payload);
+          final table = _remoteTables[session];
+          if (table != null) table.runtime = message.payload;
         }
 
       case 'controlCommand':
@@ -2722,13 +2912,18 @@ class _BoardScreenState extends State<BoardScreen>
             .where((value) => value.name == peerRoleName)
             .firstOrNull;
         if (peerRole == null) return;
+        for (final other in _remoteTables.keys.toList()) {
+          if (other != session) await _closeRemoteConnection(other);
+        }
         await session.setRole(peerRole.other, announce: false);
+        _updateRemoteTableRole(session);
         setState(() {
           _remoteSeedReceived = session.role == RemoteRole.display;
           _remoteDisplayWidthMm = null;
           _remoteDisplayHeightMm = null;
           _remoteDisplayPixelsPerMm = null;
           _remoteControlState = const RemoteBoardControlState();
+          _resetRemoteView();
         });
         _syncRippleTicker();
         _startRemoteRuntimePublisher();
@@ -2754,6 +2949,61 @@ class _BoardScreenState extends State<BoardScreen>
           );
         }
     }
+  }
+
+  Future<void> _handleInactiveTableMessage(
+    RemoteAppMessage message,
+    RemoteSession session,
+  ) async {
+    final table = _remoteTables[session];
+    if (table == null) return;
+    switch (message.kind) {
+      case 'hello':
+        _captureInactiveTableMetrics(table, message.payload);
+        await _sendRemoteHelloFor(session);
+      case 'seed':
+      case 'state':
+        _captureInactiveTableMetrics(table, message.payload);
+        final raw = message.payload['state'];
+        if (raw is Map) {
+          try {
+            table.state = BoardState.fromJson(raw.cast<String, Object?>());
+          } on Object {
+            return;
+          }
+        }
+        final selected = message.payload['selectedId'];
+        table.selectedId = selected is String ? selected : null;
+        final control = message.payload['control'];
+        if (control != null) {
+          table.control = RemoteBoardControlState.fromJson(control);
+        }
+        table.seedReceived = true;
+        if (mounted) setState(() {});
+      case 'runtime':
+        if (message.payload['origin'] != session.clientId) {
+          table.runtime = message.payload;
+        }
+      case 'controlState':
+        final control = message.payload['control'];
+        if (control != null) {
+          table.control = RemoteBoardControlState.fromJson(control);
+        }
+      default:
+        break;
+    }
+  }
+
+  void _captureInactiveTableMetrics(
+    _RemoteTableConnection table,
+    Map<String, Object?> payload,
+  ) {
+    final width = (payload['widthMm'] as num?)?.toDouble();
+    final height = (payload['heightMm'] as num?)?.toDouble();
+    if (width == null || height == null || width <= 0 || height <= 0) return;
+    table.widthMm = width;
+    table.heightMm = height;
+    table.pixelsPerMm = (payload['pixelsPerMm'] as num?)?.toDouble();
   }
 
   Future<void> _applyRemoteState(Map<String, Object?> payload) async {
@@ -2975,20 +3225,33 @@ class _BoardScreenState extends State<BoardScreen>
   Future<void> _showRemoteSetup(RemoteRole role) =>
       _startRemoteByCode(role);
 
+  Future<void> _closeRemoteConnection(RemoteSession session) async {
+    final subscription = _remoteSubscriptions.remove(session);
+    if (subscription != null) await subscription.cancel();
+    final listener = _remoteListeners.remove(session);
+    if (listener != null) session.removeListener(listener);
+    _remoteTables.remove(session);
+    await session.close();
+  }
+
   Future<void> _disconnectRemote() async {
     final session = _remoteSession;
     if (session == null) return;
-    session.removeListener(_remoteSessionChanged);
-    await _remoteMessageSubscription?.cancel();
-    _remoteMessageSubscription = null;
+    await _flushRemotePublish();
+    await _closeRemoteConnection(session);
     _remotePublishTimer?.cancel();
     _remotePublishTimer = null;
     _remoteRuntimeTimer?.cancel();
     _remoteRuntimeTimer = null;
     _lastRemoteRuntimeJson = null;
     _remotePendingState = null;
-    await session.close();
     if (!mounted) return;
+    final next = _remoteTables.values.firstOrNull;
+    if (next != null) {
+      setState(() => _remoteSession = null);
+      await _selectRemoteTable(next);
+      return;
+    }
     setState(() {
       _remoteSession = null;
       _remoteSeedReceived = false;
@@ -2997,20 +3260,24 @@ class _BoardScreenState extends State<BoardScreen>
       _remoteDisplayHeightMm = null;
       _remoteDisplayPixelsPerMm = null;
       _remoteControlState = const RemoteBoardControlState();
+      _resetRemoteView();
     });
     _syncRippleTicker();
   }
 
   Future<void> _swapRemoteRoles() async {
     final session = _remoteSession;
-    if (session == null || session.multipleControllers) return;
+    if (session == null || session.multipleControllers ||
+        _remoteTables.length > 1) return;
     await session.setRole(session.role.other);
+    _updateRemoteTableRole(session);
     setState(() {
       _remoteSeedReceived = session.role == RemoteRole.display;
       _remoteDisplayWidthMm = null;
       _remoteDisplayHeightMm = null;
       _remoteDisplayPixelsPerMm = null;
       _remoteControlState = const RemoteBoardControlState();
+      _resetRemoteView();
     });
     _syncRippleTicker();
     _startRemoteRuntimePublisher();
@@ -3022,10 +3289,138 @@ class _BoardScreenState extends State<BoardScreen>
     }
   }
 
+  void _updateRemoteTableRole(RemoteSession session) {
+    if (session.role == RemoteRole.display) {
+      _remoteTables.remove(session);
+    } else {
+      _remoteTables.putIfAbsent(
+        session,
+        () => _RemoteTableConnection(
+          session,
+          tr('Table Display'),
+          _controller.state,
+        ),
+      );
+    }
+  }
+
   Future<void> _showAddControllerPairing(RemoteSession session) async {
     final code = session.pairingCode;
     if (code == null) return;
     await _showPairingDialog(session, pairingCode: code);
+  }
+
+  Future<void> _renameRemoteTable(_RemoteTableConnection table) async {
+    final controller = TextEditingController(text: table.nickname);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr('Table Display')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 32,
+          decoration: InputDecoration(labelText: tr('Nickname')),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: Text(tr('Save')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (mounted && name != null && name.isNotEmpty &&
+        _remoteTables.containsKey(table.session)) {
+      setState(() => table.nickname = name);
+    }
+  }
+
+  Widget _remoteTableStrip() {
+    if (!_remoteControllerMode) return const SizedBox.shrink();
+    final tables = _remoteTables.values.toList();
+    return Material(
+      color: const Color(0xC9171717),
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        width: math.min(320, MediaQuery.sizeOf(context).width - 16),
+        height: 88,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            for (final table in tables)
+              InkWell(
+                onTap: () => unawaited(_selectRemoteTable(table)),
+                onLongPress: () => unawaited(_renameRemoteTable(table)),
+                child: Container(
+                  width: 90,
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: table.session == _remoteSession
+                          ? Colors.white
+                          : const Color(0xFF777777),
+                      width: table.session == _remoteSession ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        width: 80,
+                        height: 53,
+                        child: ClipRect(
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: SizedBox(
+                              width: table.widthMm ?? 200,
+                              height: table.heightMm ?? 120,
+                              child: CustomPaint(
+                                painter: BoardPainter(
+                                  state: table.session == _remoteSession
+                                      ? _controller.state
+                                      : table.state,
+                                  logicalPixelsPerMm: 1,
+                                  geometry: _controller.geometry,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.circle, size: 7,
+                            color: table.session.peerSeen
+                                ? Colors.lightGreenAccent
+                                : Colors.orangeAccent),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(table.nickname,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            IconButton(
+              tooltip: tr('Pair Table Display'),
+              onPressed: () => unawaited(_startRemoteByCode(RemoteRole.controller)),
+              icon: const Icon(Icons.add),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _translatedRemoteTransportLabel(RemoteSession session) {
@@ -3105,11 +3500,14 @@ class _BoardScreenState extends State<BoardScreen>
           enabled: _remoteControlState.rippleLevels.isNotEmpty,
         ),
       ],
+      if (session.role == RemoteRole.controller)
+        _compactMenuItem('addTable', Icons.add_to_photos_outlined,
+          'Pair Table Display'),
       _compactMenuItem(
         'swap',
         Icons.swap_horiz,
         'Swap Roles',
-        enabled: !session.multipleControllers,
+        enabled: !session.multipleControllers && _remoteTables.length <= 1,
       ),
       _compactMenuItem('disconnect', Icons.link_off, 'Disconnect'),
     ];
@@ -3121,6 +3519,8 @@ class _BoardScreenState extends State<BoardScreen>
         await _disconnectRemote();
         if (!mounted) return;
         await _startRemoteByCode(session.role);
+      case 'addTable':
+        await _startRemoteByCode(RemoteRole.controller);
       case 'addController':
         await _showAddControllerPairing(session);
       case 'boardInteraction':
@@ -3220,6 +3620,50 @@ class _BoardScreenState extends State<BoardScreen>
       ),
     );
   }
+
+  Widget _remoteViewControls() => Material(
+    color: const Color(0xAA171717),
+    borderRadius: BorderRadius.circular(10),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: tr('Zoom out'),
+          visualDensity: VisualDensity.compact,
+          onPressed: _remoteView.zoom <= RemoteViewTransform.minZoom
+              ? null
+              : () => _changeRemoteZoom(1 / 1.5),
+          icon: const Icon(Icons.remove),
+        ),
+        Text('${(_remoteView.zoom * 100).round()}%'),
+        IconButton(
+          tooltip: tr('Zoom in'),
+          visualDensity: VisualDensity.compact,
+          onPressed: _remoteView.zoom >= RemoteViewTransform.maxZoom
+              ? null
+              : () => _changeRemoteZoom(1.5),
+          icon: const Icon(Icons.add),
+        ),
+        IconButton(
+          tooltip: tr('Pan view'),
+          visualDensity: VisualDensity.compact,
+          onPressed: () => setState(() => _remotePanMode = !_remotePanMode),
+          icon: Icon(
+            Icons.pan_tool_alt_outlined,
+            color: _remotePanMode ? Colors.white : Colors.white54,
+          ),
+        ),
+        IconButton(
+          tooltip: tr('Reset view'),
+          visualDensity: VisualDensity.compact,
+          onPressed: _remoteView.zoom == 1 && _remoteView.pan == Offset.zero
+              ? null
+              : () => setState(() => _remoteView = const RemoteViewTransform()),
+          icon: const Icon(Icons.center_focus_weak),
+        ),
+      ],
+    ),
+  );
 
   void _scheduleSave() {
     _pendingSaveState = _stateForPersistence();
@@ -5421,24 +5865,12 @@ class _BoardScreenState extends State<BoardScreen>
 
   Widget _buildBoardSurface(BuildContext surfaceContext) {
     final safePadding = _boardSurfacePadding(surfaceContext);
+    final remoteRect = _remoteBoardRect(surfaceContext);
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (_remoteControllerMode &&
-            _remoteDisplayWidthMm != null &&
-            _remoteDisplayHeightMm != null)
-          Padding(
-            padding: safePadding,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white38, width: 1),
-                ),
-              ),
-            ),
-          ),
-        Padding(
+        _remoteViewportLayer(
           padding: safePadding,
           child: IgnorePointer(
             ignoring: _remoteDisplayInputBlocked,
@@ -5497,7 +5929,7 @@ class _BoardScreenState extends State<BoardScreen>
           ),
         ),
         if (_remoteControlState.rippleLevels.isNotEmpty)
-          Padding(
+          _remoteViewportLayer(
             padding: safePadding,
             child: IgnorePointer(
               child: ValueListenableBuilder<int>(
@@ -5517,7 +5949,7 @@ class _BoardScreenState extends State<BoardScreen>
               ),
             ),
           ),
-        Padding(
+        _remoteViewportLayer(
           padding: safePadding,
           child: IgnorePointer(
             child: ValueListenableBuilder<int>(
@@ -5564,7 +5996,7 @@ class _BoardScreenState extends State<BoardScreen>
             ),
           ),
         ),
-        Padding(
+        _remoteViewportLayer(
           padding: safePadding,
           child: OnboardingOverlay(
             animation: _onboardingAnimation,
@@ -5584,7 +6016,7 @@ class _BoardScreenState extends State<BoardScreen>
           ),
         ),
         if (_activeToys.contains(_ToyKind.wireDie))
-          Padding(
+          _remoteViewportLayer(
             padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
             child: IgnorePointer(
               ignoring: _remoteDisplayMode,
@@ -5596,7 +6028,7 @@ class _BoardScreenState extends State<BoardScreen>
             ),
           ),
         if (_activeToys.contains(_ToyKind.zendoStones))
-          Padding(
+          _remoteViewportLayer(
             padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
             child: IgnorePointer(
               ignoring: _remoteDisplayMode,
@@ -5608,7 +6040,54 @@ class _BoardScreenState extends State<BoardScreen>
             ),
           ),
         if (_activeToys.contains(_ToyKind.sideGuns) && !_remoteDisplayMode)
-          Padding(padding: safePadding, child: _sideGunAimHandles()),
+          _remoteViewportLayer(
+            padding: safePadding,
+            child: _sideGunAimHandles(),
+          ),
+        if (_remoteControllerMode &&
+            _remoteDisplayWidthMm != null &&
+            _remoteDisplayHeightMm != null) ...[
+          if (_remotePanMode && remoteRect != null)
+            Positioned.fromRect(
+              rect: remoteRect,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: (_) =>
+                    _remoteGestureStartZoom = _remoteView.zoom,
+                onScaleUpdate: (details) =>
+                    _updateRemoteView(details, remoteRect.size),
+              ),
+            ),
+          Padding(
+            padding: safePadding,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF777777), width: 1),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: _remoteViewControls(),
+              ),
+            ),
+          ),
+        ],
+        if (_remoteControllerMode)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 60, right: 8),
+                child: _remoteTableStrip(),
+              ),
+            ),
+          ),
         SafeArea(
           child: Align(
             alignment: Alignment.bottomLeft,

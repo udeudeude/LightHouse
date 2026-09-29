@@ -30,3 +30,45 @@ Rect fitRemoteBoardRect({
     height,
   );
 }
+
+/// Controller-only camera over the fitted Table Display. Board geometry stays
+/// in physical millimeters; Flutter's render transform maps pointer positions
+/// back to the same unzoomed board coordinates.
+class RemoteViewTransform {
+  const RemoteViewTransform({this.zoom = 1, this.pan = Offset.zero});
+
+  static const minZoom = 1.0;
+  static const maxZoom = 4.0;
+
+  final double zoom;
+  final Offset pan;
+
+  RemoteViewTransform clamped(Size size) {
+    final factor = zoom.clamp(minZoom, maxZoom).toDouble();
+    final maxX = size.width * (factor - 1) / 2;
+    final maxY = size.height * (factor - 1) / 2;
+    return RemoteViewTransform(
+      zoom: factor,
+      pan: Offset(
+        pan.dx.clamp(-maxX, maxX).toDouble(),
+        pan.dy.clamp(-maxY, maxY).toDouble(),
+      ),
+    );
+  }
+
+  RemoteViewTransform panBy(Size size, Offset delta) =>
+      RemoteViewTransform(zoom: zoom, pan: pan + delta).clamped(size);
+
+  RemoteViewTransform zoomAt(Size size, double nextZoom, Offset focalPoint) {
+    final factor = nextZoom.clamp(minZoom, maxZoom).toDouble();
+    final center = size.center(Offset.zero);
+    final nextPan =
+        focalPoint - center - (focalPoint - center - pan) * (factor / zoom);
+    return RemoteViewTransform(zoom: factor, pan: nextPan).clamped(size);
+  }
+
+  Offset boardPointAt(Size size, Offset viewPoint) {
+    final center = size.center(Offset.zero);
+    return center + (viewPoint - center - pan) / zoom;
+  }
+}

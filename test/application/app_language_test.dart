@@ -46,7 +46,7 @@ void main() {
     }
 
     final italianKeys = keysFor('_it');
-    expect(italianKeys, hasLength(196));
+    expect(italianKeys, hasLength(201));
     for (final language in const [
       '_es',
       '_ja',

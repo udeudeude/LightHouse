@@ -86,6 +86,11 @@ String tr(String english) {
 }
 
 const _es = <String, String>{
+  'Nickname': 'Apodo',
+  'Zoom in': 'Acercar',
+  'Zoom out': 'Alejar',
+  'Pan view': 'Desplazar vista',
+  'Reset view': 'Restablecer vista',
   'White marking stone': 'Piedra blanca de marcado',
   'Black marking stone': 'Piedra negra de marcado',
   'Green guessing stone': 'Piedra verde de conjetura',
@@ -211,6 +216,11 @@ const _es = <String, String>{
 };
 
 const _ja = <String, String>{
+  'Nickname': 'ニックネーム',
+  'Zoom in': '拡大',
+  'Zoom out': '縮小',
+  'Pan view': '表示を移動',
+  'Reset view': '表示をリセット',
   'White marking stone': '白の判定石',
   'Black marking stone': '黒の判定石',
   'Green guessing stone': '緑の推測石',
@@ -452,6 +462,11 @@ const _jaExtra = <String, String>{
 };
 
 const _de = <String, String>{
+  'Nickname': 'Spitzname',
+  'Zoom in': 'Vergrößern',
+  'Zoom out': 'Verkleinern',
+  'Pan view': 'Ansicht verschieben',
+  'Reset view': 'Ansicht zurücksetzen',
   'White marking stone': 'Weißer Markierungsstein',
   'Black marking stone': 'Schwarzer Markierungsstein',
   'Green guessing stone': 'Grüner Ratestein',
@@ -651,6 +666,11 @@ const _de = <String, String>{
 };
 
 const _fr = <String, String>{
+  'Nickname': 'Surnom',
+  'Zoom in': 'Zoom avant',
+  'Zoom out': 'Zoom arrière',
+  'Pan view': 'Déplacer la vue',
+  'Reset view': 'Réinitialiser la vue',
   'White marking stone': 'Pierre de marquage blanche',
   'Black marking stone': 'Pierre de marquage noire',
   'Green guessing stone': 'Pierre de supposition verte',
@@ -850,6 +870,11 @@ const _fr = <String, String>{
 };
 
 const _nl = <String, String>{
+  'Nickname': 'Bijnaam',
+  'Zoom in': 'Inzoomen',
+  'Zoom out': 'Uitzoomen',
+  'Pan view': 'Weergave verschuiven',
+  'Reset view': 'Weergave herstellen',
   'White marking stone': 'Witte markeringssteen',
   'Black marking stone': 'Zwarte markeringssteen',
   'Green guessing stone': 'Groene goksteen',
@@ -1049,6 +1074,11 @@ const _nl = <String, String>{
 };
 
 const _pt = <String, String>{
+  'Nickname': 'Apelido',
+  'Zoom in': 'Ampliar',
+  'Zoom out': 'Reduzir',
+  'Pan view': 'Mover visualização',
+  'Reset view': 'Redefinir visualização',
   'White marking stone': 'Pedra branca de marcação',
   'Black marking stone': 'Pedra preta de marcação',
   'Green guessing stone': 'Pedra verde de palpite',
@@ -1248,6 +1278,11 @@ const _pt = <String, String>{
 };
 
 const _zh = <String, String>{
+  'Nickname': '昵称',
+  'Zoom in': '放大',
+  'Zoom out': '缩小',
+  'Pan view': '平移视图',
+  'Reset view': '重置视图',
   'White marking stone': '白色标记石',
   'Black marking stone': '黑色标记石',
   'Green guessing stone': '绿色猜测石',
@@ -1447,6 +1482,11 @@ const _zh = <String, String>{
 };
 
 const _it = <String, String>{
+  'Nickname': 'Soprannome',
+  'Zoom in': 'Ingrandisci',
+  'Zoom out': 'Riduci',
+  'Pan view': 'Sposta la vista',
+  'Reset view': 'Ripristina la vista',
   'White marking stone': 'Pietra bianca di marcatura',
   'Black marking stone': 'Pietra nera di marcatura',
   'Green guessing stone': 'Pietra verde per le ipotesi',
@@ -1646,6 +1686,11 @@ const _it = <String, String>{
 };
 
 const _tok = <String, String>{
+  'Nickname': 'nimi ante',
+  'Zoom in': 'o suli e lukin',
+  'Zoom out': 'o lili e lukin',
+  'Pan view': 'o tawa e lukin',
+  'Reset view': 'o pana sin e lukin',
   'White marking stone': 'kiwen walo pi sitelen',
   'Black marking stone': 'kiwen pimeja pi sitelen',
   'Green guessing stone': 'kiwen laso pi pilin',
