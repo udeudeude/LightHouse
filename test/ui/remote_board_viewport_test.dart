@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lighthouse/ui/remote_board_viewport.dart';
 
@@ -32,4 +32,61 @@ void main() {
       expect(rect.center.dx, closeTo((20 + (1000 - 30)) / 2, 0.0001));
     },
   );
+
+  test(
+    'zoom holds the chosen point fixed and clamps the pan to the screen',
+    () {
+      const size = Size(320, 180);
+      const focal = Offset(240, 90);
+      const original = RemoteViewTransform();
+      final zoomed = original.zoomAt(size, 2, focal);
+
+      expect(zoomed.boardPointAt(size, focal), focal);
+      expect(zoomed.zoom, 2);
+      expect(zoomed.pan.dx, -80);
+      expect(zoomed.pan.dy, 0);
+
+      final moved = zoomed.panBy(size, const Offset(900, -900));
+      expect(moved.pan, const Offset(160, -90));
+      expect(moved.boardPointAt(size, const Offset(0, 0)), const Offset(0, 90));
+      expect(moved.zoomAt(size, 1, size.center(Offset.zero)).pan, Offset.zero);
+    },
+  );
+  testWidgets('visual zoom maps taps back to unzoomed board coordinates', (
+    tester,
+  ) async {
+    final frameKey = GlobalKey();
+    Offset? localTap;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            key: frameKey,
+            width: 300,
+            height: 200,
+            child: ClipRect(
+              child: Transform.translate(
+                offset: const Offset(-50, 0),
+                child: Transform.scale(
+                  scale: 2,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) => localTap = details.localPosition,
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(frameKey)) + const Offset(150, 100),
+    );
+    expect(localTap, isNotNull);
+    expect(localTap!.dx, closeTo(175, 0.01));
+    expect(localTap!.dy, closeTo(100, 0.01));
+  });
 }
