@@ -82,8 +82,7 @@ class _RemoteTableConnection {
   double? pixelsPerMm;
   bool seedReceived = false;
   bool peerSeen = false;
-  late final VoidCallback listener;
-  late final StreamSubscription<RemoteAppMessage> subscription;
+  bool disconnected = false;
 }
 
 class BoardScreen extends StatefulWidget {
@@ -2722,8 +2721,6 @@ class _BoardScreenState extends State<BoardScreen>
     _remoteSubscriptions[session] = subscription;
     final table = _remoteTables[session];
     if (table != null) {
-      table.listener = listener;
-      table.subscription = subscription;
       table.peerSeen = session.peerSeen;
     }
     await session.connect();
@@ -2837,6 +2834,8 @@ class _BoardScreenState extends State<BoardScreen>
 
     switch (message.kind) {
       case 'hello':
+        final table = _remoteTables[session];
+        if (table != null) table.disconnected = false;
         final peerRoleName = message.payload['role'];
         final peerRole = RemoteRole.values
             .where((value) => value.name == peerRoleName)
@@ -2935,6 +2934,8 @@ class _BoardScreenState extends State<BoardScreen>
         }
 
       case 'disconnect':
+        final table = _remoteTables[session];
+        if (table != null) setState(() => table.disconnected = true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -2959,10 +2960,12 @@ class _BoardScreenState extends State<BoardScreen>
     if (table == null) return;
     switch (message.kind) {
       case 'hello':
+        table.disconnected = false;
         _captureInactiveTableMetrics(table, message.payload);
         await _sendRemoteHelloFor(session);
       case 'seed':
       case 'state':
+        table.disconnected = false;
         _captureInactiveTableMetrics(table, message.payload);
         final raw = message.payload['state'];
         if (raw is Map) {
@@ -2981,6 +2984,7 @@ class _BoardScreenState extends State<BoardScreen>
         table.seedReceived = true;
         if (mounted) setState(() {});
       case 'runtime':
+        table.disconnected = false;
         if (message.payload['origin'] != session.clientId) {
           table.runtime = message.payload;
         }
@@ -2989,6 +2993,13 @@ class _BoardScreenState extends State<BoardScreen>
         if (control != null) {
           table.control = RemoteBoardControlState.fromJson(control);
         }
+      case 'role':
+        await _selectRemoteTable(table);
+        if (mounted && _remoteSession == session) {
+          await _handleRemoteMessage(message, session);
+        }
+      case 'disconnect':
+        setState(() => table.disconnected = true);
       default:
         break;
     }
@@ -3349,7 +3360,7 @@ class _BoardScreenState extends State<BoardScreen>
       color: const Color(0xC9171717),
       borderRadius: BorderRadius.circular(10),
       child: SizedBox(
-        width: math.min(320, MediaQuery.sizeOf(context).width - 16),
+        width: math.min(320.0, MediaQuery.sizeOf(context).width - 16),
         height: 88,
         child: ListView(
           scrollDirection: Axis.horizontal,
@@ -3379,8 +3390,8 @@ class _BoardScreenState extends State<BoardScreen>
                           child: FittedBox(
                             fit: BoxFit.contain,
                             child: SizedBox(
-                              width: table.widthMm ?? 200,
-                              height: table.heightMm ?? 120,
+                              width: table.widthMm ?? 200.0,
+                              height: table.heightMm ?? 120.0,
                               child: CustomPaint(
                                 painter: BoardPainter(
                                   state: table.session == _remoteSession
@@ -3397,7 +3408,7 @@ class _BoardScreenState extends State<BoardScreen>
                       Row(
                         children: [
                           Icon(Icons.circle, size: 7,
-                            color: table.session.peerSeen
+                            color: table.session.peerSeen && !table.disconnected
                                 ? Colors.lightGreenAccent
                                 : Colors.orangeAccent),
                           const SizedBox(width: 3),
