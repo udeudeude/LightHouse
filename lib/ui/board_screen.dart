@@ -3777,7 +3777,7 @@ class _BoardScreenState extends State<BoardScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text),
@@ -3795,14 +3795,13 @@ class _BoardScreenState extends State<BoardScreen>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(tr('Restore previous autosave?')),
-        content: const Text(
-          'Replace the current table with the previous autosaved snapshot? '
-          'You can use Undo immediately afterward to return to the current table.',
+        content: Text(
+          tr('Replace the current table with the previous autosaved snapshot? You can use Undo immediately afterward to return to the current table.'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),

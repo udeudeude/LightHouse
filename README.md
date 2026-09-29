@@ -6,7 +6,7 @@ This branch is the clean-sheet Flutter rewrite of the 2025 React / Google AI Stu
 
 ## Try it
 
-The current web build is deployed automatically from this branch:
+The current web build is deployed automatically from main:
 
 https://udeudeude.github.io/LightHouse/
 
@@ -36,7 +36,7 @@ The web build requires manual physical calibration because browsers do not relia
 - command-based undo/redo
 - versioned JSON board serialization with migration support
 - debounced local autosave with a user-restorable previous snapshot, named saved boards, and JSON file import/export
-- lower-left hierarchical menu for File, Edit, Boards, Toys, Display, Remote, and Instructions
+- lower-left hierarchical menu for File, Edit, Boards, Toys, ZENDO, Display, Remote, and Instructions
 - device-specific instructions shown from the lower left
 - Light Lottery theatrical random chooser
 - optional Entropy Delete mode that fades and removes one random footprint every 30 seconds
@@ -70,13 +70,13 @@ Board controls:
 - Boards: choose an underlay, checker shading, and optional position snapping
 - Edit: undo/redo, 15-degree rotation steps, exact orientation, and persistent rotation snapping
 - Display: size/calibration, brightness, and orientation information
-- Remote: pair a Table Display with one or more Controllers, manage Table Display interaction/visibility/ripple marking, show the pairing QR, swap roles for single-controller sessions, or disconnect
+- Remote: pair a Table Display with one or more Controllers using a shared 6-character code, manage Table Display interaction/visibility/ripple marking, swap roles for single-controller sessions, or disconnect
 
 The user-facing Structure menu was removed. Stack/nest relationships remain an internal board concept so physically grouped footprints still move, push, save, restore, and undo correctly.
 
 ## Remote sessions
 
-A Table Display can be controlled by one or more Controller devices. Start Remote on the Table Display and scan the same QR code from each controller you want to add. With one controller LightHouse prefers a direct WebRTC data channel; when additional controllers join, the session switches to the encrypted relay so every controller shares one table-authoritative state. Controllers render the Table Display's physical board as a scaled control surface, including proportionally scaled Dice Bubble, Zendo Stones, and gun controls. Controller-only Remote controls can enable or disable direct shape interaction on the Table Display, hide/reveal its shapes without changing board state, and mark shapes with persistent normal or dim ripple pulses. Pairing secrets are carried in the URL fragment so they are not sent to the web host. The one-scan pairing flow still requires an internet connection for the initial introduction. Remote application messages use a transport boundary so local-network and Bluetooth transports can be added without changing board synchronization.
+A Table Display can be controlled by one or more Controller devices. On each device, open Remote, choose Table Display or Controller, and enter the same 6-character code. Choose opposite roles: exactly one Table Display and one or more Controllers. To add a Controller, use Add Another Controller and enter the existing session code on the new device. With one Controller LightHouse prefers a direct WebRTC data channel; when additional Controllers join, the session switches to the encrypted relay so every Controller shares one table-authoritative state. Controllers render the Table Display's physical board as a scaled control surface, including proportionally scaled Dice Bubble, Zendo Stones, and gun controls. Controller-only Remote controls can enable or disable direct shape interaction on the Table Display, hide/reveal its shapes without changing board state, and mark shapes with persistent normal or dim ripple pulses. Pairing requires an internet connection to the relay service. Previously issued pairing links can still be opened for compatibility, but the interface no longer offers or creates them. Remote application messages use a transport boundary so local-network and Bluetooth transports can be added without changing board synchronization.
 
 ## Development
 

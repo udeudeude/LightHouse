@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../application/app_language.dart';
+
 class CreditsOverlay extends StatelessWidget {
   const CreditsOverlay({
     super.key,
@@ -65,7 +67,7 @@ class CreditsOverlay extends StatelessWidget {
             Align(
               alignment: Alignment.topCenter,
               child: IconButton(
-                tooltip: 'Close and set this side as up',
+                tooltip: tr('Close and set this side as up'),
                 onPressed: onCloseAndRecalibrate,
                 icon: const Icon(Icons.close, color: Colors.white70),
               ),

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../application/app_language.dart';
+
 class ZendoStoneSnapshot {
   const ZendoStoneSnapshot({
     required this.id,
@@ -209,11 +211,11 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     _ZendoStoneKind.green => const Color(0xFF31C95A),
   };
 
-  String _label(_ZendoStoneKind kind) => switch (kind) {
+  String _label(_ZendoStoneKind kind) => tr(switch (kind) {
     _ZendoStoneKind.white => 'White marking stone',
     _ZendoStoneKind.black => 'Black marking stone',
     _ZendoStoneKind.green => 'Green guessing stone',
-  };
+  });
 
   Offset _local(Offset global) {
     final box = _surfaceKey.currentContext?.findRenderObject() as RenderBox?;
@@ -311,7 +313,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     message: _label(kind),
     child: Semantics(
       button: true,
-      label: 'Add ${_label(kind)}',
+      label: '${tr('Add')} · ${_label(kind)}',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _add(kind, size),
@@ -385,7 +387,8 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
               width: (_largeRadius + 5 * _scale) * 2,
               height: (_largeRadius + 5 * _scale) * 2,
               child: Tooltip(
-                message: '${_label(stone.kind)} · drag · double-tap to remove',
+                message:
+                    '${_label(stone.kind)} · ${tr('Drag · double-tap to remove')}',
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onPanUpdate: (details) =>

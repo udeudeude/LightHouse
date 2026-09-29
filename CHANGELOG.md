@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Updated Remote documentation for shared-code pairing, removed unused link generation and obsolete QR/link translations while retaining inbound legacy-link support, and localized Remote errors, previous-autosave confirmation, credits close control, and Zendo Stone tooltips. Advanced the web build marker to 36 for the new deployed code.
 - Made Remote ripples nearly twice as slow and far-reaching, with brighter strokes that remain visible farther into each pulse.
 - Removed the remaining QR/link pairing path from the Remote interface; Remote pairing now uses the 6-character code flow only.
 - Replaced the symbolic polyhedral dice picker icons with miniature solid dice rendered by the same 3D mesh, face-label, and perspective code used inside the Dice Bubble.
