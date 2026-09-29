@@ -223,6 +223,7 @@ class _BoardScreenState extends State<BoardScreen>
   BoardState? _pendingSaveState;
   RemoteSession? _remoteSession;
   final Map<RemoteSession, _RemoteTableConnection> _remoteTables = {};
+  int _nextRemoteTableNumber = 1;
   final Map<RemoteSession, StreamSubscription<RemoteAppMessage>>
   _remoteSubscriptions = {};
   final Map<RemoteSession, VoidCallback> _remoteListeners = {};
@@ -2691,7 +2692,7 @@ class _BoardScreenState extends State<BoardScreen>
     if (session.role == RemoteRole.controller) {
       _remoteTables[session] = _RemoteTableConnection(
         session,
-        '${tr('Table Display')} ${_remoteTables.length + 1}',
+        '${tr('Table Display')} ${_nextRemoteTableNumber++}',
         BoardState.empty(),
       );
     }
@@ -3514,6 +3515,8 @@ class _BoardScreenState extends State<BoardScreen>
       if (session.role == RemoteRole.controller)
         _compactMenuItem('addTable', Icons.add_to_photos_outlined,
           'Pair Table Display'),
+      if (session.role == RemoteRole.controller)
+        _compactMenuItem('nickname', Icons.edit_outlined, 'Nickname'),
       _compactMenuItem(
         'swap',
         Icons.swap_horiz,
@@ -3532,6 +3535,9 @@ class _BoardScreenState extends State<BoardScreen>
         await _startRemoteByCode(session.role);
       case 'addTable':
         await _startRemoteByCode(RemoteRole.controller);
+      case 'nickname':
+        final table = _remoteTables[session];
+        if (table != null) await _renameRemoteTable(table);
       case 'addController':
         await _showAddControllerPairing(session);
       case 'boardInteraction':
