@@ -230,6 +230,8 @@ class _BoardScreenState extends State<BoardScreen>
   Timer? _remotePublishTimer;
   BoardState? _remotePendingState;
   Timer? _remoteRuntimeTimer;
+  Timer? _remoteMetricsTimer;
+  ({double width, double height})? _lastBroadcastDisplaySize;
   String? _lastRemoteRuntimeJson;
   RemoteBoardControlState _remoteControlState = const RemoteBoardControlState();
   Timer? _rippleTimer;
@@ -240,8 +242,7 @@ class _BoardScreenState extends State<BoardScreen>
   PieceCycleMode _zendoPieceMode = PieceCycleMode.classic;
   int _zendoRuleIndex = -1;
   bool _zendoRuleVisible = false;
-  bool _zendoComplexRules = false;
-  ZendoRuleDifficulty _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
+  Set<ZendoRuleDifficulty> _zendoDifficulties = {ZendoRuleDifficulty.easy};
   bool _applyingRemoteState = false;
   bool _remoteSeedReceived = false;
   bool _remotePeerSeen = false;
@@ -357,6 +358,24 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   @override
+  void didChangeMetrics() {
+    _remoteMetricsTimer?.cancel();
+    _remoteMetricsTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      setState(() {});
+      if (!_remoteDisplayMode) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_remoteDisplayMode) return;
+        final size = _physicalBoardSize();
+        if (size == _lastBroadcastDisplaySize) return;
+        _lastBroadcastDisplaySize = size;
+        unawaited(_sendRemoteHello());
+        unawaited(_sendRemoteState('state'));
+      });
+    });
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _faceDownTimer?.cancel();
@@ -375,6 +394,7 @@ class _BoardScreenState extends State<BoardScreen>
     _saveDebounceTimer?.cancel();
     _remotePublishTimer?.cancel();
     _remoteRuntimeTimer?.cancel();
+    _remoteMetricsTimer?.cancel();
     _rippleTimer?.cancel();
     for (final entry in _remoteSubscriptions.entries) {
       unawaited(entry.value.cancel());
@@ -409,8 +429,10 @@ class _BoardScreenState extends State<BoardScreen>
     'zendoPieceMode': _zendoPieceMode.name,
     'zendoRuleIndex': _zendoRuleIndex,
     'zendoRuleVisible': _zendoRuleVisible,
-    'zendoComplexRules': _zendoComplexRules,
-    'zendoRuleDifficulty': _zendoRuleDifficulty.name,
+    'zendoDifficulties': [
+      for (final difficulty in ZendoRuleDifficulty.values)
+        if (_zendoDifficulties.contains(difficulty)) difficulty.name,
+    ],
     'checkerUnderlays': _checkerUnderlays,
     'roundedTriangleTips': _roundedTriangleTips,
     'sideGunAnglesDegrees': List<double>.from(_sideGunAnglesDegrees),
@@ -451,15 +473,24 @@ class _BoardScreenState extends State<BoardScreen>
     }
     _zendoRuleIndex = (data['zendoRuleIndex'] as num?)?.toInt() ?? -1;
     _zendoRuleVisible = data['zendoRuleVisible'] == true;
-    _zendoComplexRules = data['zendoComplexRules'] == true;
-
-    final difficultyName = data['zendoRuleDifficulty'];
-    if (difficultyName is String) {
-      _zendoRuleDifficulty =
-          ZendoRuleDifficulty.values
-              .where((value) => value.name == difficultyName)
-              .firstOrNull ??
-          _zendoRuleDifficulty;
+    final difficultyNames = data['zendoDifficulties'];
+    if (difficultyNames is List) {
+      _zendoDifficulties = {
+        for (final name in difficultyNames)
+          if (name is String)
+            ...ZendoRuleDifficulty.values.where((value) => value.name == name),
+      };
+    } else {
+      final legacyName = data['zendoRuleDifficulty'];
+      final legacyDifficulty = ZendoRuleDifficulty.values
+          .where((value) => value.name == legacyName)
+          .firstOrNull;
+      _zendoDifficulties = {
+        if (data['zendoComplexRules'] == true && legacyDifficulty != null)
+          legacyDifficulty
+        else
+          ZendoRuleDifficulty.easy,
+      };
     }
 
     _checkerUnderlays = data['checkerUnderlays'] == true;
@@ -1242,7 +1273,16 @@ class _BoardScreenState extends State<BoardScreen>
     return (_pixelsPerMm / displayPixelsPerMm).clamp(0.25, 4.0).toDouble();
   }
 
-  Rect? _remoteBoardRect(BuildContext surfaceContext) {
+  bool get _showRemoteTableSidebar =>
+      _remoteControllerMode && _remoteTables.length > 1 &&
+      MediaQuery.sizeOf(context).width >= 900;
+
+  double get _remoteSidebarWidth =>
+      _showRemoteTableSidebar
+          ? math.min(300.0, MediaQuery.sizeOf(context).width * 0.28)
+          : 0;
+
+  Rect? _fittedRemoteBoardRect(BuildContext surfaceContext) {
     final widthMm = _remoteDisplayWidthMm;
     final heightMm = _remoteDisplayHeightMm;
     if (!_remoteControllerMode || widthMm == null || heightMm == null) {
@@ -1250,9 +1290,17 @@ class _BoardScreenState extends State<BoardScreen>
     }
     return fitRemoteBoardRect(
       hostSize: MediaQuery.sizeOf(surfaceContext),
-      safePadding: MediaQuery.viewPaddingOf(surfaceContext),
+      safePadding: MediaQuery.viewPaddingOf(surfaceContext).copyWith(
+        right: MediaQuery.viewPaddingOf(surfaceContext).right +
+            _remoteSidebarWidth,
+      ),
       remoteSize: Size(widthMm, heightMm),
     );
+  }
+
+  Rect? _remoteBoardRect(BuildContext surfaceContext) {
+    final fitted = _fittedRemoteBoardRect(surfaceContext);
+    return fitted == null ? null : _remoteView.displayRect(fitted);
   }
 
   double get _pixelsPerMm {
@@ -1265,7 +1313,7 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   EdgeInsets _boardSurfacePadding(BuildContext surfaceContext) {
-    final remoteRect = _remoteBoardRect(surfaceContext);
+    final remoteRect = _fittedRemoteBoardRect(surfaceContext);
     if (remoteRect == null) return MediaQuery.viewPaddingOf(surfaceContext);
     final size = MediaQuery.sizeOf(surfaceContext);
     return EdgeInsets.fromLTRB(
@@ -1329,27 +1377,15 @@ class _BoardScreenState extends State<BoardScreen>
     required EdgeInsets padding,
     required Widget child,
   }) {
-    if (!_remoteControllerMode || _remoteDisplayWidthMm == null) {
+    final rect = _remoteBoardRect(context);
+    if (rect == null) {
       return Padding(padding: padding, child: child);
     }
-    return Padding(
-      padding: padding,
-      child: ClipRect(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final view = _remoteView.clamped(constraints.biggest);
-            return Transform.translate(
-              offset: view.pan,
-              child: Transform.scale(scale: view.zoom, child: child),
-            );
-          },
-        ),
-      ),
-    );
+    return Positioned.fromRect(rect: rect, child: child);
   }
 
   void _changeRemoteZoom(double factor) {
-    final rect = _remoteBoardRect(context);
+    final rect = _fittedRemoteBoardRect(context);
     if (rect == null) return;
     setState(() {
       _remoteView = _remoteView.zoomAt(
@@ -1361,10 +1397,12 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   void _updateRemoteView(ScaleUpdateDetails details, Size size) {
+    final fitted = _fittedRemoteBoardRect(context);
+    if (fitted == null) return;
     setState(() {
       _remoteView = _remoteView
           .zoomAt(size, _remoteGestureStartZoom * details.scale,
-              details.localFocalPoint)
+              details.localFocalPoint - fitted.topLeft)
           .panBy(size, details.focalPointDelta);
     });
   }
@@ -3106,6 +3144,14 @@ class _BoardScreenState extends State<BoardScreen>
                   ),
                   textAlign: TextAlign.center,
                 ),
+                if (session.role == RemoteRole.controller &&
+                    _remoteTables.length > 1) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    tr('Use a different code for each Table Display.'),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
                 const SizedBox(height: 12),
                 SelectableText(
                   normalizedCode,
@@ -3181,31 +3227,44 @@ class _BoardScreenState extends State<BoardScreen>
             title: Text('${tr(role.label)} · ${tr('Pair by Code')}'),
             content: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 340),
-              child: TextField(
-                controller: controller,
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                autocorrect: false,
-                enableSuggestions: false,
-                maxLength: RemoteSession.pairingCodeLength,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-                  LengthLimitingTextInputFormatter(
-                    RemoteSession.pairingCodeLength,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (role == RemoteRole.controller &&
+                      _remoteTables.isNotEmpty) ...[
+                    Text(
+                      tr('Use a different code for each Table Display.'),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    maxLength: RemoteSession.pairingCodeLength,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                      LengthLimitingTextInputFormatter(
+                        RemoteSession.pairingCodeLength,
+                      ),
+                    ],
+                    decoration: InputDecoration(
+                      labelText: tr('Pairing code'),
+                      hintText: 'K7M4Q2',
+                      errorText: validationError,
+                      helperText: tr('Type the same 6-character code on both devices.'),
+                    ),
+                    onChanged: (_) {
+                      if (validationError != null) {
+                        setDialogState(() => validationError = null);
+                      }
+                    },
+                    onSubmitted: (_) => submit(),
                   ),
                 ],
-                decoration: InputDecoration(
-                  labelText: tr('Pairing code'),
-                  hintText: 'K7M4Q2',
-                  errorText: validationError,
-                  helperText: tr('Type the same 6-character code on both devices.'),
-                ),
-                onChanged: (_) {
-                  if (validationError != null) {
-                    setDialogState(() => validationError = null);
-                  }
-                },
-                onSubmitted: (_) => submit(),
               ),
             ),
             actions: [
@@ -3428,6 +3487,78 @@ class _BoardScreenState extends State<BoardScreen>
               tooltip: tr('Pair Table Display'),
               onPressed: () => unawaited(_startRemoteByCode(RemoteRole.controller)),
               icon: const Icon(Icons.add),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _remoteTableSidebar() {
+    final width = _remoteSidebarWidth;
+    final safe = MediaQuery.viewPaddingOf(context);
+    return Positioned(
+      top: safe.top + 8,
+      right: safe.right + 8,
+      bottom: safe.bottom + 8,
+      width: width - 16,
+      child: Material(
+        color: const Color(0xC9171717),
+        borderRadius: BorderRadius.circular(10),
+        child: ListView(
+          padding: const EdgeInsets.all(8),
+          children: [
+            for (final table in _remoteTables.values)
+              if (table.session != _remoteSession)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () => unawaited(_selectRemoteTable(table)),
+                    onLongPress: () => unawaited(_renameRemoteTable(table)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          table.nickname,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: const Color(0xFF777777),
+                              width: 1,
+                            ),
+                          ),
+                          child: AspectRatio(
+                            aspectRatio: (table.widthMm ?? 200.0) /
+                                (table.heightMm ?? 120.0),
+                            child: FittedBox(
+                              fit: BoxFit.fill,
+                              child: SizedBox(
+                                width: table.widthMm ?? 200.0,
+                                height: table.heightMm ?? 120.0,
+                                child: CustomPaint(
+                                  painter: BoardPainter(
+                                    state: table.state,
+                                    logicalPixelsPerMm: 1,
+                                    geometry: _controller.geometry,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            TextButton.icon(
+              onPressed: () =>
+                  unawaited(_startRemoteByCode(RemoteRole.controller)),
+              icon: const Icon(Icons.add),
+              label: Text(tr('Pair Table Display')),
             ),
           ],
         ),
@@ -4805,13 +4936,7 @@ class _BoardScreenState extends State<BoardScreen>
         _compactMenuItem(
           'difficulty',
           Icons.tune,
-          '${tr('Difficulty')}: ${tr(_zendoRuleDifficulty.label)}',
-        ),
-        _compactMenuItem(
-          'complex',
-          Icons.psychology_alt_outlined,
-          'Complex Rules',
-          checked: _zendoComplexRules,
+          'Difficulty',
         ),
         if (ruleActive)
           _compactMenuItem(
@@ -4840,14 +4965,7 @@ class _BoardScreenState extends State<BoardScreen>
           _chooseNextZendoRule();
         case 'difficulty':
           await _showZendoDifficultyMenu();
-        case 'complex':
-          setState(() {
-            _zendoComplexRules = !_zendoComplexRules;
-            if (!_zendoComplexRules) {
-              _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
-            }
-          });
-          _ensureRuleStillCompatible();
+          return;
         case 'ruleVisibility':
           setState(() => _zendoRuleVisible = !_zendoRuleVisible);
       }
@@ -4861,8 +4979,7 @@ class _BoardScreenState extends State<BoardScreen>
       _zendoPieceMode = PieceCycleMode.classic;
       _zendoRuleIndex = -1;
       _zendoRuleVisible = false;
-      _zendoComplexRules = false;
-      _zendoRuleDifficulty = ZendoRuleDifficulty.easy;
+      _zendoDifficulties = {ZendoRuleDifficulty.easy};
     });
     if (stonesWereActive) {
       unawaited(_sendRemoteRuntimeIfChanged(force: true));
@@ -4870,32 +4987,63 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   Future<void> _showZendoDifficultyMenu() async {
-    final available = _zendoComplexRules
-        ? ZendoRuleDifficulty.values
-        : const [ZendoRuleDifficulty.easy];
-    final choice = await _showCompactMenu([
-      for (final difficulty in available)
-        _compactMenuItem(
-          difficulty.name,
-          Icons.radio_button_unchecked,
-          difficulty.label,
-          checked: _zendoRuleDifficulty == difficulty,
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF202020),
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, refreshSheet) => ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    tr('Difficulty'),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  for (final difficulty in ZendoRuleDifficulty.values)
+                    CheckboxListTile(
+                      dense: true,
+                      title: Text(tr(difficulty.label)),
+                      value: _zendoDifficulties.contains(difficulty),
+                      onChanged: (checked) {
+                        setState(() {
+                          _zendoDifficulties = {..._zendoDifficulties};
+                          if (checked == true) {
+                            _zendoDifficulties.add(difficulty);
+                          } else {
+                            _zendoDifficulties.remove(difficulty);
+                          }
+                        });
+                        _ensureRuleStillCompatible();
+                        _scheduleSave();
+                        refreshSheet(() {});
+                      },
+                    ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      child: Text(tr('Done')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-    ]);
-    if (!mounted || choice == null) return;
-    final difficulty = ZendoRuleDifficulty.values
-        .where((value) => value.name == choice)
-        .firstOrNull;
-    if (difficulty == null) return;
-    setState(() => _zendoRuleDifficulty = difficulty);
-    _chooseNextZendoRule();
+      ),
+    );
   }
 
   bool _ruleCompatible(ZendoRule rule) {
-    if (rule.difficulty != _zendoRuleDifficulty) return false;
-    if (!_zendoComplexRules && rule.difficulty != ZendoRuleDifficulty.easy) {
-      return false;
-    }
+    if (!_zendoDifficulties.contains(rule.difficulty)) return false;
     if (_zendoPieceMode == PieceCycleMode.zendo20 && !rule.suitableForZendo20) {
       return false;
     }
@@ -4914,7 +5062,13 @@ class _BoardScreenState extends State<BoardScreen>
       for (var i = 0; i < zendoRules.length; i += 1)
         if (_ruleCompatible(zendoRules[i])) i,
     ];
-    if (compatible.isEmpty) return;
+    if (compatible.isEmpty) {
+      setState(() {
+        _zendoRuleIndex = -1;
+        _zendoRuleVisible = false;
+      });
+      return;
+    }
     final withoutCurrent = compatible
         .where((index) => index != _zendoRuleIndex)
         .toList(growable: false);
@@ -6065,26 +6219,32 @@ class _BoardScreenState extends State<BoardScreen>
             _remoteDisplayWidthMm != null &&
             _remoteDisplayHeightMm != null) ...[
           if (_remotePanMode && remoteRect != null)
-            Positioned.fromRect(
-              rect: remoteRect,
+            Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onScaleStart: (_) =>
                     _remoteGestureStartZoom = _remoteView.zoom,
                 onScaleUpdate: (details) =>
-                    _updateRemoteView(details, remoteRect.size),
+                    _updateRemoteView(
+                      details,
+                      _fittedRemoteBoardRect(surfaceContext)!.size,
+                    ),
               ),
             ),
-          Padding(
-            padding: safePadding,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF777777), width: 1),
+          if (remoteRect != null)
+            Positioned.fromRect(
+              rect: remoteRect,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: const Color(0xFF777777),
+                      width: 1,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
           SafeArea(
             child: Align(
               alignment: Alignment.topLeft,
@@ -6095,7 +6255,9 @@ class _BoardScreenState extends State<BoardScreen>
             ),
           ),
         ],
-        if (_remoteControllerMode)
+        if (_showRemoteTableSidebar)
+          _remoteTableSidebar()
+        else if (_remoteControllerMode)
           SafeArea(
             child: Align(
               alignment: Alignment.topRight,

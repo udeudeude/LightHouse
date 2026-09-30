@@ -74,7 +74,9 @@ Board controls:
 
 On a Controller, the thin gray frame marks the full Table Display. The view controls in the upper left zoom from the fitted view to 4×; activate the hand control to drag or pinch the view, then turn it off to manipulate the board. Reset returns to the fitted view. These view adjustments stay on the Controller and do not alter the Table Display's physical board geometry.
 
-A Controller can pair with several Table Displays. Use the + button in the preview strip to pair another display, tap a preview to make it the active table, or long-press a preview to set its nickname. Each paired display keeps its own connection and board snapshot while the Controller is open. Disconnect removes only the active display; the Controller switches to another paired display if one remains.
+A Controller can pair with several Table Displays, each using a different 6-character code. Use the + button in the preview strip to pair another display, tap a preview to make it the active table, or long-press a preview to set its nickname. On wide Controllers, other connected tables appear as larger live previews beside the active framed table. Each paired display keeps its own connection and board snapshot while the Controller is open. Disconnect removes only the active display; the Controller switches to another paired display if one remains.
+
+Zendo's Difficulty menu permits any combination of Easy, Medium, Medium Hard, Hard, and Crazy Hard; only Easy is checked by default. Unchecking all levels leaves no active rule until a level is checked again.
 
 The user-facing Structure menu was removed. Stack/nest relationships remain an internal board concept so physically grouped footprints still move, push, save, restore, and undo correctly.
 

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Made Remote display frames follow fullscreen resizing and Controller zoom, added larger concurrent table previews on wide Controllers, clarified that additional tables need distinct pairing codes, changed Zendo difficulty to independent checkboxes, and enabled CPU rendering for iPadOS 15 web startup. Advanced the web build marker to 38.
 - Kept the Controller's Table Display outline above the board artwork, added local zoom and pan controls without changing physical board coordinates, and enabled pairing and switching among multiple Table Displays using preview tiles and nicknames.
 - Updated Remote documentation for shared-code pairing, removed unused link generation and obsolete QR/link translations while retaining inbound legacy-link support, and localized Remote errors, previous-autosave confirmation, credits close control, and Zendo Stone tooltips. Advanced the web build marker to 36 for the new deployed code.
 - Made Remote ripples nearly twice as slow and far-reaching, with brighter strokes that remain visible farther into each pulse.
