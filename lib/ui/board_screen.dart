@@ -3238,6 +3238,11 @@ class _BoardScreenState extends State<BoardScreen>
                     ),
                     const SizedBox(height: 8),
                   ],
+                  Text(
+                    tr('Type the same 6-character code on both devices.'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: controller,
                     autofocus: true,
@@ -3255,7 +3260,6 @@ class _BoardScreenState extends State<BoardScreen>
                       labelText: tr('Pairing code'),
                       hintText: 'K7M4Q2',
                       errorText: validationError,
-                      helperText: tr('Type the same 6-character code on both devices.'),
                     ),
                     onChanged: (_) {
                       if (validationError != null) {
