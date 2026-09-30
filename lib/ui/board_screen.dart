@@ -6231,16 +6231,20 @@ class _BoardScreenState extends State<BoardScreen>
                     ),
               ),
             ),
-          Positioned.fromRect(
-            rect: remoteRect,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF777777), width: 1),
+          if (remoteRect != null)
+            Positioned.fromRect(
+              rect: remoteRect,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: const Color(0xFF777777),
+                      width: 1,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
           SafeArea(
             child: Align(
               alignment: Alignment.topLeft,
