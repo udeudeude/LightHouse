@@ -86,6 +86,7 @@ String tr(String english) {
 }
 
 const _es = <String, String>{
+  'Use a different code for each Table Display.': 'Usa un código diferente para cada pantalla de mesa.',
   'Nickname': 'Apodo',
   'Zoom in': 'Acercar',
   'Zoom out': 'Alejar',
@@ -216,6 +217,7 @@ const _es = <String, String>{
 };
 
 const _ja = <String, String>{
+  'Use a different code for each Table Display.': 'テーブル表示ごとに別のコードを使ってください。',
   'Nickname': 'ニックネーム',
   'Zoom in': '拡大',
   'Zoom out': '縮小',
@@ -462,6 +464,7 @@ const _jaExtra = <String, String>{
 };
 
 const _de = <String, String>{
+  'Use a different code for each Table Display.': 'Verwende für jede Tischanzeige einen anderen Code.',
   'Nickname': 'Spitzname',
   'Zoom in': 'Vergrößern',
   'Zoom out': 'Verkleinern',
@@ -666,6 +669,7 @@ const _de = <String, String>{
 };
 
 const _fr = <String, String>{
+  'Use a different code for each Table Display.': 'Utilisez un code différent pour chaque affichage de table.',
   'Nickname': 'Surnom',
   'Zoom in': 'Zoom avant',
   'Zoom out': 'Zoom arrière',
@@ -870,6 +874,7 @@ const _fr = <String, String>{
 };
 
 const _nl = <String, String>{
+  'Use a different code for each Table Display.': 'Gebruik voor elke tafelweergave een andere code.',
   'Nickname': 'Bijnaam',
   'Zoom in': 'Inzoomen',
   'Zoom out': 'Uitzoomen',
@@ -1074,6 +1079,7 @@ const _nl = <String, String>{
 };
 
 const _pt = <String, String>{
+  'Use a different code for each Table Display.': 'Use um código diferente para cada tela da mesa.',
   'Nickname': 'Apelido',
   'Zoom in': 'Ampliar',
   'Zoom out': 'Reduzir',
@@ -1278,6 +1284,7 @@ const _pt = <String, String>{
 };
 
 const _zh = <String, String>{
+  'Use a different code for each Table Display.': '每个桌面显示器都要使用不同的配对码。',
   'Nickname': '昵称',
   'Zoom in': '放大',
   'Zoom out': '缩小',
@@ -1482,6 +1489,7 @@ const _zh = <String, String>{
 };
 
 const _it = <String, String>{
+  'Use a different code for each Table Display.': 'Usa un codice diverso per ogni schermo tavolo.',
   'Nickname': 'Soprannome',
   'Zoom in': 'Ingrandisci',
   'Zoom out': 'Riduci',
@@ -1686,6 +1694,7 @@ const _it = <String, String>{
 };
 
 const _tok = <String, String>{
+  'Use a different code for each Table Display.': 'o kepeken nimi nanpa ante tawa ilo lukin supa ale.',
   'Nickname': 'nimi ante',
   'Zoom in': 'o suli e lukin',
   'Zoom out': 'o lili e lukin',

@@ -52,6 +52,56 @@ void main() {
       expect(moved.zoomAt(size, 1, size.center(Offset.zero)).pan, Offset.zero);
     },
   );
+  test('zoom enlarges the frame and resize refits the display', () {
+    final fitted = fitRemoteBoardRect(
+      hostSize: const Size(700, 500),
+      safePadding: const EdgeInsets.only(right: 250),
+      remoteSize: const Size(200, 100),
+    );
+    expect(fitted, const Rect.fromLTWH(0, 137.5, 450, 225));
+    final enlarged = const RemoteViewTransform(zoom: 2).displayRect(fitted);
+    expect(enlarged.size, const Size(900, 450));
+    expect(enlarged.center, fitted.center);
+
+    final fullScreen = fitRemoteBoardRect(
+      hostSize: const Size(1400, 800),
+      safePadding: EdgeInsets.zero,
+      remoteSize: const Size(200, 100),
+    );
+    expect(fullScreen, const Rect.fromLTWH(0, 50, 1400, 700));
+  });
+  testWidgets('zoomed board remains interactive outside the fitted frame', (
+    tester,
+  ) async {
+    Offset? localTap;
+    const fitted = Rect.fromLTWH(150, 100, 200, 100);
+    final enlarged = const RemoteViewTransform(zoom: 2).displayRect(fitted);
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            width: 500,
+            height: 300,
+            child: Stack(
+              children: [
+                Positioned.fromRect(
+                  rect: enlarged,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) => localTap = details.localPosition,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final stackTopLeft = tester.getTopLeft(find.byType(Stack));
+    await tester.tapAt(stackTopLeft + const Offset(75, 150));
+    expect(localTap, const Offset(25, 100));
+  });
   testWidgets('visual zoom maps taps back to unzoomed board coordinates', (
     tester,
   ) async {

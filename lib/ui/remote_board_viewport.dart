@@ -43,6 +43,15 @@ class RemoteViewTransform {
   final double zoom;
   final Offset pan;
 
+  Rect displayRect(Rect fittedRect) {
+    final view = clamped(fittedRect.size);
+    return Rect.fromCenter(
+      center: fittedRect.center + view.pan,
+      width: fittedRect.width * view.zoom,
+      height: fittedRect.height * view.zoom,
+    );
+  }
+
   RemoteViewTransform clamped(Size size) {
     final factor = zoom.clamp(minZoom, maxZoom).toDouble();
     final maxX = size.width * (factor - 1) / 2;
