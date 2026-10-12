@@ -26,6 +26,8 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build web --release --base-href /LightHouse/
+      - name: Include Abandoned Lighthouse legacy app
+        run: mkdir -p build/web/legacy && cp legacy/index.html build/web/legacy/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
