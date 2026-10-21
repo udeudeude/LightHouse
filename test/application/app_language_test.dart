@@ -13,7 +13,7 @@ void main() {
     expect(tr('Encrypted relay'), '加密中继');
     expect(tr('Controller'), '控制器');
     expect(tr('Remote device disconnected.'), '远程设备已断开连接。');
-    expect(tr('Show gestures again'), '再次显示手势');
+    expect(tr('Show gesture hints again'), '再次显示手势提示');
     expect(tr('Percentile D10'), '百分位 D10');
   });
 

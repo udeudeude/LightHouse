@@ -285,9 +285,6 @@ class _BoardScreenState extends State<BoardScreen>
   bool _onboardingHollowed = false;
   bool _onboardingTransformed = false;
   bool _onboardingMenuOpened = false;
-  bool _onboardingCreateHintShown = false;
-  bool _onboardingTipHintShown = false;
-  bool _onboardingHollowHintShown = false;
   bool _onboardingTransformHintShown = false;
   bool _onboardingHaikuVisible = false;
   bool _onboardingTapTapVisible = false;
@@ -614,7 +611,7 @@ class _BoardScreenState extends State<BoardScreen>
   void _scheduleCreateHint() {
     if (!_onboardingInitialized ||
         _onboardingCreated ||
-        _onboardingCreateHintShown ||
+        _onboardingTapTapVisible ||
         _onboardingCreateTimer != null) {
       return;
     }
@@ -625,7 +622,6 @@ class _BoardScreenState extends State<BoardScreen>
           _controller.state.elements.isNotEmpty) {
         return;
       }
-      _onboardingCreateHintShown = true;
       setState(() => _onboardingTapTapVisible = true);
       _showOnboardingHintFor(_onboardingHintDuration);
     });
@@ -635,7 +631,7 @@ class _BoardScreenState extends State<BoardScreen>
     if (!_onboardingInitialized ||
         !_onboardingCreated ||
         _onboardingTipped ||
-        _onboardingTipHintShown ||
+        _onboardingTipTargetId != null ||
         _onboardingTipTimer != null ||
         _onboardingSquare == null) {
       return;
@@ -645,7 +641,6 @@ class _BoardScreenState extends State<BoardScreen>
       if (!mounted || _onboardingTipped) return;
       final target = _onboardingSquare;
       if (target == null) return;
-      _onboardingTipHintShown = true;
       setState(() => _onboardingTipTargetId = target.id);
       _showOnboardingHintFor(_onboardingHintDuration);
     });
@@ -655,7 +650,7 @@ class _BoardScreenState extends State<BoardScreen>
     if (!_onboardingInitialized ||
         !_onboardingTipped ||
         _onboardingHollowed ||
-        _onboardingHollowHintShown ||
+        _onboardingHollowTargetId != null ||
         _onboardingHollowTimer != null ||
         _onboardingSquare == null) {
       return;
@@ -665,7 +660,6 @@ class _BoardScreenState extends State<BoardScreen>
       if (!mounted || _onboardingHollowed) return;
       final target = _onboardingSquare;
       if (target == null) return;
-      _onboardingHollowHintShown = true;
       setState(() => _onboardingHollowTargetId = target.id);
       _showOnboardingHintFor(_onboardingHintDuration);
     });
@@ -683,7 +677,20 @@ class _BoardScreenState extends State<BoardScreen>
         _onboardingTransformTargetId = null;
       });
       _syncOnboardingAnimation();
+      _scheduleNextOnboardingHint();
     });
+  }
+
+  void _scheduleNextOnboardingHint() {
+    if (!_onboardingCreated) {
+      _scheduleCreateHint();
+    } else if (!_onboardingTipped) {
+      _scheduleTipHintIfPossible();
+    } else if (!_onboardingHollowed) {
+      _scheduleHollowHintIfPossible();
+    } else if (!_onboardingTransformed) {
+      _scheduleTransformHintIfPossible();
+    }
   }
 
   void _syncOnboardingAnimation() {
@@ -705,6 +712,7 @@ class _BoardScreenState extends State<BoardScreen>
 
   void _recordOnboardingCreated() {
     if (!_onboardingInitialized || _onboardingCreated) return;
+    _cancelOnboardingReplay();
     _onboardingCreated = true;
     _onboardingCreateTimer?.cancel();
     _onboardingCreateTimer = null;
@@ -723,6 +731,7 @@ class _BoardScreenState extends State<BoardScreen>
 
   void _recordOnboardingTipped() {
     if (!_onboardingInitialized || _onboardingTipped) return;
+    _cancelOnboardingReplay();
     _onboardingTipped = true;
     _onboardingTipTimer?.cancel();
     _onboardingTipTimer = null;
@@ -741,6 +750,7 @@ class _BoardScreenState extends State<BoardScreen>
 
   void _recordOnboardingHollowed() {
     if (!_onboardingInitialized || _onboardingHollowed) return;
+    _cancelOnboardingReplay();
     _onboardingHollowed = true;
     _onboardingHollowTimer?.cancel();
     _onboardingHollowTimer = null;
@@ -761,26 +771,31 @@ class _BoardScreenState extends State<BoardScreen>
     if (!_onboardingInitialized ||
         !_onboardingHollowed ||
         _onboardingTransformed ||
-        _onboardingTransformHintShown ||
+        _onboardingTransformTargetId != null ||
         _onboardingTransformTimer != null ||
         _onboardingSquare == null ||
-        (defaultTargetPlatform != TargetPlatform.iOS &&
+        (!_desktopPointerPlatform &&
+            defaultTargetPlatform != TargetPlatform.iOS &&
             defaultTargetPlatform != TargetPlatform.android)) {
       return;
     }
-    _onboardingTransformTimer = Timer(_onboardingTransformWait, () {
-      _onboardingTransformTimer = null;
-      if (!mounted || _onboardingTransformed) return;
-      final target = _onboardingSquare;
-      if (target == null) return;
-      _onboardingTransformHintShown = true;
-      setState(() => _onboardingTransformTargetId = target.id);
-      _showOnboardingHintFor(_onboardingHintDuration);
-    });
+    _onboardingTransformTimer = Timer(
+      _onboardingTransformHintShown ? _onboardingWait : _onboardingTransformWait,
+      () {
+        _onboardingTransformTimer = null;
+        if (!mounted || _onboardingTransformed) return;
+        final target = _onboardingSquare;
+        if (target == null) return;
+        _onboardingTransformHintShown = true;
+        setState(() => _onboardingTransformTargetId = target.id);
+        _showOnboardingHintFor(_onboardingHintDuration);
+      },
+    );
   }
 
   void _recordOnboardingTransformed() {
     if (!_onboardingInitialized || _onboardingTransformed) return;
+    _cancelOnboardingReplay();
     _onboardingTransformed = true;
     _onboardingTransformTimer?.cancel();
     _onboardingTransformTimer = null;
@@ -842,6 +857,14 @@ class _BoardScreenState extends State<BoardScreen>
 
   void _replayOnboardingGestures() {
     _cancelOnboardingReplay();
+    _onboardingCreateTimer?.cancel();
+    _onboardingCreateTimer = null;
+    _onboardingTipTimer?.cancel();
+    _onboardingTipTimer = null;
+    _onboardingHollowTimer?.cancel();
+    _onboardingHollowTimer = null;
+    _onboardingTransformTimer?.cancel();
+    _onboardingTransformTimer = null;
     _onboardingHintHideTimer?.cancel();
     _onboardingHintHideTimer = null;
     final target = _onboardingSquare;
@@ -862,6 +885,7 @@ class _BoardScreenState extends State<BoardScreen>
           if (!mounted) return;
           setState(() => _onboardingTapTapVisible = false);
           _syncOnboardingAnimation();
+          _scheduleNextOnboardingHint();
         }),
       );
       return;
@@ -899,6 +923,7 @@ class _BoardScreenState extends State<BoardScreen>
         if (!mounted) return;
         setState(() => _onboardingTransformTargetId = null);
         _syncOnboardingAnimation();
+        _scheduleNextOnboardingHint();
       }),
     );
   }
@@ -5819,7 +5844,7 @@ class _BoardScreenState extends State<BoardScreen>
                         ),
                         onPressed: _replayOnboardingGestures,
                         icon: const Icon(Icons.gesture, size: 17),
-                        label: Text(tr('Show gestures again')),
+                        label: Text(tr('Show gesture hints again')),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -6266,6 +6291,7 @@ class _BoardScreenState extends State<BoardScreen>
             animation: _onboardingAnimation,
             logicalPixelsPerMm: _pixelsPerMm,
             geometry: _controller.geometry,
+            desktopMode: _desktopPointerPlatform,
             showHaiku: _onboardingHaikuVisible,
             showTapTap: _onboardingTapTapVisible,
             tipTarget: _onboardingTipTargetId == null

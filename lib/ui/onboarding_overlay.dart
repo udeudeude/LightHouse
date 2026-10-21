@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../application/app_language.dart';
 import '../domain/light_element.dart';
 import '../domain/pyramid_geometry.dart';
 
@@ -20,6 +21,7 @@ class OnboardingOverlay extends StatelessWidget {
     required this.geometry,
     required this.showHaiku,
     required this.showTapTap,
+    this.desktopMode = false,
     this.tipTarget,
     this.hollowTarget,
     this.transformTarget,
@@ -30,6 +32,7 @@ class OnboardingOverlay extends StatelessWidget {
   final PyramidGeometryProfile geometry;
   final bool showHaiku;
   final bool showTapTap;
+  final bool desktopMode;
   final LightElement? tipTarget;
   final LightElement? hollowTarget;
   final LightElement? transformTarget;
@@ -74,19 +77,51 @@ class OnboardingOverlay extends StatelessWidget {
                     tipTarget: tipTarget,
                     hollowTarget: hollowTarget,
                     transformTarget: transformTarget,
+                    desktopMode: desktopMode,
                   ),
                 ),
                 if (showTapTap)
                   Center(
                     child: Opacity(
                       opacity: tapOpacity,
-                      child: const Text(
-                        'Tap. Tap.',
-                        style: TextStyle(
+                      child: Text(
+                        desktopMode ? '${tr('Double-click')}.' : 'Tap. Tap.',
+                        style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 24,
                           fontWeight: FontWeight.w400,
                           letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (desktopMode &&
+                    (tipTarget != null ||
+                        hollowTarget != null ||
+                        transformTarget != null))
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xDD171717),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            tipTarget != null
+                                ? '${tr('Gestures')} · ${tr('Tip / stand')}'
+                                : hollowTarget != null
+                                ? '${tr('Gestures')} · ${tr('Full / wall light')}'
+                                : '${tr('Move')}: ${tr('Drag to move')}  ·  ${tr('Rotate')}: ← →',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
                         ),
                       ),
                     ),
@@ -108,6 +143,7 @@ class OnboardingGesturePainter extends CustomPainter {
     this.tipTarget,
     this.hollowTarget,
     this.transformTarget,
+    this.desktopMode = false,
   });
 
   final double logicalPixelsPerMm;
@@ -116,6 +152,7 @@ class OnboardingGesturePainter extends CustomPainter {
   final LightElement? tipTarget;
   final LightElement? hollowTarget;
   final LightElement? transformTarget;
+  final bool desktopMode;
 
   double get _drawProgress => (phase / 0.68).clamp(0.0, 1.0).toDouble();
 
@@ -147,7 +184,13 @@ class OnboardingGesturePainter extends CustomPainter {
     if (hollow != null) _paintHollowHint(canvas, hollow);
 
     final transform = transformTarget;
-    if (transform != null) _paintTransformHint(canvas, transform);
+    if (transform != null) {
+      if (desktopMode) {
+        _paintDesktopTransformHint(canvas, transform);
+      } else {
+        _paintTransformHint(canvas, transform);
+      }
+    }
   }
 
   void _paintTipHint(Canvas canvas, Size size, LightElement element) {
@@ -252,6 +295,22 @@ class OnboardingGesturePainter extends CustomPainter {
     canvas.drawCircle(midpoint - axis, dotRadius, paint);
   }
 
+  void _paintDesktopTransformHint(Canvas canvas, LightElement element) {
+    final center = _center(element);
+    final base = geometry.baseMm(element.size) * logicalPixelsPerMm;
+    final start = center + Offset(-base * 0.4, base * 0.25);
+    final finish = center + Offset(base * 0.5, base * 0.25);
+    final progress = Curves.easeInOut.transform(
+      (phase / 0.72).clamp(0.0, 1.0).toDouble(),
+    );
+    final point = Offset.lerp(start, finish, progress)!;
+    canvas.drawLine(start, point, _paint);
+    canvas.drawCircle(point, math.max(3, base * 0.07), _paint);
+    if (progress > 0.45) {
+      _paintArrowHead(canvas, point, const Offset(1, 0), base * 0.16);
+    }
+  }
+
   void _paintArrowHead(
     Canvas canvas,
     Offset tip,
@@ -284,5 +343,6 @@ class OnboardingGesturePainter extends CustomPainter {
       oldDelegate.phase != phase ||
       oldDelegate.tipTarget != tipTarget ||
       oldDelegate.hollowTarget != hollowTarget ||
-      oldDelegate.transformTarget != transformTarget;
+      oldDelegate.transformTarget != transformTarget ||
+      oldDelegate.desktopMode != desktopMode;
 }

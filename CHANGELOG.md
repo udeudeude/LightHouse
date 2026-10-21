@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Repeated unfinished gesture hints 35 seconds after each hint disappears, adapted the first-use and move/rotate hints to desktop mouse controls, and renamed the Instructions replay button to “Show gesture hints again.” Advanced the web build marker to 41.
 - Rounded Safety Points are now the starting shape, with an optional Sharp Tips switch. Desktop boards expose Gestures, Move, and Rotate tools for mouse dragging, while the Dice Bubble has a drag handle and size buttons. Advanced the web build marker to 40.
 - Moved the Remote pairing instruction above the code field so it wraps legibly on narrow phones instead of being truncated beside the character counter. Advanced the web build marker to 39.
 - Made Remote display frames follow fullscreen resizing and Controller zoom, added larger concurrent table previews on wide Controllers, clarified that additional tables need distinct pairing codes, changed Zendo difficulty to independent checkboxes, and enabled CPU rendering for iPadOS 15 web startup. Advanced the web build marker to 38.

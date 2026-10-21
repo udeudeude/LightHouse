@@ -46,6 +46,38 @@ void main() {
     expect(onboardingHaikuFadeDuration, const Duration(milliseconds: 1500));
   });
 
+  testWidgets('desktop hints describe mouse controls', (tester) async {
+    const square = LightElement(
+      id: 'square',
+      size: PyramidSize.medium,
+      pose: PyramidPose.upright,
+      position: PhysicalPoint(60, 80),
+      headingDegrees: 0,
+      illumination: IlluminationPattern.full,
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 400,
+          height: 500,
+          child: OnboardingOverlay(
+            animation: AlwaysStoppedAnimation<double>(0.5),
+            logicalPixelsPerMm: 2,
+            geometry: PyramidGeometryProfile.prototype2025,
+            showHaiku: false,
+            showTapTap: true,
+            desktopMode: true,
+            transformTarget: square,
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Double-click.'), findsOneWidget);
+    expect(find.text('Tap. Tap.'), findsNothing);
+    expect(find.textContaining('Move: Drag to move'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('first-use defaults and timing remain deliberately sparse', () {
     final source = File('lib/ui/board_screen.dart').readAsStringSync();
 
@@ -82,7 +114,7 @@ void main() {
         'static const Duration _onboardingMenuWait = Duration(seconds: 90);',
       ),
     );
-    expect(source, contains("tr('Show gestures again')"));
+    expect(source, contains("tr('Show gesture hints again')"));
     expect(source, contains('_recordOnboardingMenuOpened();'));
   });
 
