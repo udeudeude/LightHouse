@@ -190,7 +190,9 @@ void main() {
     expect(controller.state.elements, orderedEquals(before.elements));
   });
 
-  test('New restores the complete prior board in one undo and can be redone', () {
+  test(
+    'New restores the complete prior board in one undo and can be redone',
+    () {
     final controller = BoardController();
     controller.createAt(const PhysicalPoint(25, 40));
     final before = controller.state.copyWith(
@@ -218,7 +220,8 @@ void main() {
     controller.undo();
     controller.undo();
     expect(controller.state.elements, isEmpty);
-  });
+    },
+  );
 
   test('snapAllHeadings rounds every shape to the active increment', () {
     final controller = BoardController(
