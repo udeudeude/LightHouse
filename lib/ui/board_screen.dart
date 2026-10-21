@@ -250,7 +250,8 @@ class _BoardScreenState extends State<BoardScreen>
   DateTime? _lastRippleTickAt;
   double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
-  DiceBubbleSnapshot _secondDiceSnapshot = const DiceBubbleSnapshot(
+  static const DiceBubbleSnapshot _initialSecondDiceSnapshot =
+      DiceBubbleSnapshot(
     revision: 0,
     rollSerial: 0,
     selectedIds: ['standard#1'],
@@ -258,6 +259,7 @@ class _BoardScreenState extends State<BoardScreen>
     xFraction: 0.78,
     yFraction: 0.14,
   );
+  DiceBubbleSnapshot _secondDiceSnapshot = _initialSecondDiceSnapshot;
   // 0: off, 1: first, 2: both, 3: second.
   int _diceBubbleCount = 0;
   ZendoStonesSnapshot _zendoSnapshot = ZendoStonesSnapshot.initial;
@@ -4899,11 +4901,64 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   void _newBoard() {
+    _effectGeneration += 1;
+    _entropyGeneration += 1;
+    _entropyTimer?.cancel();
+    _entropyTimer = null;
+    _toyTicker?.cancel();
+    _toyTicker = null;
+    _lastToyTickAt = null;
+
+    _activeToys.clear();
+    _randomizerRunning = false;
+    _entropyEnabled = false;
+    _effectOpacities = const {};
+    _burstCenter = null;
+    _burstProgress = null;
+    _toyClock = 0;
+    _squareChaseSeed = 0;
+    _radarAngleDegrees = 0;
+    _redSweepY = 0;
+    _redSweepNeedleVisible = false;
+    _eventZoneEndsAt = null;
+    _eventZoneCenter = null;
+    _eventZoneRadiusMm = null;
+    _eventZoneProgress = null;
+    _eventZoneDismiss = 0;
+    _turnTimerEndsAt = null;
+    _turnTimerProgress = null;
+    _timerNeedleVisible = false;
+    _projectiles = const [];
+    _impacts = const [];
+    _sideGunAnglesDegrees.setAll(0, [45, 135, 315, 225]);
+    _sideGunAmmo.fillRange(0, _sideGunAmmo.length, 0);
+    _constellationElementIds = const [];
+    _heartbeatOddId = null;
+    _heartbeatStartedAt = 0;
+    _ghostTrailActive = false;
+    _ghostTrails.clear();
+    _elementVerticalBounds.clear();
+    _checkerUnderlays = false;
+    _diceSnapshot = DiceBubbleSnapshot.initial;
+    _secondDiceSnapshot = _initialSecondDiceSnapshot;
+    _diceBubbleCount = 0;
+    _zendoSnapshot = ZendoStonesSnapshot.initial;
+    _zendoPieceMode = PieceCycleMode.classic;
+    _zendoRuleIndex = -1;
+    _zendoRuleVisible = false;
+    _zendoDifficulties = {ZendoRuleDifficulty.easy};
+    _remoteControlState = _remoteControlState.clearRipples();
+    _syncRippleTicker();
+    _historyControlsTimer?.cancel();
+    _historyControlsTimer = null;
+    _historyControlsVisible = false;
+
+    _activeSavedId = null;
+    _selectedId = null;
     _controller.newBoard();
-    setState(() {
-      _activeSavedId = null;
-      _selectedId = null;
-    });
+    _toyRevision.value += 1;
+    unawaited(_sendRemoteRuntimeIfChanged(force: true));
+    unawaited(_sendRemoteControlCommand('clearRipples'));
   }
 
   Widget _menu() => AnimatedBuilder(
