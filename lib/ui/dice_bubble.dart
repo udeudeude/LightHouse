@@ -902,8 +902,12 @@ class _DiceBubbleState extends State<DiceBubble>
                           child: GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onPanUpdate: (details) {
-                              setState(() => _center =
-                                  _clampCenter(_center + details.delta, size));
+                              setState(
+                                () => _center = _clampCenter(
+                                  _center + details.delta,
+                                  size,
+                                ),
+                              );
                               _emitSnapshot();
                             },
                             child: const Icon(Icons.drag_handle, size: 18),
