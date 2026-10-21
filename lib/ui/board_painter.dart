@@ -21,7 +21,7 @@ class BoardPainter extends CustomPainter {
     this.triangleBouncePhase,
     this.squareChasePhase,
     this.squareChaseSeed = 0,
-    this.roundTriangleTips = false,
+    this.roundTriangleTips = true,
     this.checkerUnderlays = false,
   });
 
