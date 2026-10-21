@@ -919,6 +919,7 @@ class _DiceBubbleState extends State<DiceBubble>
                         constraints: const BoxConstraints.tightFor(
                           width: 30,
                           height: 30,
+                        ),
                         onPressed: () => _resizeFromControl(0.15, size),
                         icon: const Icon(Icons.add, size: 18),
                       ),
