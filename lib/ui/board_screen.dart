@@ -485,7 +485,8 @@ class _BoardScreenState extends State<BoardScreen>
     if (secondDice != null) _secondDiceSnapshot = secondDice;
     _diceBubbleCount = ((data['diceBubbleCount'] as num?)?.toInt() ??
             (_activeToys.contains(_ToyKind.wireDie) ? 1 : 0))
-        .clamp(0, 2);
+        .clamp(0, 2)
+        .toInt();
     final zendo = ZendoStonesSnapshot.fromJson(data['zendo']);
     if (zendo != null) _zendoSnapshot = zendo;
 
@@ -2787,7 +2788,8 @@ class _BoardScreenState extends State<BoardScreen>
       if (secondDice != null) _secondDiceSnapshot = secondDice;
       _diceBubbleCount = ((payload['diceBubbleCount'] as num?)?.toInt() ??
               (active.contains(_ToyKind.wireDie) ? 1 : 0))
-          .clamp(0, 2);
+          .clamp(0, 2)
+          .toInt();
       if (zendo != null) _zendoSnapshot = zendo;
     });
     _toyRevision.value += 1;

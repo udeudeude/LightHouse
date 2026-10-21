@@ -394,8 +394,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
                     duration: const Duration(milliseconds: 120),
                     curve: Curves.easeOutBack,
                     width: (stone.expanded ? _largeRadius : _smallRadius) * 2,
-                    height:
-                        (stone.expanded ? _largeRadius : _smallRadius) * 2,
+                    height: (stone.expanded ? _largeRadius : _smallRadius) * 2,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: _fill(stone.kind),
