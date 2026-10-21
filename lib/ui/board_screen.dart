@@ -4949,6 +4949,9 @@ class _BoardScreenState extends State<BoardScreen>
     _zendoDifficulties = {ZendoRuleDifficulty.easy};
     _remoteControlState = _remoteControlState.clearRipples();
     _syncRippleTicker();
+    _historyControlsTimer?.cancel();
+    _historyControlsTimer = null;
+    _historyControlsVisible = false;
 
     _activeSavedId = null;
     _selectedId = null;
