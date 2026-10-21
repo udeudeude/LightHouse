@@ -15,6 +15,9 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: |
+          dart format lib/ui/zendo_stones.dart
+          git diff -- lib/ui/zendo_stones.dart
+      - run: |
           find lib test -name '*.dart' \
             ! -path 'lib/application/app_language.dart' \
             ! -path 'lib/ui/board_screen.dart' \
