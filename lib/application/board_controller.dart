@@ -503,7 +503,14 @@ class BoardController extends ChangeNotifier {
     _execute(ReplaceBoardStateCommand(before: _state, after: state));
   }
 
-  void newBoard() => replaceState(BoardState.empty());
+  void newBoard({BoardState? before}) {
+    _execute(
+      ReplaceBoardStateCommand(
+        before: before ?? _state,
+        after: BoardState.empty(),
+      ),
+    );
+  }
 
   void undo() {
     if (_undoStack.isEmpty) return;

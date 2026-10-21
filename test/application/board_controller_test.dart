@@ -190,6 +190,36 @@ void main() {
     expect(controller.state.elements, orderedEquals(before.elements));
   });
 
+  test('New restores the complete prior board in one undo and can be redone', () {
+    final controller = BoardController();
+    controller.createAt(const PhysicalPoint(25, 40));
+    final before = controller.state.copyWith(
+      tableData: {
+        'diceBubbleCount': 2,
+        'zendo': {'stones': <Object>[]},
+        'activeToys': ['wireDie'],
+      },
+    );
+
+    controller.newBoard(before: before);
+    expect(controller.state.elements, isEmpty);
+    expect(controller.state.tableData, isEmpty);
+    expect(controller.canUndo, isTrue);
+
+    controller.undo();
+    expect(identical(controller.state, before), isTrue);
+    expect(controller.state.elements, hasLength(1));
+    expect(controller.state.tableData['diceBubbleCount'], 2);
+    expect(controller.state.tableData['zendo'], {'stones': <Object>[]});
+
+    controller.redo();
+    expect(controller.state.elements, isEmpty);
+    expect(controller.state.tableData, isEmpty);
+    controller.undo();
+    controller.undo();
+    expect(controller.state.elements, isEmpty);
+  });
+
   test('snapAllHeadings rounds every shape to the active increment', () {
     final controller = BoardController(
       initialState: BoardState(

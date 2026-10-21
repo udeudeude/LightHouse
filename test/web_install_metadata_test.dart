@@ -39,13 +39,13 @@ void main() {
     expect(manifest.containsKey('icons'), isFalse);
 
     final index = File('web/index.html').readAsStringSync();
-    const manifestLink = 'rel="manifest" href="manifest.json?v=45"';
+    const manifestLink = 'rel="manifest" href="manifest.json?v=46"';
     const touchIcon =
         'rel="apple-touch-icon" sizes="180x180" '
         'href="icons/Icon-180.png"';
     expect(index, contains(manifestLink));
-    expect(index, contains('favicon.png?v=45'));
-    expect(index, contains('flutter_bootstrap.js?v=45'));
+    expect(index, contains('favicon.png?v=46'));
+    expect(index, contains('flutter_bootstrap.js?v=46'));
     expect(index, contains(touchIcon));
 
     final icon = File('web/icons/Icon-180.png');
