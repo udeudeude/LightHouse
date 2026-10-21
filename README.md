@@ -25,7 +25,7 @@ The web build requires manual physical calibration because browsers do not relia
 - loose encirclement gesture around an upright footprint to toggle full/wall illumination
 - exact-footprint one-finger directional drag to tip or stand, without an interaction halo
 - two-finger translate and rotate on touch devices
-- mouse/trackpad interaction on desktop with device-specific instructions
+- desktop Gestures, Move, and Rotate tools for ordinary mouse or basic trackpad dragging; Shift-drag moves and Option/Alt-drag rotates without changing tools
 - direct orientation controls at 45-degree intervals
 - persistent optional rotation snapping at 15, 30, 45, or 90 degrees, shown by degree ticks inside the menu control
 - optional position snapping to the active underlay

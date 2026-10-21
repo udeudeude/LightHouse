@@ -68,6 +68,8 @@ enum _ToyKind {
   String get preferenceKey => 'lighthouse.toy.$name.visible.v2';
 }
 
+enum _DesktopBoardTool { gestures, move, rotate }
+
 class _RemoteTableConnection {
   _RemoteTableConnection(this.session, this.nickname, this.state);
 
@@ -146,7 +148,16 @@ class _BoardScreenState extends State<BoardScreen>
   String? _activeSavedId;
 
   bool _mouseTransform = false;
+  bool _mouseEditTransform = false;
   PhysicalPoint? _mouseLast;
+  _DesktopBoardTool _desktopBoardTool = _DesktopBoardTool.gestures;
+  _DesktopBoardTool _desktopDragTool = _DesktopBoardTool.gestures;
+
+  bool get _desktopPointerPlatform =>
+      kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
 
   bool _trackpadTransform = false;
   double _trackpadLastRotation = 0;
@@ -216,7 +227,7 @@ class _BoardScreenState extends State<BoardScreen>
   bool _creditsVisible = false;
   bool _instructionsVisible = false;
   bool _motionPermissionAttempted = false;
-  bool _roundedTriangleTips = false;
+  bool _roundedTriangleTips = true;
   bool _historyControlsVisible = false;
   Timer? _historyControlsTimer;
   Timer? _saveDebounceTimer;
@@ -435,6 +446,7 @@ class _BoardScreenState extends State<BoardScreen>
     ],
     'checkerUnderlays': _checkerUnderlays,
     'roundedTriangleTips': _roundedTriangleTips,
+    'sharpTriangleTips': !_roundedTriangleTips,
     'sideGunAnglesDegrees': List<double>.from(_sideGunAnglesDegrees),
     'sideGunAmmo': List<int>.from(_sideGunAmmo),
     'turnTimerDurationSeconds': _turnTimerDurationSeconds,
@@ -494,7 +506,9 @@ class _BoardScreenState extends State<BoardScreen>
     }
 
     _checkerUnderlays = data['checkerUnderlays'] == true;
-    _roundedTriangleTips = data['roundedTriangleTips'] == true;
+    if (data.containsKey('sharpTriangleTips')) {
+      _roundedTriangleTips = data['sharpTriangleTips'] != true;
+    }
     _turnTimerDurationSeconds =
         ((data['turnTimerDurationSeconds'] as num?)?.toDouble() ??
                 _turnTimerDurationSeconds)
@@ -1053,7 +1067,7 @@ class _BoardScreenState extends State<BoardScreen>
       _checkerUnderlays =
           preferences.getBool('lighthouse.checkerUnderlays.v1') ?? false;
       _roundedTriangleTips =
-          preferences.getBool('lighthouse.roundedTriangleTips.v1') ?? false;
+          !(preferences.getBool('lighthouse.sharpTriangleTips.v1') ?? false);
       _turnTimerDurationSeconds =
           (preferences.getDouble('lighthouse.turnTimerSeconds.v1') ?? 30)
               .clamp(10, 300)
@@ -1105,12 +1119,12 @@ class _BoardScreenState extends State<BoardScreen>
     _scheduleSave();
   }
 
-  Future<void> _toggleRoundedTriangleTips() async {
+  Future<void> _toggleSharpTriangleTips() async {
     setState(() => _roundedTriangleTips = !_roundedTriangleTips);
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(
-      'lighthouse.roundedTriangleTips.v1',
-      _roundedTriangleTips,
+      'lighthouse.sharpTriangleTips.v1',
+      !_roundedTriangleTips,
     );
     _scheduleSave();
   }
@@ -2695,7 +2709,7 @@ class _BoardScreenState extends State<BoardScreen>
       }
       _constellationElementIds = constellation;
       _checkerUnderlays = payload['checkerUnderlays'] == true;
-      _roundedTriangleTips = payload['roundedTriangleTips'] == true;
+      _roundedTriangleTips = payload['roundedTriangleTips'] != false;
       if (dice != null) _diceSnapshot = dice;
       if (zendo != null) _zendoSnapshot = zendo;
     });
@@ -4192,6 +4206,26 @@ class _BoardScreenState extends State<BoardScreen>
     _oneFingerPath
       ..clear()
       ..add(point);
+    final keys = HardwareKeyboard.instance.logicalKeysPressed;
+    final tool = keys.contains(LogicalKeyboardKey.altLeft) ||
+            keys.contains(LogicalKeyboardKey.altRight)
+        ? _DesktopBoardTool.rotate
+        : keys.contains(LogicalKeyboardKey.shiftLeft) ||
+              keys.contains(LogicalKeyboardKey.shiftRight)
+        ? _DesktopBoardTool.move
+        : _desktopBoardTool;
+    _mouseEditTransform = false;
+    if (_desktopPointerPlatform && tool != _DesktopBoardTool.gestures) {
+      final target = _transformTarget;
+      if (target != null) {
+        _finishDesktopScrollTransform();
+        _transformStarted = true;
+        _mouseEditTransform = true;
+        _desktopDragTool = tool;
+        setState(() => _selectedId = target.id);
+        _controller.beginTransform(target);
+      }
+    }
   }
 
   void _onPointerMove(PointerMoveEvent event) {
@@ -4201,6 +4235,22 @@ class _BoardScreenState extends State<BoardScreen>
     if (last == null) return;
     _mouseLast = current;
     _oneFingerLast = current;
+    if (_mouseEditTransform) {
+      final delta = current - last;
+      if (_desktopDragTool == _DesktopBoardTool.move) {
+        if (delta.distanceTo(PhysicalPoint.zero) > 0.01) {
+          _transformTranslated = true;
+          _controller.transformBy(delta, 0);
+        }
+      } else if (_desktopDragTool == _DesktopBoardTool.rotate) {
+        final rotation = event.localDelta.dx * 0.01;
+        if (rotation.abs() > 0.0001) {
+          _transformRotated = true;
+          _controller.transformBy(PhysicalPoint.zero, rotation);
+        }
+      }
+      return;
+    }
     if (_oneFingerPath.isEmpty ||
         _oneFingerPath.last.distanceTo(current) >= 0.7) {
       _oneFingerPath.add(current);
@@ -4209,6 +4259,14 @@ class _BoardScreenState extends State<BoardScreen>
 
   void _onPointerUp(PointerUpEvent event) {
     if (!_mouseTransform || event.kind != PointerDeviceKind.mouse) return;
+    if (_mouseEditTransform) {
+      _endTransformWithSnaps();
+      _mouseTransform = false;
+      _mouseEditTransform = false;
+      _mouseLast = null;
+      _clearGesture();
+      return;
+    }
     final start = _oneFingerStart;
     final end = _oneFingerLast;
     final exact = _preciseTarget;
@@ -4340,6 +4398,7 @@ class _BoardScreenState extends State<BoardScreen>
   void _onPointerCancel(PointerCancelEvent event) {
     _controller.cancelTransform();
     _mouseTransform = false;
+    _mouseEditTransform = false;
     _mouseLast = null;
     _clearGesture();
   }
@@ -5490,8 +5549,8 @@ class _BoardScreenState extends State<BoardScreen>
       _compactMenuItem(
         'round',
         Icons.change_history,
-        'Safety Points',
-        checked: _roundedTriangleTips,
+        'Sharp Tips',
+        checked: !_roundedTriangleTips,
       ),
       _compactMenuItem('brightness', Icons.brightness_6_outlined, 'Brightness'),
       _compactMenuItem(
@@ -5511,7 +5570,7 @@ class _BoardScreenState extends State<BoardScreen>
       case 'orientation':
         await _showOrientationLockInfo();
       case 'round':
-        await _toggleRoundedTriangleTips();
+        await _toggleSharpTriangleTips();
       case 'fullscreen':
         await _showWebInstallHelp();
     }
@@ -5617,11 +5676,7 @@ class _BoardScreenState extends State<BoardScreen>
 
   Widget _instructionsPane() {
     final size = MediaQuery.sizeOf(context);
-    final isDesktop =
-        kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.macOS ||
-            defaultTargetPlatform == TargetPlatform.windows ||
-            defaultTargetPlatform == TargetPlatform.linux);
+    final isDesktop = _desktopPointerPlatform;
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final isTablet = size.shortestSide >= 600;
     final deviceName = isDesktop
@@ -5635,10 +5690,10 @@ class _BoardScreenState extends State<BoardScreen>
     final instructions = isDesktop
         ? <(String, String)>[
             ('Create / resize / delete', 'Double-click'),
-            ('Tip / stand', 'Drag through the footprint edge'),
-            ('Full / wall light', 'Draw a loop around an upright footprint'),
-            ('Move', 'Two-finger scroll over a footprint'),
-            ('Rotate', 'Shift + two-finger scroll'),
+            ('Tip / stand', 'Choose Gestures, then drag through the footprint edge'),
+            ('Full / wall light', 'Choose Gestures, then draw a loop around an upright footprint'),
+            ('Move', 'Choose Move, then drag a piece; or Shift-drag'),
+            ('Rotate', 'Choose Rotate, then drag left or right; or Option/Alt-drag'),
             (
               'Rotation snap',
               'Edit > Rotation Snap; Snap Now aligns every shape immediately',
@@ -5646,7 +5701,7 @@ class _BoardScreenState extends State<BoardScreen>
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
-              'Press/release to roll; two-finger drag moves; latch tiles cycle die counts',
+              'Click to roll; drag the handle to move; use + / − to resize; latch tiles cycle die counts',
             ),
             (
               'Zendo stones',
@@ -6015,6 +6070,40 @@ class _BoardScreenState extends State<BoardScreen>
     ),
   );
 
+  Widget _desktopBoardTools() => Material(
+    color: const Color(0xCC171717),
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (tool, icon, label) in <(_DesktopBoardTool, IconData, String)>[
+            (_DesktopBoardTool.gestures, Icons.gesture, 'Gestures'),
+            (_DesktopBoardTool.move, Icons.open_with, 'Move'),
+            (_DesktopBoardTool.rotate, Icons.rotate_right, 'Rotate'),
+          ])
+            Tooltip(
+              message: tr(label),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  backgroundColor: _desktopBoardTool == tool
+                      ? Colors.white24
+                      : Colors.transparent,
+                  foregroundColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 7),
+                ),
+                onPressed: () => setState(() => _desktopBoardTool = tool),
+                icon: Icon(icon, size: 21),
+                label: Text(tr(label)),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+
   Future<void> _openGithub() async {
     final uri = Uri.parse('https://github.com/udeudeude/LightHouse');
     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -6280,6 +6369,10 @@ class _BoardScreenState extends State<BoardScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_desktopPointerPlatform && !_remoteDisplayMode) ...[
+                    _desktopBoardTools(),
+                    const SizedBox(height: 6),
+                  ],
                   if (_remoteControllerMode &&
                       _remoteSession?.peerSeen == true) ...[
                     _remoteControllerQuickControls(),
