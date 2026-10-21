@@ -550,18 +550,6 @@ class _DiceBubbleState extends State<DiceBubble>
         .toDouble(),
   );
 
-  void _resizeFromControl(double step, Size size) {
-    final next = (_bubbleScale + step)
-        .clamp(0.65, _maximumBubbleScaleFor(size))
-        .toDouble();
-    if (next == _bubbleScale) return;
-    setState(() {
-      _bubbleScale = next;
-      _center = _clampCenter(_center, size);
-    });
-    _emitSnapshot();
-  }
-
   Widget _selectorImage(ArcadeDieChoice choice) {
     final darkBody = arcadeDieUsesDarkBody(choice.kind);
     final polyhedral = _isPolyhedralKind(choice.kind);
@@ -776,7 +764,6 @@ class _DiceBubbleState extends State<DiceBubble>
           .min(_bubbleScale, _maximumBubbleScaleFor(size))
           .toDouble();
       final selected = [for (final id in _selectedIds) _choice(id)];
-      final mouseControlsWidth = math.min(108.0, _radius * 2 - 8);
       return Stack(
         children: [
           Positioned(
@@ -801,6 +788,15 @@ class _DiceBubbleState extends State<DiceBubble>
                 if (details.pointerCount < 2) {
                   if (_gestureMoved && _pressed)
                     setState(() => _pressed = false);
+                  if (_desktopPointerPlatform && _gestureMoved) {
+                    setState(() {
+                      _center = _clampCenter(
+                        _center + details.focalPointDelta,
+                        size,
+                      );
+                    });
+                    _emitSnapshot();
+                  }
                   return;
                 }
                 _twoFingerMove = true;
@@ -872,63 +868,17 @@ class _DiceBubbleState extends State<DiceBubble>
           ),
           if (_desktopPointerPlatform)
             Positioned(
-              left: _center.dx - mouseControlsWidth / 2,
+              left: _center.dx - 18,
               top: _center.dy - _radius + 4,
-              width: mouseControlsWidth,
-              height: 30,
+              width: 36,
+              height: 28,
               child: Material(
                 color: const Color(0xDD202020),
                 borderRadius: BorderRadius.circular(15),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 34,
-                      child: IconButton(
-                        tooltip: tr('Smaller'),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 30,
-                          height: 30,
-                        ),
-                        onPressed: () => _resizeFromControl(-0.15, size),
-                        icon: const Icon(Icons.remove, size: 18),
-                      ),
-                    ),
-                    Expanded(
-                      child: Tooltip(
-                        message: tr('Drag to move'),
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.move,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onPanUpdate: (details) {
-                              setState(
-                                () => _center = _clampCenter(
-                                  _center + details.delta,
-                                  size,
-                                ),
-                              );
-                              _emitSnapshot();
-                            },
-                            child: const Icon(Icons.drag_handle, size: 18),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 34,
-                      child: IconButton(
-                        tooltip: tr('Larger'),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 30,
-                          height: 30,
-                        ),
-                        onPressed: () => _resizeFromControl(0.15, size),
-                        icon: const Icon(Icons.add, size: 18),
-                      ),
-                    ),
-                  ],
+                child: InkWell(
+                  onTap: _showPicker,
+                  borderRadius: BorderRadius.circular(15),
+                  child: const Icon(Icons.drag_handle, size: 18),
                 ),
               ),
             ),

@@ -309,41 +309,38 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
     _emitSnapshot(_surfaceSize);
   }
 
-  Widget _trayButton(_ZendoStoneKind kind, Size size) => Tooltip(
-    message: _label(kind),
-    child: Semantics(
-      button: true,
-      label: '${tr('Add')} · ${_label(kind)}',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _add(kind, size),
-        onPanStart: (details) => _beginTrayDrag(kind, details, size),
-        onPanUpdate: (details) => _updateTrayDrag(details, size),
-        onPanEnd: (_) => _endTrayDrag(),
-        onPanCancel: _endTrayDrag,
-        child: Padding(
-          padding: EdgeInsets.all(5 * _scale),
-          child: Container(
-            width: 18 * _scale,
-            height: 18 * _scale,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _fill(kind),
-              border: Border.all(color: Colors.white70),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black54,
-                  blurRadius: 2,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            child: CustomPaint(
-              painter: _ZendoStoneGlarePainter(
-                color: kind == _ZendoStoneKind.green
-                    ? Colors.white
-                    : const Color(0xFFB8B8B8),
+  Widget _trayButton(_ZendoStoneKind kind, Size size) => Semantics(
+    button: true,
+    label: '${tr('Add')} · ${_label(kind)}',
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _add(kind, size),
+      onPanStart: (details) => _beginTrayDrag(kind, details, size),
+      onPanUpdate: (details) => _updateTrayDrag(details, size),
+      onPanEnd: (_) => _endTrayDrag(),
+      onPanCancel: _endTrayDrag,
+      child: Padding(
+        padding: EdgeInsets.all(5 * _scale),
+        child: Container(
+          width: 18 * _scale,
+          height: 18 * _scale,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: _fill(kind),
+            border: Border.all(color: Colors.white70),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                blurRadius: 2,
+                spreadRadius: 1,
               ),
+            ],
+          ),
+          child: CustomPaint(
+            painter: _ZendoStoneGlarePainter(
+              color: kind == _ZendoStoneKind.green
+                  ? Colors.white
+                  : const Color(0xFFB8B8B8),
             ),
           ),
         ),
@@ -386,44 +383,40 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
               top: stone.center.dy - _largeRadius - 5 * _scale,
               width: (_largeRadius + 5 * _scale) * 2,
               height: (_largeRadius + 5 * _scale) * 2,
-              child: Tooltip(
-                message:
-                    '${_label(stone.kind)} · ${tr('Drag · double-tap to remove')}',
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanUpdate: (details) =>
-                      _move(stone.id, details.delta, size),
-                  onDoubleTap: () => _remove(stone.id),
-                  onLongPress: () => _remove(stone.id),
-                  child: Center(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 120),
-                      curve: Curves.easeOutBack,
-                      width: (stone.expanded ? _largeRadius : _smallRadius) * 2,
-                      height:
-                          (stone.expanded ? _largeRadius : _smallRadius) * 2,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _fill(stone.kind),
-                        border: Border.all(
-                          color: stone.kind == _ZendoStoneKind.white
-                              ? Colors.black54
-                              : Colors.white70,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black54,
-                            blurRadius: 3,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: (details) =>
+                    _move(stone.id, details.delta, size),
+                onDoubleTap: () => _remove(stone.id),
+                onLongPress: () => _remove(stone.id),
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    curve: Curves.easeOutBack,
+                    width: (stone.expanded ? _largeRadius : _smallRadius) * 2,
+                    height:
+                        (stone.expanded ? _largeRadius : _smallRadius) * 2,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _fill(stone.kind),
+                      border: Border.all(
+                        color: stone.kind == _ZendoStoneKind.white
+                            ? Colors.black54
+                            : Colors.white70,
                       ),
-                      child: CustomPaint(
-                        painter: _ZendoStoneGlarePainter(
-                          color: stone.kind == _ZendoStoneKind.green
-                              ? Colors.white
-                              : const Color(0xFFB8B8B8),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black54,
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
                         ),
+                      ],
+                    ),
+                    child: CustomPaint(
+                      painter: _ZendoStoneGlarePainter(
+                        color: stone.kind == _ZendoStoneKind.green
+                            ? Colors.white
+                            : const Color(0xFFB8B8B8),
                       ),
                     ),
                   ),

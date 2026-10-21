@@ -115,10 +115,10 @@ class OnboardingOverlay extends StatelessWidget {
                           ),
                           child: Text(
                             tipTarget != null
-                                ? '${tr('Gestures')} · ${tr('Tip / stand')}'
+                                ? '${tr('Orientation')} · ${tr('Tip / stand')}'
                                 : hollowTarget != null
-                                ? '${tr('Gestures')} · ${tr('Full / wall light')}'
-                                : '${tr('Move')}: ${tr('Drag to move')}  ·  ${tr('Rotate')}: ← →',
+                                ? '${tr('Orientation')} · ${tr('Full / wall light')}'
+                                : '${tr('Move')}: ${tr('Drag to move')}  ·  ${tr('Rotate')}: ↻',
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.white70),
                           ),

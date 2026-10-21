@@ -150,8 +150,9 @@ class _BoardScreenState extends State<BoardScreen>
   bool _mouseTransform = false;
   bool _mouseEditTransform = false;
   PhysicalPoint? _mouseLast;
-  _DesktopBoardTool _desktopBoardTool = _DesktopBoardTool.gestures;
+  _DesktopBoardTool _desktopBoardTool = _DesktopBoardTool.move;
   _DesktopBoardTool _desktopDragTool = _DesktopBoardTool.gestures;
+  double _desktopTimerDragDx = 0;
 
   bool get _desktopPointerPlatform =>
       kIsWeb &&
@@ -249,6 +250,15 @@ class _BoardScreenState extends State<BoardScreen>
   DateTime? _lastRippleTickAt;
   double _rippleClock = 0;
   DiceBubbleSnapshot _diceSnapshot = DiceBubbleSnapshot.initial;
+  DiceBubbleSnapshot _secondDiceSnapshot = const DiceBubbleSnapshot(
+    revision: 0,
+    rollSerial: 0,
+    selectedIds: ['standard#1'],
+    faces: {'standard#1': 0},
+    xFraction: 0.78,
+    yFraction: 0.14,
+  );
+  int _diceBubbleCount = 0;
   ZendoStonesSnapshot _zendoSnapshot = ZendoStonesSnapshot.initial;
   PieceCycleMode _zendoPieceMode = PieceCycleMode.classic;
   int _zendoRuleIndex = -1;
@@ -433,6 +443,8 @@ class _BoardScreenState extends State<BoardScreen>
   Map<String, Object?> _persistentTableData() => {
     'activeToys': [for (final toy in _activeToys) toy.name],
     'dice': _diceSnapshot.toJson(),
+    'secondDice': _secondDiceSnapshot.toJson(),
+    'diceBubbleCount': _diceBubbleCount,
     'zendo': _zendoSnapshot.toJson(),
     'zendoPieceMode': _zendoPieceMode.name,
     'zendoRuleIndex': _zendoRuleIndex,
@@ -469,6 +481,11 @@ class _BoardScreenState extends State<BoardScreen>
 
     final dice = DiceBubbleSnapshot.fromJson(data['dice']);
     if (dice != null) _diceSnapshot = dice;
+    final secondDice = DiceBubbleSnapshot.fromJson(data['secondDice']);
+    if (secondDice != null) _secondDiceSnapshot = secondDice;
+    _diceBubbleCount = ((data['diceBubbleCount'] as num?)?.toInt() ??
+            (_activeToys.contains(_ToyKind.wireDie) ? 1 : 0))
+        .clamp(0, 2);
     final zendo = ZendoStonesSnapshot.fromJson(data['zendo']);
     if (zendo != null) _zendoSnapshot = zendo;
 
@@ -1531,13 +1548,21 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   void _beginTimerAdjustment(LongPressStartDetails details) {
+    _startTimerAdjustment();
+  }
+
+  void _startTimerAdjustment() {
     _timerLongPressStartDuration = _turnTimerDurationSeconds;
     setState(() => _timerNeedleVisible = true);
   }
 
   void _updateTimerAdjustment(LongPressMoveUpdateDetails details) {
+    _adjustTimerByDx(details.offsetFromOrigin.dx);
+  }
+
+  void _adjustTimerByDx(double dx) {
     final multiplier = math
-        .pow(2, -details.offsetFromOrigin.dx / 78)
+        .pow(2, -dx / 78)
         .toDouble();
     final next = (_timerLongPressStartDuration * multiplier)
         .clamp(10.0, 300.0)
@@ -1555,6 +1580,10 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   void _endTimerAdjustment(LongPressEndDetails details) {
+    _finishTimerAdjustment();
+  }
+
+  void _finishTimerAdjustment() {
     setState(() => _timerNeedleVisible = false);
     unawaited(_saveTurnTimerDuration());
     _scheduleSave();
@@ -1601,7 +1630,17 @@ class _BoardScreenState extends State<BoardScreen>
     });
   }
 
-  void _toggleDie() => _toggleOverlayToy(_ToyKind.wireDie);
+  void _toggleDie() {
+    setState(() {
+      _diceBubbleCount = (_diceBubbleCount + 1) % 3;
+      if (_diceBubbleCount == 0) {
+        _activeToys.remove(_ToyKind.wireDie);
+      } else {
+        _activeToys.add(_ToyKind.wireDie);
+      }
+    });
+    unawaited(_sendRemoteRuntimeIfChanged());
+  }
 
   void _loadSideGuns() {
     final fullyLoaded =
@@ -2572,6 +2611,8 @@ class _BoardScreenState extends State<BoardScreen>
     'checkerUnderlays': _checkerUnderlays,
     'roundedTriangleTips': _roundedTriangleTips,
     'dice': _diceSnapshot.toJson(),
+    'secondDice': _secondDiceSnapshot.toJson(),
+    'diceBubbleCount': _diceBubbleCount,
     'zendo': _zendoSnapshot.toJson(),
   };
 
@@ -2600,6 +2641,12 @@ class _BoardScreenState extends State<BoardScreen>
 
   void _handleDiceSnapshot(DiceBubbleSnapshot snapshot) {
     _diceSnapshot = snapshot;
+    _scheduleSave();
+    unawaited(_sendRemoteRuntimeIfChanged());
+  }
+
+  void _handleSecondDiceSnapshot(DiceBubbleSnapshot snapshot) {
+    _secondDiceSnapshot = snapshot;
     _scheduleSave();
     unawaited(_sendRemoteRuntimeIfChanged());
   }
@@ -2694,6 +2741,7 @@ class _BoardScreenState extends State<BoardScreen>
             .toList() ??
         const <String>[];
     final dice = DiceBubbleSnapshot.fromJson(payload['dice']);
+    final secondDice = DiceBubbleSnapshot.fromJson(payload['secondDice']);
     final zendo = ZendoStonesSnapshot.fromJson(payload['zendo']);
 
     _toyTicker?.cancel();
@@ -2736,6 +2784,10 @@ class _BoardScreenState extends State<BoardScreen>
       _checkerUnderlays = payload['checkerUnderlays'] == true;
       _roundedTriangleTips = payload['roundedTriangleTips'] != false;
       if (dice != null) _diceSnapshot = dice;
+      if (secondDice != null) _secondDiceSnapshot = secondDice;
+      _diceBubbleCount = ((payload['diceBubbleCount'] as num?)?.toInt() ??
+              (active.contains(_ToyKind.wireDie) ? 1 : 0))
+          .clamp(0, 2);
       if (zendo != null) _zendoSnapshot = zendo;
     });
     _toyRevision.value += 1;
@@ -4234,7 +4286,7 @@ class _BoardScreenState extends State<BoardScreen>
     final keys = HardwareKeyboard.instance.logicalKeysPressed;
     final tool = keys.contains(LogicalKeyboardKey.altLeft) ||
             keys.contains(LogicalKeyboardKey.altRight)
-        ? _DesktopBoardTool.rotate
+        ? _DesktopBoardTool.gestures
         : keys.contains(LogicalKeyboardKey.shiftLeft) ||
               keys.contains(LogicalKeyboardKey.shiftRight)
         ? _DesktopBoardTool.move
@@ -4268,7 +4320,16 @@ class _BoardScreenState extends State<BoardScreen>
           _controller.transformBy(delta, 0);
         }
       } else if (_desktopDragTool == _DesktopBoardTool.rotate) {
-        final rotation = event.localDelta.dx * 0.01;
+        final target = _transformTarget;
+        if (target == null) return;
+        final offset = current - target.position;
+        if (offset.distanceTo(PhysicalPoint.zero) < 0.5) return;
+        final angle = math.atan2(offset.yMm, offset.xMm);
+        // A zero-degree triangle points up on the board.
+        final desiredHeading = angle + math.pi / 2;
+        final rotation = normalizeRadians(
+          desiredHeading - target.headingDegrees * math.pi / 180,
+        );
         if (rotation.abs() > 0.0001) {
           _transformRotated = true;
           _controller.transformBy(PhysicalPoint.zero, rotation);
@@ -4895,6 +4956,9 @@ class _BoardScreenState extends State<BoardScreen>
   Future<String?> _showCompactMenu(List<PopupMenuEntry<String>> items) =>
       showModalBottomSheet<String>(
         context: context,
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width,
+        ),
         backgroundColor: Colors.transparent,
         barrierColor: Colors.transparent,
         isDismissible: true,
@@ -5577,13 +5641,15 @@ class _BoardScreenState extends State<BoardScreen>
         'Sharp Tips',
         checked: !_roundedTriangleTips,
       ),
-      _compactMenuItem('brightness', Icons.brightness_6_outlined, 'Brightness'),
-      _compactMenuItem(
-        'orientation',
-        Icons.screen_lock_rotation,
-        'Orientation Lock',
-      ),
-      if (kIsWeb)
+      if (!_desktopPointerPlatform) ...[
+        _compactMenuItem('brightness', Icons.brightness_6_outlined, 'Brightness'),
+        _compactMenuItem(
+          'orientation',
+          Icons.screen_lock_rotation,
+          'Orientation Lock',
+        ),
+      ],
+      if (kIsWeb && !_desktopPointerPlatform)
         _compactMenuItem('fullscreen', Icons.fullscreen, 'Full-screen'),
     ]);
     if (!mounted || choice == null) return;
@@ -5715,10 +5781,10 @@ class _BoardScreenState extends State<BoardScreen>
     final instructions = isDesktop
         ? <(String, String)>[
             ('Create / resize / delete', 'Double-click'),
-            ('Tip / stand', 'Choose Gestures, then drag through the footprint edge'),
-            ('Full / wall light', 'Choose Gestures, then draw a loop around an upright footprint'),
-            ('Move', 'Choose Move, then drag a piece; or Shift-drag'),
-            ('Rotate', 'Choose Rotate, then drag left or right; or Option/Alt-drag'),
+            ('Tip / stand', 'Choose Orientation or hold Option/Alt, then drag through the footprint edge'),
+            ('Full / wall light', 'Choose Orientation, then draw a loop around an upright footprint'),
+            ('Move', 'Choose Move, then drag a piece'),
+            ('Rotate', 'Choose Rotate, then drag around a piece'),
             (
               'Rotation snap',
               'Edit > Rotation Snap; Snap Now aligns every shape immediately',
@@ -5726,7 +5792,7 @@ class _BoardScreenState extends State<BoardScreen>
             ('Board snap', 'Boards > Snap pieces to board'),
             (
               'Dice bubble',
-              'Click to roll; drag the handle to move; use + / − to resize; latch tiles cycle die counts',
+              'Click to roll; drag the bubble to move; click the handle for dice choices',
             ),
             (
               'Zendo stones',
@@ -5893,10 +5959,7 @@ class _BoardScreenState extends State<BoardScreen>
   Widget _toyControl(_ToyKind toy) {
     final active = _toyIsActive(toy);
     if (toy == _ToyKind.turnTimer) {
-      return Tooltip(
-        message: tr(toy.label),
-        triggerMode: TooltipTriggerMode.longPress,
-        child: SizedBox(
+      return SizedBox(
           width: 40,
           height: 40,
           child: Stack(
@@ -5914,6 +5977,21 @@ class _BoardScreenState extends State<BoardScreen>
                   onLongPressMoveUpdate: _updateTimerAdjustment,
                   onLongPressEnd: _endTimerAdjustment,
                   onLongPressCancel: _cancelTimerAdjustment,
+                  onHorizontalDragStart: _desktopPointerPlatform
+                      ? (_) {
+                          _desktopTimerDragDx = 0;
+                          _startTimerAdjustment();
+                        }
+                      : null,
+                  onHorizontalDragUpdate: _desktopPointerPlatform
+                      ? (details) {
+                          _desktopTimerDragDx += details.delta.dx;
+                          _adjustTimerByDx(_desktopTimerDragDx);
+                        }
+                      : null,
+                  onHorizontalDragEnd: _desktopPointerPlatform
+                      ? (_) => _finishTimerAdjustment()
+                      : null,
                   child: SizedBox(
                     width: 40,
                     height: 40,
@@ -5942,7 +6020,6 @@ class _BoardScreenState extends State<BoardScreen>
                 ),
             ],
           ),
-        ),
       );
     }
     if (toy == _ToyKind.redSweep) {
@@ -6104,8 +6181,8 @@ class _BoardScreenState extends State<BoardScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final (tool, icon, label) in <(_DesktopBoardTool, IconData, String)>[
-            (_DesktopBoardTool.gestures, Icons.gesture, 'Gestures'),
             (_DesktopBoardTool.move, Icons.open_with, 'Move'),
+            (_DesktopBoardTool.gestures, Icons.change_history, 'Orientation'),
             (_DesktopBoardTool.rotate, Icons.rotate_right, 'Rotate'),
           ])
             Tooltip(
@@ -6317,6 +6394,19 @@ class _BoardScreenState extends State<BoardScreen>
               ),
             ),
           ),
+        if (_diceBubbleCount >= 2)
+          _remoteViewportLayer(
+            padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
+            child: IgnorePointer(
+              ignoring: _remoteDisplayMode,
+              child: DiceBubble(
+                snapshot: _secondDiceSnapshot,
+                onChanged:
+                    _remoteDisplayMode ? null : _handleSecondDiceSnapshot,
+                scale: _remoteUiScale,
+              ),
+            ),
+          ),
         if (_activeToys.contains(_ToyKind.zendoStones))
           _remoteViewportLayer(
             padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
@@ -6395,10 +6485,6 @@ class _BoardScreenState extends State<BoardScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_desktopPointerPlatform && !_remoteDisplayMode) ...[
-                    _desktopBoardTools(),
-                    const SizedBox(height: 6),
-                  ],
                   if (_remoteControllerMode &&
                       _remoteSession?.peerSeen == true) ...[
                     _remoteControllerQuickControls(),
@@ -6411,6 +6497,10 @@ class _BoardScreenState extends State<BoardScreen>
                         _remoteStatusButton()
                       else ...[
                         _menu(),
+                        if (_desktopPointerPlatform) ...[
+                          const SizedBox(width: 6),
+                          _desktopBoardTools(),
+                        ],
                         _historyControls(),
                         if (_remoteSession != null) _remoteStatusButton(),
                       ],
