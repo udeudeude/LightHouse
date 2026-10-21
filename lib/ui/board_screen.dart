@@ -1432,14 +1432,15 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   Widget _remoteViewportLayer({
+    Key? key,
     required EdgeInsets padding,
     required Widget child,
   }) {
     final rect = _remoteBoardRect(context);
     if (rect == null) {
-      return Padding(padding: padding, child: child);
+      return Padding(key: key, padding: padding, child: child);
     }
-    return Positioned.fromRect(rect: rect, child: child);
+    return Positioned.fromRect(key: key, rect: rect, child: child);
   }
 
   void _changeRemoteZoom(double factor) {
@@ -6387,6 +6388,7 @@ class _BoardScreenState extends State<BoardScreen>
         ),
         if (_diceBubbleCount == 1 || _diceBubbleCount == 2)
           _remoteViewportLayer(
+            key: const ValueKey('dice-bubble-one'),
             padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
             child: IgnorePointer(
               ignoring: _remoteDisplayMode,
@@ -6399,6 +6401,7 @@ class _BoardScreenState extends State<BoardScreen>
           ),
         if (_diceBubbleCount == 2 || _diceBubbleCount == 3)
           _remoteViewportLayer(
+            key: const ValueKey('dice-bubble-two'),
             padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
             child: IgnorePointer(
               ignoring: _remoteDisplayMode,
