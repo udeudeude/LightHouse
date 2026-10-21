@@ -52,7 +52,7 @@ void main() {
     expect(_isCompletePng(icon), isTrue);
 
     final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
-    expect(bootstrap, contains("lighthouseBuildVersion = '45'"));
+    expect(bootstrap, contains("lighthouseBuildVersion = '46'"));
     expect(bootstrap, contains('canvasKitForceCpuOnly: true'));
     expect(bootstrap, isNot(contains('lighthousePrepareFreshRuntime')));
   });
