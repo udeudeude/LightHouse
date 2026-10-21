@@ -329,11 +329,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
             color: _fill(kind),
             border: Border.all(color: Colors.white70),
             boxShadow: const [
-              BoxShadow(
-                color: Colors.black54,
-                blurRadius: 2,
-                spreadRadius: 1,
-              ),
+              BoxShadow(color: Colors.black54, blurRadius: 2, spreadRadius: 1),
             ],
           ),
           child: CustomPaint(
@@ -385,8 +381,7 @@ class _ZendoStonesWidgetState extends State<ZendoStonesWidget> {
               height: (_largeRadius + 5 * _scale) * 2,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onPanUpdate: (details) =>
-                    _move(stone.id, details.delta, size),
+                onPanUpdate: (details) => _move(stone.id, details.delta, size),
                 onDoubleTap: () => _remove(stone.id),
                 onLongPress: () => _remove(stone.id),
                 child: Center(
