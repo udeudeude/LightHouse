@@ -258,6 +258,7 @@ class _BoardScreenState extends State<BoardScreen>
     xFraction: 0.78,
     yFraction: 0.14,
   );
+  // 0: off, 1: first, 2: both, 3: second.
   int _diceBubbleCount = 0;
   ZendoStonesSnapshot _zendoSnapshot = ZendoStonesSnapshot.initial;
   PieceCycleMode _zendoPieceMode = PieceCycleMode.classic;
@@ -485,7 +486,7 @@ class _BoardScreenState extends State<BoardScreen>
     if (secondDice != null) _secondDiceSnapshot = secondDice;
     _diceBubbleCount = ((data['diceBubbleCount'] as num?)?.toInt() ??
             (_activeToys.contains(_ToyKind.wireDie) ? 1 : 0))
-        .clamp(0, 2)
+        .clamp(0, 3)
         .toInt();
     final zendo = ZendoStonesSnapshot.fromJson(data['zendo']);
     if (zendo != null) _zendoSnapshot = zendo;
@@ -1633,7 +1634,7 @@ class _BoardScreenState extends State<BoardScreen>
 
   void _toggleDie() {
     setState(() {
-      _diceBubbleCount = (_diceBubbleCount + 1) % 3;
+      _diceBubbleCount = (_diceBubbleCount + 1) % 4;
       if (_diceBubbleCount == 0) {
         _activeToys.remove(_ToyKind.wireDie);
       } else {
@@ -2788,7 +2789,7 @@ class _BoardScreenState extends State<BoardScreen>
       if (secondDice != null) _secondDiceSnapshot = secondDice;
       _diceBubbleCount = ((payload['diceBubbleCount'] as num?)?.toInt() ??
               (active.contains(_ToyKind.wireDie) ? 1 : 0))
-          .clamp(0, 2)
+          .clamp(0, 3)
           .toInt();
       if (zendo != null) _zendoSnapshot = zendo;
     });
@@ -6384,7 +6385,7 @@ class _BoardScreenState extends State<BoardScreen>
                 : _controller.state.elementById(_onboardingTransformTargetId!),
           ),
         ),
-        if (_activeToys.contains(_ToyKind.wireDie))
+        if (_diceBubbleCount == 1 || _diceBubbleCount == 2)
           _remoteViewportLayer(
             padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
             child: IgnorePointer(
@@ -6396,7 +6397,7 @@ class _BoardScreenState extends State<BoardScreen>
               ),
             ),
           ),
-        if (_diceBubbleCount >= 2)
+        if (_diceBubbleCount == 2 || _diceBubbleCount == 3)
           _remoteViewportLayer(
             padding: _remoteControllerMode ? safePadding : EdgeInsets.zero,
             child: IgnorePointer(
