@@ -231,6 +231,8 @@ class _BoardScreenState extends State<BoardScreen>
   bool _roundedTriangleTips = true;
   bool _historyControlsVisible = false;
   Timer? _historyControlsTimer;
+  final Map<BoardState, VoidCallback> _newBoardRestorations = Map.identity();
+  final Set<BoardState> _newBoardClears = Set.identity();
   Timer? _saveDebounceTimer;
   BoardState? _pendingSaveState;
   RemoteSession? _remoteSession;
@@ -4901,6 +4903,99 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   void _newBoard() {
+    final before = _stateForPersistence();
+    final savedId = _activeSavedId;
+    final selectedId = _selectedId;
+    final runtime = (
+      activeToys: Set<_ToyKind>.of(_activeToys),
+      effectOpacities: Map<String, double>.of(_effectOpacities),
+      burstCenter: _burstCenter,
+      burstProgress: _burstProgress,
+      entropyEnabled: _entropyEnabled,
+      toyClock: _toyClock,
+      squareChaseSeed: _squareChaseSeed,
+      radarAngleDegrees: _radarAngleDegrees,
+      redSweepY: _redSweepY,
+      redSweepNeedleVisible: _redSweepNeedleVisible,
+      eventZoneEndsAt: _eventZoneEndsAt,
+      eventZoneCenter: _eventZoneCenter,
+      eventZoneRadiusMm: _eventZoneRadiusMm,
+      eventZoneProgress: _eventZoneProgress,
+      eventZoneDismiss: _eventZoneDismiss,
+      turnTimerEndsAt: _turnTimerEndsAt,
+      turnTimerProgress: _turnTimerProgress,
+      turnTimerActiveDurationSeconds: _turnTimerActiveDurationSeconds,
+      timerNeedleVisible: _timerNeedleVisible,
+      projectiles: List<ToyProjectile>.of(_projectiles),
+      impacts: List<ToyImpact>.of(_impacts),
+      constellationElementIds: List<String>.of(_constellationElementIds),
+      heartbeatOddId: _heartbeatOddId,
+      heartbeatStartedAt: _heartbeatStartedAt,
+      ghostTrailActive: _ghostTrailActive,
+      ghostTrails: {
+        for (final entry in _ghostTrails.entries)
+          entry.key: List<PhysicalPoint>.of(entry.value),
+      },
+      remoteControlState: _remoteControlState,
+    );
+    _newBoardRestorations[before] = () {
+      _restoreTableData(before.tableData);
+      _activeToys
+        ..clear()
+        ..addAll(runtime.activeToys);
+      _effectOpacities = runtime.effectOpacities;
+      _burstCenter = runtime.burstCenter;
+      _burstProgress = runtime.burstProgress;
+      _entropyEnabled = runtime.entropyEnabled;
+      if (_entropyEnabled) {
+        _entropyTimer = Timer.periodic(
+          const Duration(seconds: 30),
+          (_) => _fadeAndDeleteRandomElement(),
+        );
+      }
+      _toyClock = runtime.toyClock;
+      _squareChaseSeed = runtime.squareChaseSeed;
+      _radarAngleDegrees = runtime.radarAngleDegrees;
+      _redSweepY = runtime.redSweepY;
+      _redSweepNeedleVisible = runtime.redSweepNeedleVisible;
+      _eventZoneEndsAt = runtime.eventZoneEndsAt;
+      _eventZoneCenter = runtime.eventZoneCenter;
+      _eventZoneRadiusMm = runtime.eventZoneRadiusMm;
+      _eventZoneProgress = runtime.eventZoneProgress;
+      _eventZoneDismiss = runtime.eventZoneDismiss;
+      _turnTimerEndsAt = runtime.turnTimerEndsAt;
+      _turnTimerProgress = runtime.turnTimerProgress;
+      _turnTimerActiveDurationSeconds = runtime.turnTimerActiveDurationSeconds;
+      _timerNeedleVisible = runtime.timerNeedleVisible;
+      _projectiles = List<ToyProjectile>.of(runtime.projectiles);
+      _impacts = List<ToyImpact>.of(runtime.impacts);
+      _constellationElementIds = List<String>.of(runtime.constellationElementIds);
+      _heartbeatOddId = runtime.heartbeatOddId;
+      _heartbeatStartedAt = runtime.heartbeatStartedAt;
+      _ghostTrailActive = runtime.ghostTrailActive;
+      _ghostTrails
+        ..clear()
+        ..addAll({
+          for (final entry in runtime.ghostTrails.entries)
+            entry.key: List<PhysicalPoint>.of(entry.value),
+        });
+      _remoteControlState = runtime.remoteControlState;
+      _syncRippleTicker();
+      _activeSavedId = savedId;
+      _selectedId = selectedId;
+      if (_needsToyTicker && !_remoteDisplayMode) _ensureToyTicker();
+    };
+    _clearBoardRuntime();
+    _controller.newBoard(before: before);
+    _newBoardClears.add(_controller.state);
+    _showHistoryControls();
+    _scheduleSave();
+    _toyRevision.value += 1;
+    unawaited(_sendRemoteRuntimeIfChanged(force: true));
+    unawaited(_sendRemoteControlCommand('clearRipples'));
+  }
+
+  void _clearBoardRuntime() {
     _effectGeneration += 1;
     _entropyGeneration += 1;
     _entropyTimer?.cancel();
@@ -4949,16 +5044,8 @@ class _BoardScreenState extends State<BoardScreen>
     _zendoDifficulties = {ZendoRuleDifficulty.easy};
     _remoteControlState = _remoteControlState.clearRipples();
     _syncRippleTicker();
-    _historyControlsTimer?.cancel();
-    _historyControlsTimer = null;
-    _historyControlsVisible = false;
-
     _activeSavedId = null;
     _selectedId = null;
-    _controller.newBoard();
-    _toyRevision.value += 1;
-    unawaited(_sendRemoteRuntimeIfChanged(force: true));
-    unawaited(_sendRemoteControlCommand('clearRipples'));
   }
 
   Widget _menu() => AnimatedBuilder(
@@ -5737,12 +5824,27 @@ class _BoardScreenState extends State<BoardScreen>
   void _undoFromUi() {
     if (!_controller.canUndo) return;
     _controller.undo();
+    final restore = _newBoardRestorations[_controller.state];
+    if (restore != null) {
+      setState(restore);
+      _scheduleSave();
+      _toyRevision.value += 1;
+      unawaited(_sendRemoteRuntimeIfChanged(force: true));
+      if (_remoteDisplayMode) unawaited(_broadcastRemoteControlState());
+    }
     _showHistoryControls();
   }
 
   void _redoFromUi() {
     if (!_controller.canRedo) return;
     _controller.redo();
+    if (_newBoardClears.contains(_controller.state)) {
+      setState(_clearBoardRuntime);
+      _scheduleSave();
+      _toyRevision.value += 1;
+      unawaited(_sendRemoteRuntimeIfChanged(force: true));
+      unawaited(_sendRemoteControlCommand('clearRipples'));
+    }
     _showHistoryControls();
   }
 
