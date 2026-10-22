@@ -94,104 +94,48 @@ class CreditsOverlay extends StatelessWidget {
   );
 }
 
+/// Faithful vector translation of 01 Stepped Plinth (300 x 256 SVG).
 class ArtDecoCreditsMarkPainter extends CustomPainter {
   const ArtDecoCreditsMarkPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strong = Paint()
-      ..color = Colors.white.withValues(alpha: 0.90)
+    canvas.save();
+    canvas.scale(size.width / 300, size.height / 256);
+    final footprint = Paint()
+      ..color = const Color(0xFFF8F8F8)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
+      ..strokeWidth = 1.65
       ..strokeJoin = StrokeJoin.miter;
-    final fine = Paint()
-      ..color = Colors.white.withValues(alpha: 0.38)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    final fill = Paint()..color = Colors.white.withValues(alpha: 0.78);
-    final centerX = size.width / 2;
-
-    final frame = Path()
-      ..moveTo(size.width * 0.12, size.height * 0.88)
-      ..lineTo(size.width * 0.12, size.height * 0.66)
-      ..lineTo(size.width * 0.19, size.height * 0.66)
-      ..lineTo(size.width * 0.19, size.height * 0.38)
-      ..lineTo(size.width * 0.29, size.height * 0.38)
-      ..lineTo(size.width * 0.37, size.height * 0.12)
-      ..lineTo(size.width * 0.63, size.height * 0.12)
-      ..lineTo(size.width * 0.71, size.height * 0.38)
-      ..lineTo(size.width * 0.81, size.height * 0.38)
-      ..lineTo(size.width * 0.81, size.height * 0.66)
-      ..lineTo(size.width * 0.88, size.height * 0.66)
-      ..lineTo(size.width * 0.88, size.height * 0.88);
-    canvas.drawPath(frame, fine);
-
-    final lanternY = size.height * 0.31;
-    final tower = Path()
-      ..moveTo(centerX - 16, size.height * 0.82)
-      ..lineTo(centerX - 8, size.height * 0.43)
-      ..lineTo(centerX + 8, size.height * 0.43)
-      ..lineTo(centerX + 16, size.height * 0.82)
+    final triangle = Path()
+      ..moveTo(150, 55.5)
+      ..lineTo(191.428, 200.5)
+      ..lineTo(108.572, 200.5)
       ..close();
-    canvas.drawPath(tower, strong);
-    canvas.drawLine(
-      Offset(centerX - 8, size.height * 0.53),
-      Offset(centerX + 8, size.height * 0.53),
-      fine,
-    );
-    canvas.drawLine(
-      Offset(centerX - 10, size.height * 0.64),
-      Offset(centerX + 10, size.height * 0.64),
-      fine,
-    );
-    canvas.drawRect(
-      Rect.fromCenter(center: Offset(centerX, lanternY), width: 31, height: 14),
-      strong,
-    );
-    final roof = Path()
-      ..moveTo(centerX - 20, lanternY - 8)
-      ..lineTo(centerX, lanternY - 19)
-      ..lineTo(centerX + 20, lanternY - 8);
-    canvas.drawPath(roof, strong);
-    canvas.drawLine(
-      Offset(centerX, lanternY - 19),
-      Offset(centerX, size.height * 0.12),
-      strong,
-    );
-
-    for (var i = -3; i <= 3; i += 1) {
-      if (i == 0) continue;
-      final start = Offset(centerX + i.sign * 17, lanternY);
-      final end = Offset(
-        centerX + i * size.width * 0.12,
-        size.height * (0.22 + i.abs() * 0.055),
+    for (final angle in <double>[0, 120, 240]) {
+      canvas.save();
+      canvas.translate(150, 128);
+      canvas.rotate(angle * 3.141592653589793 / 180);
+      canvas.translate(-150, -128);
+      canvas.drawPath(triangle, footprint);
+      canvas.restore();
+    }
+    for (var i = 0; i < 4; i++) {
+      final inset = 70.0 + i * 10;
+      final step = Path()
+        ..moveTo(inset, 220)
+        ..lineTo(inset, 224)
+        ..lineTo(300 - inset, 224)
+        ..lineTo(300 - inset, 220);
+      canvas.drawPath(
+        step,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.22 + i * 0.10)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
       );
-      canvas.drawLine(start, end, fine);
     }
-
-    void pyramid(double x, double y, double scale) {
-      final path = Path()
-        ..moveTo(x, y - 11 * scale)
-        ..lineTo(x + 9 * scale, y + 8 * scale)
-        ..lineTo(x - 9 * scale, y + 8 * scale)
-        ..close();
-      canvas.drawPath(path, fill);
-      canvas.drawPath(path, strong);
-    }
-
-    pyramid(centerX - 28, size.height * 0.87, 0.72);
-    pyramid(centerX, size.height * 0.87, 1.0);
-    pyramid(centerX + 28, size.height * 0.87, 0.84);
-    canvas.drawLine(
-      Offset(size.width * 0.16, size.height * 0.96),
-      Offset(size.width * 0.84, size.height * 0.96),
-      strong,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.24, size.height * 0.92),
-      Offset(size.width * 0.76, size.height * 0.92),
-      fine,
-    );
+    canvas.restore();
   }
 
   @override
