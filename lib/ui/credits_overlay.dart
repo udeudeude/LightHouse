@@ -64,8 +64,22 @@ class CreditsOverlay extends StatelessWidget {
                       ),
                       child: const Text('Project: udeudeude'),
                     ),
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://www.looneylabs.com/pyramids-home'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(height: 1.55),
+                      ),
+                      child: const Text('Looney Pyramids: Looney Labs'),
+                    ),
                     const Text(
-                      'Software: Flutter + ChatGPT\\nLooney Pyramids: Looney Labs\\nOpen source under the MIT License',
+                      'Open source under the MIT License',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white54, height: 1.55),
                     ),
