@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../application/app_language.dart';
 
@@ -49,8 +50,36 @@ class CreditsOverlay extends StatelessWidget {
                       style: TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://udeudeude.github.io/'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(height: 1.55),
+                      ),
+                      child: const Text('Project: udeudeude'),
+                    ),
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://www.looneylabs.com/pyramids-home'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(height: 1.55),
+                      ),
+                      child: const Text('Looney Pyramids: Looney Labs'),
+                    ),
                     const Text(
-                      'Project: udeudeude\nSoftware: Flutter + ChatGPT\nLooney Pyramids: Looney Labs\nOpen source under the MIT License',
+                      'Open source under the MIT License',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white54, height: 1.55),
                     ),
