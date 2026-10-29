@@ -83,6 +83,35 @@
         '=; Max-Age=0; Path=/; SameSite=Lax; Secure';
     };
   </script>
+  <script>
+    // Offer a recovery path only on older iPad Safari if Flutter never paints.
+    // Modern devices and successfully started sessions remain unchanged.
+    (function () {
+      var ua = navigator.userAgent || '';
+      var oldIPad = /iPad/.test(ua) && /OS (12|13|14|15)_/.test(ua);
+      if (!oldIPad) return;
+      var started = false;
+      var fallback;
+      window.addEventListener('flutter-first-frame', function () {
+        started = true;
+        if (fallback && fallback.parentNode) {
+          fallback.parentNode.removeChild(fallback);
+        }
+      });
+      window.setTimeout(function () {
+        if (started) return;
+        fallback = document.createElement('a');
+        fallback.href = 'legacy/';
+        fallback.textContent = 'Having trouble loading? Open Abandoned Lighthouse';
+        fallback.setAttribute('aria-label', 'Open the lightweight version for older iPads');
+        fallback.style.cssText = 'position:fixed;bottom:16px;left:12px;right:12px;' +
+          'z-index:99999;background:#242424;color:white;border:1px solid #777;' +
+          'padding:13px 10px;text-align:center;font:15px Arial,sans-serif;' +
+          'text-decoration:underline;border-radius:6px';
+        document.body.appendChild(fallback);
+      }, 12000);
+    }());
+  </script>
   <script src="flutter_bootstrap.js?v=46" async></script>
 </body>
 </html>
