@@ -188,6 +188,8 @@ class _BoardScreenState extends State<BoardScreen>
   final Set<_ToyKind> _activeToys = {};
   Timer? _entropyTimer;
   Timer? _toyTicker;
+  int _slowToyTicks = 0;
+  bool _reducedToyFrameRate = false;
   DateTime? _lastToyTickAt;
   final ValueNotifier<int> _toyRevision = ValueNotifier<int>(0);
   int _effectGeneration = 0;
@@ -1772,15 +1774,33 @@ class _BoardScreenState extends State<BoardScreen>
   void _ensureToyTicker() {
     if (_remoteDisplayMode || _toyTicker != null) return;
     _lastToyTickAt = DateTime.now();
-    _toyTicker = Timer.periodic(const Duration(milliseconds: 33), (_) {
-      final now = DateTime.now();
-      final previous = _lastToyTickAt;
-      _lastToyTickAt = now;
-      final elapsedSeconds = previous == null
-          ? 0.033
-          : now.difference(previous).inMicroseconds / 1000000;
-      _tickToys(elapsedSeconds.clamp(0.0, 0.1).toDouble());
-    });
+    _toyTicker = Timer.periodic(
+      Duration(milliseconds: _reducedToyFrameRate ? 66 : 33),
+      (_) {
+        final now = DateTime.now();
+        final previous = _lastToyTickAt;
+        _lastToyTickAt = now;
+        final elapsedSeconds = previous == null
+            ? 0.033
+            : now.difference(previous).inMicroseconds / 1000000;
+        // Back off only when the device demonstrably cannot keep up.
+        // Modern devices retain the original 30 Hz animation cadence.
+        if (!_reducedToyFrameRate && elapsedSeconds > 0.058) {
+          _slowToyTicks += 1;
+          if (_slowToyTicks >= 5) {
+            _reducedToyFrameRate = true;
+            _toyTicker?.cancel();
+            _toyTicker = null;
+            _tickToys(elapsedSeconds.clamp(0.0, 0.1).toDouble());
+            _ensureToyTicker();
+            return;
+          }
+        } else if (!_reducedToyFrameRate) {
+          _slowToyTicks = 0;
+        }
+        _tickToys(elapsedSeconds.clamp(0.0, 0.1).toDouble());
+      },
+    );
   }
 
   bool get _needsToyTicker =>
@@ -4126,6 +4146,12 @@ class _BoardScreenState extends State<BoardScreen>
       return;
     }
 
+    // Include the final touch position even when it was below the sampling
+    // threshold, so a fast loop is not incorrectly treated as open.
+    if (_oneFingerPath.isNotEmpty &&
+        _oneFingerPath.last.distanceTo(end) > 0.01) {
+      _oneFingerPath.add(end);
+    }
     final encircled = _recognizeEncirclement();
     if (encircled != null) {
       _controller.toggleIllumination(encircled);
@@ -4208,7 +4234,8 @@ class _BoardScreenState extends State<BoardScreen>
   }
 
   LightElement? _recognizeEncirclement() {
-    if (_oneFingerPath.length < 7) return null;
+    // Fast gestures on older touchscreens may deliver very few samples.
+    if (_oneFingerPath.length < 5) return null;
 
     LightElement? best;
     var bestScore = double.negativeInfinity;
@@ -4241,7 +4268,7 @@ class _BoardScreenState extends State<BoardScreen>
 
       final closure = _oneFingerPath.first.distanceTo(_oneFingerPath.last);
       final averageRadius = radiusTotal / (_oneFingerPath.length - 1);
-      final enoughTurn = winding.abs() >= math.pi * 1.55;
+      final enoughTurn = winding.abs() >= math.pi * 1.45;
       final enoughPath = pathLength >= base * 2.4;
       final reasonablyClosed = closure <= math.max(14, base * 1.2);
       final staysAroundCenter = minimumRadius >= base * 0.28;
