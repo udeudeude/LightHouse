@@ -188,8 +188,6 @@ class _BoardScreenState extends State<BoardScreen>
   final Set<_ToyKind> _activeToys = {};
   Timer? _entropyTimer;
   Timer? _toyTicker;
-  int _slowToyTicks = 0;
-  bool _reducedToyFrameRate = false;
   DateTime? _lastToyTickAt;
   final ValueNotifier<int> _toyRevision = ValueNotifier<int>(0);
   int _effectGeneration = 0;
@@ -1774,33 +1772,15 @@ class _BoardScreenState extends State<BoardScreen>
   void _ensureToyTicker() {
     if (_remoteDisplayMode || _toyTicker != null) return;
     _lastToyTickAt = DateTime.now();
-    _toyTicker = Timer.periodic(
-      Duration(milliseconds: _reducedToyFrameRate ? 66 : 33),
-      (_) {
-        final now = DateTime.now();
-        final previous = _lastToyTickAt;
-        _lastToyTickAt = now;
-        final elapsedSeconds = previous == null
-            ? 0.033
-            : now.difference(previous).inMicroseconds / 1000000;
-        // Back off only when the device demonstrably cannot keep up.
-        // Modern devices retain the original 30 Hz animation cadence.
-        if (!_reducedToyFrameRate && elapsedSeconds > 0.058) {
-          _slowToyTicks += 1;
-          if (_slowToyTicks >= 5) {
-            _reducedToyFrameRate = true;
-            _toyTicker?.cancel();
-            _toyTicker = null;
-            _tickToys(elapsedSeconds.clamp(0.0, 0.1).toDouble());
-            _ensureToyTicker();
-            return;
-          }
-        } else if (!_reducedToyFrameRate) {
-          _slowToyTicks = 0;
-        }
-        _tickToys(elapsedSeconds.clamp(0.0, 0.1).toDouble());
-      },
-    );
+    _toyTicker = Timer.periodic(const Duration(milliseconds: 33), (_) {
+      final now = DateTime.now();
+      final previous = _lastToyTickAt;
+      _lastToyTickAt = now;
+      final elapsedSeconds = previous == null
+          ? 0.033
+          : now.difference(previous).inMicroseconds / 1000000;
+      _tickToys(elapsedSeconds.clamp(0.0, 0.1).toDouble());
+    });
   }
 
   bool get _needsToyTicker =>
