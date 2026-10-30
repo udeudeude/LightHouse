@@ -42,6 +42,14 @@ void main() {
     expect(isKnownArcadeDieInstance('fate#17'), isTrue);
   });
 
+  test('d10 uses zero instead of ten on its final face', () {
+    expect(arcadePolyhedralFaceLabel(ArcadeDieKind.d10, 0), '1');
+    expect(arcadePolyhedralFaceLabel(ArcadeDieKind.d10, 8), '9');
+    expect(arcadePolyhedralFaceLabel(ArcadeDieKind.d10, 9), '0');
+    expect(arcadePolyhedralFaceLabel(ArcadeDieKind.dPercentile, 9), '90');
+    expect(arcadePolyhedralFaceLabel(ArcadeDieKind.d12, 9), '10');
+  });
+
   test('polyhedral dice expose the expected face counts', () {
     expect(arcadeDieSides(ArcadeDieKind.d4), 4);
     expect(arcadeDieSides(ArcadeDieKind.d8), 8);

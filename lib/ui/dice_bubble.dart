@@ -62,6 +62,8 @@ String fateDieFaceSymbol(int face) => switch (face % 6) {
 String arcadePolyhedralFaceLabel(ArcadeDieKind kind, int faceIndex) =>
     kind == ArcadeDieKind.dPercentile
     ? '${faceIndex * 10}'.padLeft(2, '0')
+    : kind == ArcadeDieKind.d10
+    ? '${(faceIndex + 1) % 10}'
     : '${faceIndex + 1}';
 
 int arcadePolyhedralPreviewFace(ArcadeDieKind kind) => switch (kind) {
