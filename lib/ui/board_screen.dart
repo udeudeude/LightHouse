@@ -234,7 +234,7 @@ class _BoardScreenState extends State<BoardScreen>
   final Map<BoardState, VoidCallback> _newBoardRestorations = Map.identity();
   final Set<BoardState> _newBoardClears = Set.identity();
   Timer? _saveDebounceTimer;
-  BoardState? _pendingSaveState;
+  bool _savePending = false;
   RemoteSession? _remoteSession;
   final Map<RemoteSession, _RemoteTableConnection> _remoteTables = {};
   int _nextRemoteTableNumber = 1;
@@ -3917,7 +3917,8 @@ class _BoardScreenState extends State<BoardScreen>
   );
 
   void _scheduleSave() {
-    _pendingSaveState = _stateForPersistence();
+    // Do not rebuild the full persisted board on every drag frame.
+    _savePending = true;
     _saveDebounceTimer?.cancel();
     _saveDebounceTimer = Timer(const Duration(milliseconds: 400), () {
       _saveDebounceTimer = null;
@@ -3928,11 +3929,10 @@ class _BoardScreenState extends State<BoardScreen>
   Future<void> _flushPendingSave() async {
     _saveDebounceTimer?.cancel();
     _saveDebounceTimer = null;
-    final state = _pendingSaveState;
-    if (state == null) return;
-    _pendingSaveState = null;
+    if (!_savePending) return;
+    _savePending = false;
     try {
-      await _store.save(state);
+      await _store.save(_stateForPersistence());
     } on Object {
       // Persistence must never block interaction. A later state change retries.
     }
