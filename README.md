@@ -90,10 +90,20 @@ The `ios/Runner.xcworkspace` project builds the **native Flutter application**,
 not a web view. It uses the same Dart application and versioned Lighthouse
 board-document format as the web edition.
 
-1. On a Mac with current Xcode and Flutter installed, clone this repository
-   and open a Terminal in the cloned folder.
-2. Run `flutter doctor`, then `flutter pub get` and
-   `flutter build ios --debug --no-codesign` to check the unsigned build.
+1. On a Mac with Xcode installed, set up Flutter **3.47.9**, the version
+   validated by the project's build workflows. For an Intel Mac, run:
+
+   ```bash
+   mkdir -p "$HOME/development"
+   git clone --depth 1 --branch 3.47.9 https://github.com/flutter/flutter.git "$HOME/development/flutter"
+   echo 'export PATH="$HOME/development/flutter/bin:$PATH"' >> "$HOME/.zprofile"
+   export PATH="$HOME/development/flutter/bin:$PATH"
+   flutter doctor -v
+   ```
+
+2. Clone this repository and open a Terminal in its folder. Run
+   `flutter pub get`, then `flutter build ios --debug --no-codesign`
+   to check the unsigned build.
 3. Open `ios/Runner.xcworkspace` in Xcode. If Flutter's generated workspace
    files are absent, first run `flutter build ios --debug --no-codesign`.
 4. Connect your iPhone or iPad, unlock it, and select it as the run destination.
