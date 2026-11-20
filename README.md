@@ -84,6 +84,46 @@ The user-facing Structure menu was removed. Stack/nest relationships remain an i
 
 A Table Display can be controlled by one or more Controller devices. On each device, open Remote, choose Table Display or Controller, and enter the same 6-character code. Choose opposite roles: exactly one Table Display and one or more Controllers. To add a Controller, use Add Another Controller and enter the existing session code on the new device. With one Controller LightHouse prefers a direct WebRTC data channel; when additional Controllers join, the session switches to the encrypted relay so every Controller shares one table-authoritative state. Controllers render the Table Display's physical board as a scaled control surface, including proportionally scaled Dice Bubble, Zendo Stones, and gun controls. Controller-only Remote controls can enable or disable direct shape interaction on the Table Display, hide/reveal its shapes without changing board state, and mark shapes with persistent normal or dim ripple pulses. Pairing requires an internet connection to the relay service. Previously issued pairing links can still be opened for compatibility, but the interface no longer offers or creates them. Remote application messages use a transport boundary so local-network and Bluetooth transports can be added without changing board synchronization.
 
+## Install the native iOS app with Xcode
+
+The `ios/Runner.xcworkspace` project builds the **native Flutter application**,
+not a web view. It uses the same Dart application and versioned Lighthouse
+board-document format as the web edition.
+
+1. On a Mac with current Xcode and Flutter installed, clone this repository
+   and open a Terminal in the cloned folder.
+2. Run `flutter doctor`, then `flutter pub get` and
+   `flutter build ios --debug --no-codesign` to check the unsigned build.
+3. Open `ios/Runner.xcworkspace` in Xcode. If Flutter's generated workspace
+   files are absent, first run `flutter build ios --debug --no-codesign`.
+4. Connect your iPhone or iPad, unlock it, and select it as the run destination.
+5. In **Runner > Signing & Capabilities**, choose your Apple development team
+   and enable automatic signing. If the bundle identifier is already in use,
+   choose a unique identifier for your own build.
+6. Press **Run** in Xcode. If prompted, enable Developer Mode on the device
+   and trust your development certificate.
+
+The Xcode project currently requires **iOS 15 or newer**. An iPad Air 2 on
+iOS 15 can be used for testing, but an iPad mini on iOS 12 cannot install
+this native build. The native build has not been physically verified on
+either device.
+
+### Interchange with the web edition
+
+- **Same functionality and file format:** Both editions share the Flutter
+  board model. Use File > Export JSON and File > Import JSON to move a board
+  between them, or File > Save/Open within each edition.
+- **Remote sessions:** The native and web editions use the same Remote
+  session protocol. Pair one as Table Display and the other as Controller
+  using the same session code. Internet connectivity is required for the
+  current relay-based pairing.
+- **Not automatically shared:** Browser storage and native application
+  storage are separate. A locally saved board in one edition does not
+  automatically appear in the other. Export/import or a Remote session is
+  needed to exchange board state.
+- **Calibration:** Check physical footprint size independently on each
+  device before placing real pyramids on the screen.
+
 ## Development
 
 The source is a Flutter app. Flutter 3.47 / Dart 3.13 or newer is the current baseline.
