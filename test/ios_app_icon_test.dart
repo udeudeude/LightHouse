@@ -3,12 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 
-int _pngDimension(Uint8List bytes, int offset) =>
-    ByteData.sublistView(bytes, offset, offset + 4).getUint32(0);
-
 void main() {
-  test('native iOS Lighthouse app icon includes every declared size', () {
-    const iconSizes = <String, int>{
+  test('native iOS Lighthouse icons have the correct dimensions', () {
+    const sizes = <String, int>{
       'Icon-App-20x20@1x.png': 20,
       'Icon-App-20x20@2x.png': 40,
       'Icon-App-20x20@3x.png': 60,
@@ -27,17 +24,12 @@ void main() {
     };
     const directory = 'ios/Runner/Assets.xcassets/AppIcon.appiconset';
 
-    for (final entry in iconSizes.entries) {
-      final file = File('$directory/${entry.key}');
-      expect(file.existsSync(), isTrue, reason: entry.key);
-      final bytes = file.readAsBytesSync();
-      expect(
-        bytes.sublist(0, 8),
-        <int>[137, 80, 78, 71, 13, 10, 26, 10],
-        reason: entry.key,
-      );
-      expect(_pngDimension(bytes, 16), entry.value, reason: entry.key);
-      expect(_pngDimension(bytes, 20), entry.value, reason: entry.key);
+    for (final entry in sizes.entries) {
+      final bytes = File('$directory/${entry.key}').readAsBytesSync();
+      final header = ByteData.sublistView(bytes);
+      expect(header.getUint32(0), 0x89504E47, reason: entry.key);
+      expect(header.getUint32(16), entry.value, reason: entry.key);
+      expect(header.getUint32(20), entry.value, reason: entry.key);
     }
   });
 }
